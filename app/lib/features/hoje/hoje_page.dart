@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/aparencia.dart';
 import '../../core/formatos.dart';
 import '../../data/local/banco.dart';
-import '../auth/sessao.dart';
 import '../nav/menu_lateral.dart';
 
 /// Intervalo (inclusivo) de um atalho de periodo.
@@ -116,9 +115,6 @@ class _HojePageState extends ConsumerState<HojePage> {
     });
   }
 
-  /// Lancamentos (contas, valores, resumo) so o SuperUsuario ve.
-  bool get _financeiro => ref.watch(sessaoProvider).superusuario;
-
   @override
   Widget build(BuildContext context) {
     final banco = ref.watch(bancoProvider);
@@ -147,7 +143,7 @@ class _HojePageState extends ConsumerState<HojePage> {
                 children: [
                   _filtros(context),
                   const SizedBox(height: 16),
-                  _Indicadores(dados: dados, financeiro: _financeiro),
+                  _Indicadores(dados: dados),
                   const SizedBox(height: 16),
                   _painelAbas(context, dados),
                 ],
@@ -201,7 +197,7 @@ class _HojePageState extends ConsumerState<HojePage> {
                     onSubmitted: (_) => _consultar(),
                   ),
                 ),
-                if (_financeiro) Row(mainAxisSize: MainAxisSize.min, children: [
+                Row(mainAxisSize: MainAxisSize.min, children: [
                   Checkbox(
                     key: const Key('incluir_abertas'),
                     value: _incluirAbertas,
@@ -230,8 +226,6 @@ class _HojePageState extends ConsumerState<HojePage> {
   Widget _painelAbas(BuildContext context, _Dados d) {
     final tema = Theme.of(context);
     const nomes = ['Agenda', 'Contas', 'Remédios', 'Resumo e gráficos'];
-    final abas = [0, if (_financeiro) 1, 2, if (_financeiro) 3];
-    final aba = abas.contains(_aba) ? _aba : 0;
     return Card(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -240,7 +234,7 @@ class _HojePageState extends ConsumerState<HojePage> {
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 8),
             child: Row(children: [
-              for (final i in abas)
+              for (var i = 0; i < nomes.length; i++)
                 InkWell(
                   key: Key('aba_$i'),
                   onTap: () => setState(() => _aba = i),
@@ -268,7 +262,7 @@ class _HojePageState extends ConsumerState<HojePage> {
           const Divider(height: 1),
           Padding(
             padding: const EdgeInsets.all(16),
-            child: switch (aba) {
+            child: switch (_aba) {
               0 => _abaAgenda(context, d),
               1 => _abaContas(context, d),
               2 => _abaRemedios(context, d),
@@ -459,10 +453,9 @@ class _Dados {
 }
 
 class _Indicadores extends StatelessWidget {
-  const _Indicadores({required this.dados, required this.financeiro});
+  const _Indicadores({required this.dados});
 
   final _Dados dados;
-  final bool financeiro;
 
   @override
   Widget build(BuildContext context) {
@@ -490,9 +483,9 @@ class _Indicadores extends StatelessWidget {
         );
     final itens = [
       cartao('compromissos', 'Compromissos', '${dados.eventos.length}', 'no período', Icons.event_outlined, Colors.lightBlue),
-      if (financeiro) cartao('abertas', 'Contas em aberto', '${dados.abertas}', 'despesas pendentes no total', Icons.receipt_long_outlined, Colors.amber),
-      if (financeiro) cartao('atrasadas', 'Atrasadas', '${dados.atrasadas}', 'vencidas e não pagas', Icons.warning_amber_outlined, Colors.red),
-      if (financeiro) cartao('a_pagar', 'A pagar no período', formatarCentavos(dados.aPagarNoPeriodo), 'despesas pendentes', Icons.payments_outlined, Colors.green),
+      cartao('abertas', 'Contas em aberto', '${dados.abertas}', 'despesas pendentes no total', Icons.receipt_long_outlined, Colors.amber),
+      cartao('atrasadas', 'Atrasadas', '${dados.atrasadas}', 'vencidas e não pagas', Icons.warning_amber_outlined, Colors.red),
+      cartao('a_pagar', 'A pagar no período', formatarCentavos(dados.aPagarNoPeriodo), 'despesas pendentes', Icons.payments_outlined, Colors.green),
       cartao('remedios', 'Remédios', '${dados.medicamentos.length}', 'cadastrados', Icons.medication_outlined, Colors.purple),
     ];
     return LayoutBuilder(builder: (context, c) {

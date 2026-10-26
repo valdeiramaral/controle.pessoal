@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../auth/sessao.dart';
 import '../nav/menu_lateral.dart';
 
 import '../../core/calculos.dart';
@@ -14,19 +13,6 @@ class FinancasPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final banco = ref.watch(bancoProvider);
-    if (!ref.watch(sessaoProvider).superusuario) {
-      // Lancamentos: so o SuperUsuario ve e cria.
-      return const Scaffold(
-        appBar: BarraPagina(title: Text('Finanças')),
-        body: Center(
-          key: Key('financas_restrito'),
-          child: Padding(
-            padding: EdgeInsets.all(24),
-            child: Text('Os lançamentos só podem ser vistos pelo SuperUsuário.', textAlign: TextAlign.center),
-          ),
-        ),
-      );
-    }
     return Scaffold(
       appBar: const BarraPagina(title: Text('Finanças')),
       body: StreamBuilder<List<Lancamento>>(

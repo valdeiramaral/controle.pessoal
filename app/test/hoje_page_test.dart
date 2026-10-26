@@ -1,29 +1,10 @@
 import 'package:controle_pessoal/core/tema.dart';
-import 'package:controle_pessoal/data/api/cliente_api.dart';
-import 'package:controle_pessoal/data/auth/armazenamento_sessao.dart';
 import 'package:controle_pessoal/data/local/banco.dart';
-import 'package:controle_pessoal/features/auth/sessao.dart';
 import 'package:controle_pessoal/features/hoje/hoje_page.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-class _SessaoFalsa extends SessaoNotifier {
-  _SessaoFalsa(this.estado);
-  final EstadoSessao estado;
-  @override
-  EstadoSessao build() => estado;
-}
-
-const _u = UsuarioApi(id: 'u', nome: 'Bia');
-
-Override _sessao({required bool superusuario}) => sessaoProvider.overrideWith(() => _SessaoFalsa(EstadoSessao(
-      FaseSessao.logado,
-      token: 't',
-      usuario: _u,
-      perfil: PerfilApi(usuario: _u, superusuario: superusuario),
-    )));
 
 void main() {
   test('atalhos de periodo', () {
@@ -49,7 +30,7 @@ void main() {
     await banco.inserirLancamento(descricao: 'Luz', valorCentavos: 20000, tipo: 'despesa', dia: DateTime.now());
 
     await tester.pumpWidget(ProviderScope(
-      overrides: [bancoProvider.overrideWithValue(banco), armazenamentoSessaoProvider.overrideWithValue(ArmazenamentoMemoria()), _sessao(superusuario: true)],
+      overrides: [bancoProvider.overrideWithValue(banco)],
       child: MaterialApp(theme: temaApp(), home: const HojePage()),
     ));
     await tester.pumpAndSettle();
@@ -71,29 +52,5 @@ void main() {
     await tester.tap(find.byKey(const Key('aba_3')));
     await tester.pumpAndSettle();
     expect(find.text('Resumo do período'), findsOneWidget);
-  });
-
-  testWidgets('usuario comum nao ve lancamentos: sem abas de contas e resumo nem indicadores financeiros', (tester) async {
-    tester.view.physicalSize = const Size(1400, 1400);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    final banco = Banco.paraTeste(NativeDatabase.memory());
-    addTearDown(banco.close);
-    await banco.inserirLancamento(descricao: 'Aluguel', valorCentavos: 100000, tipo: 'despesa');
-
-    await tester.pumpWidget(ProviderScope(
-      overrides: [bancoProvider.overrideWithValue(banco), armazenamentoSessaoProvider.overrideWithValue(ArmazenamentoMemoria()), _sessao(superusuario: false)],
-      child: MaterialApp(theme: temaApp(), home: const HojePage()),
-    ));
-    await tester.pumpAndSettle();
-
-    expect(find.byKey(const Key('aba_0')), findsOneWidget);
-    expect(find.byKey(const Key('aba_2')), findsOneWidget);
-    expect(find.byKey(const Key('aba_1')), findsNothing);
-    expect(find.byKey(const Key('aba_3')), findsNothing);
-    expect(find.byKey(const Key('kpi_atrasadas')), findsNothing);
-    expect(find.byKey(const Key('kpi_a_pagar')), findsNothing);
-    expect(find.byKey(const Key('incluir_abertas')), findsNothing);
-    expect(find.text('Aluguel'), findsNothing);
   });
 }
