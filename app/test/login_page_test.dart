@@ -72,6 +72,23 @@ void main() {
     expect(find.text('E-mail ou senha incorretos.'), findsOneWidget);
   });
 
+  testWidgets('Lembrar de mim vem marcado e o e-mail lembrado e preenchido', (tester) async {
+    _telaAlta(tester);
+    final guarda = ArmazenamentoMemoria()..valor = const SessaoSalva(emailLembrado: 'bia@exemplo.com');
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        clienteApiProvider.overrideWithValue(
+            ClienteApi(baseUrl: 'http://api.teste', cliente: MockClient((r) async => http.Response('{}', 200)))),
+        armazenamentoSessaoProvider.overrideWithValue(guarda),
+      ],
+      child: const MaterialApp(home: LoginPage()),
+    ));
+    await tester.pumpAndSettle();
+    final caixa = tester.widget<CheckboxListTile>(find.byKey(const Key('campo_lembrar')));
+    expect(caixa.value, isTrue);
+    expect(find.text('bia@exemplo.com'), findsOneWidget);
+  });
+
   testWidgets('o botao Criar conta abre o cadastro', (tester) async {
     _telaAlta(tester);
     await tester.pumpWidget(_app((r) async => http.Response('{}', 200)));

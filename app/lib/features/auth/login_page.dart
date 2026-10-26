@@ -19,6 +19,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   final _email = TextEditingController();
   final _senha = TextEditingController();
   bool _ver = false;
+  bool _lembrar = true;
+  bool _preenchido = false;
   bool _enviando = false;
   String? _erro;
 
@@ -36,7 +38,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       _erro = null;
     });
     try {
-      await ref.read(sessaoProvider.notifier).entrar(_email.text, _senha.text);
+      await ref.read(sessaoProvider.notifier).entrar(_email.text, _senha.text, lembrar: _lembrar);
       // sucesso: o portao do app troca para a tela principal.
     } on ErroApi catch (e) {
       if (mounted) setState(() => _erro = e.mensagem);
@@ -47,7 +49,13 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
-    final aviso = ref.watch(sessaoProvider).aviso;
+    final estado = ref.watch(sessaoProvider);
+    final aviso = estado.aviso;
+    // Preenche o e-mail lembrado (uma vez, sem sobrescrever o que o usuario digitou).
+    if (!_preenchido && estado.emailLembrado != null) {
+      _preenchido = true;
+      if (_email.text.isEmpty) _email.text = estado.emailLembrado!;
+    }
     final tema = Theme.of(context);
     final mensagem = _erro ?? aviso;
     return Scaffold(
@@ -105,11 +113,22 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       ),
                       validator: validarSenhaLogin,
                     ),
+                    const SizedBox(height: 6),
+                    CheckboxListTile(
+                      key: const Key('campo_lembrar'),
+                      value: _lembrar,
+                      onChanged: _enviando ? null : (v) => setState(() => _lembrar = v ?? false),
+                      title: const Text('Lembrar de mim'),
+                      subtitle: const Text('Não precisa digitar de novo'),
+                      controlAffinity: ListTileControlAffinity.leading,
+                      contentPadding: EdgeInsets.zero,
+                      dense: true,
+                    ),
                     if (mensagem != null) ...[
-                      const SizedBox(height: 14),
+                      const SizedBox(height: 8),
                       CaixaMensagem(texto: mensagem),
                     ],
-                    const SizedBox(height: 22),
+                    const SizedBox(height: 16),
                     KeyedSubtree(
                       key: const Key('botao_entrar'),
                       child: BotaoPrincipal(texto: 'Entrar', enviando: _enviando, aoPressionar: _entrar),

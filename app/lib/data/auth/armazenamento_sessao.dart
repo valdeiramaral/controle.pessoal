@@ -6,7 +6,14 @@ import '../api/cliente_api.dart';
 
 /// O que fica guardado no aparelho entre uma abertura e outra do app.
 class SessaoSalva {
-  const SessaoSalva({this.token, this.expiraEm, this.usuario, this.local = false});
+  const SessaoSalva({
+    this.token,
+    this.expiraEm,
+    this.usuario,
+    this.local = false,
+    this.emailLembrado,
+    this.senhaLembrada,
+  });
 
   final String? token;
   final DateTime? expiraEm;
@@ -15,11 +22,20 @@ class SessaoSalva {
   /// true = o usuario escolheu usar o app sem conta (dados so neste aparelho).
   final bool local;
 
+  /// "Lembrar de mim": e-mail preenchido na tela de login.
+  final String? emailLembrado;
+
+  /// "Lembrar de mim": senha guardada no cofre do aparelho para entrar sozinho
+  /// quando o token vence. Nunca e guardada na web.
+  final String? senhaLembrada;
+
   Map<String, dynamic> paraJson() => {
         'token': token,
         'expira_em': expiraEm?.toUtc().toIso8601String(),
         'usuario': usuario?.paraJson(),
         'local': local,
+        'email_lembrado': emailLembrado,
+        'senha_lembrada': senhaLembrada,
       };
 
   static SessaoSalva? deJson(String texto) {
@@ -31,6 +47,8 @@ class SessaoSalva {
         expiraEm: DateTime.tryParse((j['expira_em'] as String?) ?? ''),
         usuario: u is Map<String, dynamic> ? UsuarioApi.deJson(u) : null,
         local: j['local'] == true,
+        emailLembrado: j['email_lembrado'] as String?,
+        senhaLembrada: j['senha_lembrada'] as String?,
       );
     } catch (_) {
       return null; // dado corrompido: trata como sem sessao

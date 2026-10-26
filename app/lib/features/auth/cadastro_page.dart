@@ -39,7 +39,7 @@ class _CadastroPageState extends ConsumerState<CadastroPage> {
       _erro = null;
     });
     try {
-      await ref.read(sessaoProvider.notifier).cadastrar(_nome.text, _email.text, _senha.text);
+      await ref.read(sessaoProvider.notifier).cadastrar(_nome.text, _email.text, _senha.text, lembrar: true);
       // Conta criada e login feito: volta ao portao, que mostra a tela principal.
       if (mounted) Navigator.of(context).popUntil((r) => r.isFirst);
     } on ErroApi catch (e) {

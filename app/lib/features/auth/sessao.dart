@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/api/cliente_api.dart';
@@ -6,7 +7,7 @@ import '../../data/auth/armazenamento_sessao.dart';
 enum FaseSessao { iniciando, deslogado, logado, local }
 
 class EstadoSessao {
-  const EstadoSessao(this.fase, {this.usuario, this.token, this.aviso});
+  const EstadoSessao(this.fase, {this.usuario, this.token, this.aviso, this.emailLembrado});
 
   final FaseSessao fase;
   final UsuarioApi? usuario;
@@ -14,6 +15,9 @@ class EstadoSessao {
 
   /// Mensagem mostrada na tela de login (ex.: sessao expirada).
   final String? aviso;
+
+  /// E-mail para preencher a tela de login ("Lembrar de mim").
+  final String? emailLembrado;
 }
 
 final clienteApiProvider = Provider<ClienteApi>((ref) => ClienteApi(baseUrl: urlPadraoApi()));
@@ -42,23 +46,47 @@ class SessaoNotifier extends Notifier<EstadoSessao> {
       state = const EstadoSessao(FaseSessao.deslogado);
       return;
     }
+    final email = salva.emailLembrado;
+    final senha = salva.senhaLembrada;
     if (salva.local) {
       state = const EstadoSessao(FaseSessao.local);
       return;
     }
     final token = salva.token;
     if (token == null || salva.usuario == null) {
-      state = const EstadoSessao(FaseSessao.deslogado);
+      state = EstadoSessao(FaseSessao.deslogado, emailLembrado: email);
       return;
     }
     try {
       final u = await _api.eu(token);
-      await _guarda.gravar(SessaoSalva(token: token, expiraEm: salva.expiraEm, usuario: u));
+      await _guarda.gravar(SessaoSalva(
+          token: token, expiraEm: salva.expiraEm, usuario: u, emailLembrado: email, senhaLembrada: senha));
       state = EstadoSessao(FaseSessao.logado, usuario: u, token: token);
     } on ErroApi catch (e) {
       if (e.status == 401 || e.status == 403) {
-        await _guarda.limpar();
-        state = EstadoSessao(FaseSessao.deslogado, aviso: e.mensagem);
+        // Token vencido: se o usuario pediu para lembrar, entra sozinho.
+        if (email != null && senha != null) {
+          try {
+            await entrar(email, senha, lembrar: true);
+            return;
+          } on ErroApi catch (e2) {
+            if (e2.semConexao) {
+              state = EstadoSessao(FaseSessao.logado,
+                  usuario: salva.usuario, token: token, emailLembrado: email);
+              return;
+            }
+            // Senha mudou ou conta bloqueada: esquece a senha guardada.
+            await _guarda.gravar(SessaoSalva(emailLembrado: email));
+            state = EstadoSessao(FaseSessao.deslogado, aviso: e2.mensagem, emailLembrado: email);
+            return;
+          }
+        }
+        if (email != null) {
+          await _guarda.gravar(SessaoSalva(emailLembrado: email));
+        } else {
+          await _guarda.limpar();
+        }
+        state = EstadoSessao(FaseSessao.deslogado, aviso: e.mensagem, emailLembrado: email);
       } else {
         state = EstadoSessao(FaseSessao.logado, usuario: salva.usuario, token: token);
       }
@@ -66,15 +94,26 @@ class SessaoNotifier extends Notifier<EstadoSessao> {
   }
 
   /// Lanca [ErroApi] em caso de falha (a tela mostra a mensagem).
-  Future<void> entrar(String email, String senha) async {
+  ///
+  /// [lembrar]: guarda o e-mail (para preencher o login) e, fora da web, a senha
+  /// no cofre do aparelho, para entrar sozinho quando o token vencer.
+  Future<void> entrar(String email, String senha, {bool lembrar = false}) async {
     final r = await _api.entrar(email: email, senha: senha);
-    await _guarda.gravar(SessaoSalva(token: r.token, expiraEm: r.expiraEm, usuario: r.usuario));
-    state = EstadoSessao(FaseSessao.logado, usuario: r.usuario, token: r.token);
+    final emailGuardado = lembrar ? email.trim() : null;
+    await _guarda.gravar(SessaoSalva(
+      token: r.token,
+      expiraEm: r.expiraEm,
+      usuario: r.usuario,
+      emailLembrado: emailGuardado,
+      senhaLembrada: (lembrar && !kIsWeb) ? senha : null,
+    ));
+    state = EstadoSessao(FaseSessao.logado,
+        usuario: r.usuario, token: r.token, emailLembrado: emailGuardado);
   }
 
-  Future<void> cadastrar(String nome, String email, String senha) async {
+  Future<void> cadastrar(String nome, String email, String senha, {bool lembrar = false}) async {
     await _api.cadastrar(nome: nome, email: email, senha: senha);
-    await entrar(email, senha);
+    await entrar(email, senha, lembrar: lembrar);
   }
 
   Future<void> continuarSemConta() async {
@@ -82,8 +121,14 @@ class SessaoNotifier extends Notifier<EstadoSessao> {
     state = const EstadoSessao(FaseSessao.local);
   }
 
+  /// Sair apaga o token e a senha guardada; so o e-mail lembrado continua.
   Future<void> sair() async {
-    await _guarda.limpar();
-    state = const EstadoSessao(FaseSessao.deslogado);
+    final email = (await _guarda.ler())?.emailLembrado;
+    if (email != null) {
+      await _guarda.gravar(SessaoSalva(emailLembrado: email));
+    } else {
+      await _guarda.limpar();
+    }
+    state = EstadoSessao(FaseSessao.deslogado, emailLembrado: email);
   }
 }
