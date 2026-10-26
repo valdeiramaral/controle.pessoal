@@ -61,7 +61,7 @@ Pontos de atenção de calendário: o Carnaval (08 a 10/02/2027) cai na fase 6, 
 - [ ] Abrir o app no emulador e passar pelas 4 telas (22/10 a 23/10)
 - [x] Definir o **contrato de sincronização**: formato dos ids (UUID desde o primeiro uso, trocando `conta-padrao` e `local`), tipos (centavos, horários, tags) e ordem das tabelas. Escrito em `contrato-sincronizacao.md` (26/10)
 - [x] Decidir API própria (Node.js) ou Supabase: **API própria em Node.js** (26/10)
-- [ ] Iniciar o repositório Git (29/10)
+- [x] Iniciar o repositório Git (26/10): commit `70ff56b`, `.env` e arquivos gerados fora do repositório
 
 **Pronto quando:** o app abre no emulador, os testes passam no PC e o contrato de sincronização está escrito.
 
