@@ -405,7 +405,7 @@ INSERT INTO modulo (codigo, nome, descricao, ordem, liberado_para_todos) VALUES
 INSERT INTO permissao (codigo, modulo_codigo, nome) VALUES
   ('acesso.usuario.ver',            'acesso',        'Ver usuários'),
   ('acesso.usuario.cadastrar',      'acesso',        'Cadastrar usuários'),
-  ('acesso.usuario.editar',         'acesso',        'Editar e desativar usuários'),
+  ('acesso.usuario.editar',         'acesso',        'Editar, desativar e excluir usuários'),
   ('acesso.perfil.gerenciar',       'acesso',        'Gerenciar perfis e permissões'),
   ('acesso.grupo.gerenciar',        'acesso',        'Gerenciar grupos'),
   ('idiomas.catalogo.gerenciar',    'idiomas',       'Gerenciar países e idiomas'),

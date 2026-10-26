@@ -191,6 +191,31 @@ class _UsuarioFormPageState extends ConsumerState<UsuarioFormPage> {
     }
   }
 
+  Future<void> _excluir() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text('Excluir usuário?'),
+        content: Text('A conta de "${_original?.usuario.nome}" será removida e a pessoa não conseguirá mais entrar.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancelar')),
+          FilledButton(key: const Key('confirmar_exclusao'), onPressed: () => Navigator.pop(c, true), child: const Text('Excluir')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    final token = ref.read(sessaoProvider).token;
+    if (token == null) return;
+    try {
+      await ref.read(clienteApiProvider).excluirUsuario(token, widget.usuarioId!);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Usuário excluído.')));
+      Navigator.of(context).pop(true);
+    } on ErroApi catch (e) {
+      if (mounted) setState(() => _erro = e.mensagem);
+    }
+  }
+
   bool _mesmos(Set<String> a, Set<String> b) => a.length == b.length && a.containsAll(b);
 
   Widget _cartao(String titulo, IconData icone, List<Widget> filhos) {
@@ -223,7 +248,13 @@ class _UsuarioFormPageState extends ConsumerState<UsuarioFormPage> {
     final sessao = ref.watch(sessaoProvider);
     final cat = _catalogo;
     return Scaffold(
-      appBar: AppBar(title: Text(_novo ? 'Novo usuário' : 'Editar usuário')),
+      appBar: AppBar(
+        title: Text(_novo ? 'Novo usuário' : 'Editar usuário'),
+        actions: [
+          if (!_novo && sessao.pode('acesso.usuario.editar') && widget.usuarioId != sessao.usuario?.id)
+            IconButton(key: const Key('botao_excluir'), tooltip: 'Excluir usuário', icon: const Icon(Icons.delete_outline), onPressed: _excluir),
+        ],
+      ),
       body: _carregando
           ? const Center(child: CircularProgressIndicator())
           : cat == null

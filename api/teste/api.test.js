@@ -719,3 +719,28 @@ describe('superusuario de testes', () => {
     await entrar(email, 'outra-senha-456');
   });
 });
+
+describe('excluir usuario', () => {
+  it('exclusao logica: some da lista, nao entra mais, libera e-mail e nao exclui a si mesmo', async () => {
+    const adm = await criarSuperusuario(pool, { email: 'chefe@exemplo.com', senha: 'senha-chefe-123' });
+    const token = await entrar('chefe@exemplo.com', 'senha-chefe-123');
+    const alvo = await cadastrar('apagar@exemplo.com');
+    const del = (id) => app.inject({ method: 'DELETE', url: `/usuarios/${id}`, headers: { authorization: `Bearer ${token}` } });
+
+    assert.equal((await del(adm.id)).json().erro, 'nao_pode_excluir_a_si_mesmo');
+    assert.equal((await del(alvo)).statusCode, 204);
+    assert.equal((await del(alvo)).statusCode, 404);
+    assert.equal((await post('/login', { email: 'apagar@exemplo.com', senha: SENHA })).statusCode, 401);
+    const lista = (await get('/usuarios?busca=apagar', token)).json();
+    assert.equal(lista.total, 0);
+    await cadastrar('apagar@exemplo.com'); // e-mail liberado
+  });
+
+  it('sem permissao nao exclui', async () => {
+    await cadastrar('comum2@exemplo.com');
+    const alvo = await cadastrar('alvo2@exemplo.com');
+    const token = await entrar('comum2@exemplo.com');
+    const r = await app.inject({ method: 'DELETE', url: `/usuarios/${alvo}`, headers: { authorization: `Bearer ${token}` } });
+    assert.equal(r.statusCode, 403);
+  });
+});

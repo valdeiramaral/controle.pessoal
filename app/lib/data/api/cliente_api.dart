@@ -444,6 +444,10 @@ class ClienteApi {
   Future<DetalheUsuario> criarUsuario(String token, Map<String, dynamic> corpo) async =>
       DetalheUsuario.deJson(await _chamar('POST', '/usuarios', corpo: corpo, token: token));
 
+  Future<void> excluirUsuario(String token, String id) async {
+    await _chamar('DELETE', '/usuarios/$id', token: token);
+  }
+
   Future<void> atualizarUsuario(String token, String id, Map<String, dynamic> corpo) async {
     await _chamar('PATCH', '/usuarios/$id', corpo: corpo, token: token);
   }
@@ -579,6 +583,8 @@ class ClienteApi {
         return 'Você não pode desativar a própria conta.';
       case 'nao_pode_remover_o_proprio_perfil_administrador':
         return 'Você não pode tirar o seu próprio perfil de administrador.';
+      case 'nao_pode_excluir_a_si_mesmo':
+        return 'Você não pode excluir a própria conta.';
       case 'perfil_ja_existe':
         return 'Já existe um perfil com este nome.';
       case 'grupo_ja_existe':

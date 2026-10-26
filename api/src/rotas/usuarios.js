@@ -289,6 +289,18 @@ export default async function rotasUsuarios(app) {
     } catch (e) { return erroDoBanco(e, reply); }
   });
 
+  // ------------------------------------------------------------- excluir
+  // Exclusao logica: a conta some das listas e nao entra mais; e-mail e CPF ficam livres.
+  app.delete('/usuarios/:id', {
+    preHandler: app.exigir('acesso.usuario.editar'), schema: { params: paramId },
+  }, async (req, reply) => {
+    if (req.params.id === req.usuarioId) return reply.code(400).send({ erro: 'nao_pode_excluir_a_si_mesmo' });
+    const r = await comUsuario(pool, req.usuarioId, (c) => c.query(
+      `UPDATE controle.usuario SET excluido_em = now(), ativo = false
+        WHERE id = $1 AND excluido_em IS NULL`, [req.params.id]), { admin: true });
+    return r.rowCount ? reply.code(204).send() : naoEncontrado(reply);
+  });
+
   // --------------------------------------------------------------- grupos
   app.put('/usuarios/:id/grupos', {
     preHandler: app.exigir('acesso.grupo.gerenciar'),
