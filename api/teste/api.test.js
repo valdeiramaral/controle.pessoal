@@ -750,58 +750,87 @@ describe('excluir usuario', () => {
 describe('cadastro de modulos', () => {
   const com = (method, url, token, payload) => app.inject({ method, url, payload, headers: { authorization: `Bearer ${token}` } });
 
-  it('SuperUsuario cria e entrega o modulo ao dono; so o dono (e o SuperUsuario) o veem; excluir; sistema e protegido', async () => {
+  it('SuperUsuario libera o modulo para varios usuarios, com validade ou vitalicio, e pode desativar', async () => {
     await criarSuperusuario(pool, { email: 'mod@exemplo.com', senha: 'senha-mod-123' });
     const token = await entrar('mod@exemplo.com', 'senha-mod-123');
-    const donoId = await cadastrar('dono-mod@exemplo.com');
-    const tokenDono = await entrar('dono-mod@exemplo.com');
-    await cadastrar('outro-mod@exemplo.com');
-    const tokenOutro = await entrar('outro-mod@exemplo.com');
+    const idA = await cadastrar('lib-a@exemplo.com');
+    const idB = await cadastrar('lib-b@exemplo.com');
+    const idC = await cadastrar('lib-c@exemplo.com');
+    const ta = await entrar('lib-a@exemplo.com');
+    const tb = await entrar('lib-b@exemplo.com');
+    const tc = await entrar('lib-c@exemplo.com');
+    const dia = 24 * 3600 * 1000;
+    const iso = (offsetDias) => new Date(Date.now() + offsetDias * dia).toISOString();
 
-    assert.equal((await com('POST', '/modulos', token, { nome: 'Academia & Treino' })).statusCode, 400); // sem dono
-    const r = await com('POST', '/modulos', token, { nome: 'Academia & Treino', icone: 'fitness', descricao: 'Treinos', dono_id: donoId });
+    const r = await com('POST', '/modulos', token, {
+      nome: 'Academia & Treino', icone: 'fitness', descricao: 'Treinos',
+      liberacoes: [{ usuario_id: idA }, { usuario_id: idB, vitalicio: false, inicio: iso(-1), fim: iso(30) }],
+    });
     assert.equal(r.statusCode, 201, r.body);
     assert.equal(r.json().codigo, 'academia_treino');
     assert.equal(r.json().sistema, false);
-    assert.equal(r.json().dono_id, donoId);
-    assert.equal((await com('POST', '/modulos', token, { nome: 'Academia & Treino', dono_id: donoId })).statusCode, 409);
+    assert.equal(r.json().liberacoes.length, 2);
+    assert.equal((await com('POST', '/modulos', token, { nome: 'Academia & Treino' })).statusCode, 409);
 
-    const menuDono = (await get('/meus-modulos', tokenDono)).json().itens;
-    assert.deepEqual(menuDono.map((m) => m.codigo), ['academia_treino']);
-    assert.equal(menuDono[0].icone, 'fitness');
-    assert.equal((await get('/meus-modulos', tokenOutro)).json().itens.length, 0);
-    const menuSuper = (await get('/meus-modulos', token)).json().itens;
-    assert.equal(menuSuper.length, 1);
-    assert.ok(menuSuper[0].dono_nome);
+    const menu = async (t) => (await get('/meus-modulos', t)).json().itens.map((m) => m.codigo);
+    assert.deepEqual(await menu(ta), ['academia_treino']);
+    assert.deepEqual(await menu(tb), ['academia_treino']);
+    assert.deepEqual(await menu(tc), []); // nao liberado
+    assert.deepEqual(await menu(token), ['academia_treino']); // SuperUsuario ve todos
 
     // nao-super nao gerencia modulos
-    assert.equal((await com('PUT', '/modulos/academia_treino', tokenDono, { nome: 'X' })).statusCode, 403);
+    assert.equal((await com('PUT', '/modulos/academia_treino', ta, { nome: 'X' })).statusCode, 403);
 
-    // passar para outro dono
-    const outroId = (await get('/me', tokenOutro)).json().usuario.id;
-    assert.equal((await com('PUT', '/modulos/academia_treino', token, { dono_id: outroId })).statusCode, 200);
-    assert.equal((await get('/meus-modulos', tokenDono)).json().itens.length, 0);
-    assert.equal((await get('/meus-modulos', tokenOutro)).json().itens.length, 1);
+    // validacoes: sem datas, fim antes do inicio, usuario repetido ou inexistente
+    const put = (liberacoes) => com('PUT', '/modulos/academia_treino', token, { liberacoes });
+    assert.equal((await put([{ usuario_id: idA, vitalicio: false }])).statusCode, 400);
+    assert.equal((await put([{ usuario_id: idA, vitalicio: false, inicio: iso(5), fim: iso(1) }])).statusCode, 400);
+    assert.equal((await put([{ usuario_id: idA }, { usuario_id: idA }])).statusCode, 400);
+    assert.equal((await put([{ usuario_id: '00000000-0000-0000-0000-000000000000' }])).statusCode, 400);
 
-    // inativo some do menu
+    // validade vencida: o usuario perde o acesso; vitalicio ignora as datas
+    assert.equal((await put([
+      { usuario_id: idA, vitalicio: false, inicio: iso(-10), fim: iso(-1) },
+      { usuario_id: idB, vitalicio: true, inicio: iso(-10), fim: iso(-1) },
+      { usuario_id: idC, vitalicio: false, inicio: iso(1), fim: iso(10) },
+    ])).statusCode, 200);
+    assert.deepEqual(await menu(ta), []); // venceu
+    assert.deepEqual(await menu(tb), ['academia_treino']); // vitalicio
+    assert.deepEqual(await menu(tc), []); // ainda nao comecou
+    const det = (await com('GET', '/modulos/academia_treino', token)).json();
+    assert.equal(det.liberacoes.find((l) => l.usuario_id === idA).vigente, false);
+    assert.equal(det.liberacoes.find((l) => l.usuario_id === idB).vigente, true);
+
+    // desativar a liberacao de um usuario (continua cadastrada)
+    assert.equal((await put([{ usuario_id: idB, ativa: false }, { usuario_id: idC }])).statusCode, 200);
+    assert.deepEqual(await menu(tb), []);
+    assert.deepEqual(await menu(tc), ['academia_treino']);
+    assert.equal((await com('GET', '/modulos/academia_treino', token)).json().liberacoes.length, 2);
+
+    // modulo inativo some do menu de todos
     await com('PUT', '/modulos/academia_treino', token, { ativo: false });
-    assert.equal((await get('/meus-modulos', tokenOutro)).json().itens.length, 0);
+    assert.deepEqual(await menu(tc), []);
+    await com('PUT', '/modulos/academia_treino', token, { ativo: true });
 
     // modulos de fabrica nao se excluem nem se desativam, mas o nome pode mudar
     assert.equal((await com('DELETE', '/modulos/financas', token)).json().erro, 'modulo_de_sistema');
     assert.equal((await com('PUT', '/modulos/financas', token, { ativo: false })).json().erro, 'modulo_de_sistema');
     assert.equal((await com('PUT', '/modulos/financas', token, { descricao: 'Dinheiro' })).statusCode, 200);
+    // modulo do pacote nao precisa de liberacao: nao aceita liberacoes nem planos
+    assert.equal((await com('PUT', '/modulos/financas', token, { liberacoes: [] })).json().erro, 'modulo_de_pacote');
+    assert.equal((await com('PUT', '/modulos/financas', token, { planos: [] })).json().erro, 'modulo_de_pacote');
 
     assert.equal((await com('DELETE', '/modulos/academia_treino', token)).statusCode, 204);
     assert.equal((await com('GET', '/modulos/academia_treino', token)).statusCode, 404);
     const lista = (await com('GET', '/modulos', token)).json().itens;
     assert.ok(lista.some((m) => m.codigo === 'financas' && m.sistema === true));
+    assert.ok([idA, idB, idC].every(Boolean));
   });
 
   it('usuario comum nao cadastra modulos e ve apenas o proprio menu', async () => {
     await cadastrar('semperm@exemplo.com');
     const token = await entrar('semperm@exemplo.com');
-    assert.equal((await com('POST', '/modulos', token, { nome: 'Teste', dono_id: '00000000-0000-0000-0000-000000000000' })).statusCode, 403);
+    assert.equal((await com('POST', '/modulos', token, { nome: 'Teste' })).statusCode, 403);
     assert.equal((await com('GET', '/modulos', token)).statusCode, 403);
     assert.equal((await get('/meus-modulos', token)).statusCode, 200);
   });

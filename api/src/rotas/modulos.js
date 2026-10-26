@@ -1,9 +1,10 @@
 import { comUsuario } from '../db.js';
 import { codigoDoNome } from './acesso.js';
 
-// Cadastro de modulos: so o SuperUsuario cria e entrega modulos; cada modulo criado tem um DONO,
-// e so o dono (alem do SuperUsuario) o ve no menu. Os de fabrica (financas, saude...) valem para
-// todos, nao tem dono e nao podem ser excluidos nem desativados.
+// Cadastro de modulos: so o SuperUsuario cria, libera e desativa. Cada modulo pode ser liberado para
+// varios usuarios (e/ou por plano); a liberacao de cada usuario pode ser vitalicia ou valer entre duas
+// datas. Passada a data final (ou desativada a liberacao), o usuario deixa de ter acesso ao modulo.
+// Os de fabrica (financas, saude...) nao podem ser excluidos nem desativados.
 export const ICONES = [
   'extension', 'folder', 'star', 'work', 'school', 'cart', 'home', 'fitness', 'pets',
   'flight', 'book', 'build', 'chart', 'people', 'wallet',
@@ -19,7 +20,22 @@ const propriedades = {
   ativo: { type: 'boolean' },
   liberado_para_todos: { type: 'boolean' },
   planos: listaPlanos,
-  dono_id: { type: 'string', format: 'uuid' },
+  liberacoes: {
+    type: 'array',
+    maxItems: 500,
+    items: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['usuario_id'],
+      properties: {
+        usuario_id: { type: 'string', format: 'uuid' },
+        ativa: { type: 'boolean' },
+        vitalicio: { type: 'boolean' },
+        inicio: { type: ['string', 'null'], format: 'date-time' },
+        fim: { type: ['string', 'null'], format: 'date-time' },
+      },
+    },
+  },
 };
 
 export default async function rotasModulos(app) {
@@ -29,11 +45,51 @@ export default async function rotasModulos(app) {
 
   const SELECT = `
     SELECT m.codigo, m.nome, m.descricao, m.ordem, m.ativo, m.liberado_para_todos, m.icone,
-           m.exibir_no_menu, NOT m.exibir_no_menu AS sistema, m.dono_id,
-           (SELECT u.nome FROM controle.usuario u WHERE u.id = m.dono_id) AS dono_nome,
-           coalesce((SELECT array_agg(l.plano_codigo ORDER BY l.plano_codigo) FROM liberacao_modulo l
-                      WHERE l.modulo_codigo = m.codigo AND l.plano_codigo IS NOT NULL AND l.concedida), '{}') AS planos
+           m.exibir_no_menu, NOT m.exibir_no_menu AS sistema,
+           coalesce((SELECT array_agg(l.plano_codigo ORDER BY l.plano_codigo) FROM controle.liberacao_modulo l
+                      WHERE l.modulo_codigo = m.codigo AND l.plano_codigo IS NOT NULL AND l.concedida), '{}') AS planos,
+           coalesce((SELECT json_agg(json_build_object(
+                       'usuario_id', l.usuario_id, 'usuario_nome', u.nome, 'usuario_email', u.email,
+                       'ativa', l.ativa, 'vitalicio', l.vitalicio, 'inicio', l.inicio, 'fim', l.fim,
+                       'vigente', (l.ativa AND (l.vitalicio OR ((l.inicio IS NULL OR l.inicio <= now())
+                                                               AND (l.fim IS NULL OR l.fim > now()))))
+                     ) ORDER BY u.nome)
+                       FROM controle.liberacao_modulo l
+                       JOIN controle.usuario u ON u.id = l.usuario_id AND u.excluido_em IS NULL
+                      WHERE l.modulo_codigo = m.codigo AND l.usuario_id IS NOT NULL AND l.concedida), '[]'::json) AS liberacoes
       FROM controle.modulo m`;
+
+  /** Valida e normaliza as liberacoes; devolve a mensagem de erro, ou null se estiver tudo certo. */
+  const validarLiberacoes = (lista) => {
+    const vistos = new Set();
+    for (const l of lista) {
+      if (vistos.has(l.usuario_id)) return 'Há o mesmo usuário mais de uma vez.';
+      vistos.add(l.usuario_id);
+      l.ativa = l.ativa ?? true;
+      l.vitalicio = l.vitalicio ?? true;
+      if (l.vitalicio) { l.inicio = null; l.fim = null; continue; }
+      if (!l.inicio || !l.fim) return 'Informe a data de início e a data final, ou marque como vitalício.';
+      if (!(new Date(l.fim) > new Date(l.inicio))) return 'A data final precisa ser depois da data de início.';
+    }
+    return null;
+  };
+
+  /** Troca as liberacoes por usuario do modulo pela lista recebida. */
+  const gravarLiberacoes = async (c, codigo, lista) => {
+    const ids = lista.map((l) => l.usuario_id);
+    const achados = (await c.query(
+      'SELECT id FROM controle.usuario WHERE id = ANY($1::uuid[]) AND excluido_em IS NULL', [ids])).rowCount;
+    if (achados !== ids.length) { const e = new Error('usuario inexistente'); e.code = 'USUARIO'; throw e; }
+    await c.query(
+      `DELETE FROM controle.liberacao_modulo
+        WHERE modulo_codigo = $1 AND usuario_id IS NOT NULL AND (concedida OR usuario_id = ANY($2::uuid[]))`,
+      [codigo, ids]);
+    for (const l of lista) {
+      await c.query(
+        `INSERT INTO controle.liberacao_modulo (modulo_codigo, usuario_id, ativa, vitalicio, inicio, fim)
+         VALUES ($1, $2, $3, $4, $5, $6)`, [codigo, l.usuario_id, l.ativa, l.vitalicio, l.inicio, l.fim]);
+    }
+  };
 
   const gravarPlanos = async (c, codigo, planos) => {
     await c.query('DELETE FROM controle.liberacao_modulo WHERE modulo_codigo = $1 AND plano_codigo IS NOT NULL', [codigo]);
@@ -43,6 +99,7 @@ export default async function rotasModulos(app) {
   };
 
   const erroDoBanco = (e, reply) => {
+    if (e.code === 'USUARIO') return reply.code(400).send({ erro: 'dados_invalidos', campo: 'liberacoes', detalhe: 'Usuário não encontrado.' });
     if (e.code === '23505') return reply.code(409).send({ erro: 'modulo_ja_existe' });
     if (e.code === '23503') return reply.code(409).send({ erro: 'referencia_invalida', detalhe: e.detail ?? e.message });
     throw e;
@@ -60,26 +117,27 @@ export default async function rotasModulos(app) {
 
   app.post('/modulos', {
     preHandler: gerenciar,
-    schema: { body: { type: 'object', required: ['nome', 'dono_id'], additionalProperties: false, properties: propriedades } },
+    schema: { body: { type: 'object', required: ['nome'], additionalProperties: false, properties: propriedades } },
   }, async (req, reply) => {
     const b = req.body;
     const codigo = codigoDoNome(b.nome);
     if (!/^[a-z][a-z0-9_]{1,40}$/.test(codigo)) {
       return reply.code(400).send({ erro: 'dados_invalidos', campo: 'nome', detalhe: 'Use um nome com letras (ao menos 2).' });
     }
+    const falha = validarLiberacoes(b.liberacoes ?? []);
+    if (falha) return reply.code(400).send({ erro: 'dados_invalidos', campo: 'liberacoes', detalhe: falha });
     try {
       const m = await admin(req, async (c) => {
         const ordem = b.ordem ?? ((await c.query('SELECT coalesce(max(ordem), 0) + 1 AS n FROM controle.modulo')).rows[0].n);
-        if (!(await c.query('SELECT 1 FROM controle.usuario WHERE id = $1 AND excluido_em IS NULL', [b.dono_id])).rowCount) {
-          return null;
-        }
         await c.query(
-          `INSERT INTO controle.modulo (codigo, nome, descricao, ordem, ativo, liberado_para_todos, icone, exibir_no_menu, dono_id)
-           VALUES ($1, $2, $3, $4, $5, false, $6, true, $7)`,
-          [codigo, b.nome.trim(), b.descricao ?? null, ordem, b.ativo ?? true, b.icone ?? 'extension', b.dono_id]);
+          `INSERT INTO controle.modulo (codigo, nome, descricao, ordem, ativo, liberado_para_todos, icone, exibir_no_menu)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, true)`,
+          [codigo, b.nome.trim(), b.descricao ?? null, ordem, b.ativo ?? true, b.liberado_para_todos ?? false,
+            b.icone ?? 'extension']);
+        await gravarPlanos(c, codigo, b.planos ?? []);
+        await gravarLiberacoes(c, codigo, b.liberacoes ?? []);
         return (await c.query(`${SELECT} WHERE m.codigo = $1`, [codigo])).rows[0];
       });
-      if (!m) return reply.code(400).send({ erro: 'dados_invalidos', campo: 'dono_id', detalhe: 'Usuário dono não encontrado.' });
       return reply.code(201).send(m);
     } catch (e) { return erroDoBanco(e, reply); }
   });
@@ -89,30 +147,31 @@ export default async function rotasModulos(app) {
     schema: { params: paramCodigo, body: { type: 'object', additionalProperties: false, minProperties: 1, properties: propriedades } },
   }, async (req, reply) => {
     const b = req.body;
+    const falha = validarLiberacoes(b.liberacoes ?? []);
+    if (falha) return reply.code(400).send({ erro: 'dados_invalidos', campo: 'liberacoes', detalhe: falha });
     try {
       const r = await admin(req, async (c) => {
         const atual = (await c.query('SELECT exibir_no_menu FROM controle.modulo WHERE codigo = $1', [req.params.codigo])).rows[0];
         if (!atual) return { nao: 404 };
         if (!atual.exibir_no_menu && b.ativo === false) return { nao: 400 };
-        // Modulo do SuperUsuario: tem dono e nao se libera por plano; de fabrica: nao tem dono.
-        const chaves = atual.exibir_no_menu ? ['nome', 'descricao', 'ordem', 'ativo', 'icone', 'dono_id']
-          : ['nome', 'descricao', 'ordem', 'liberado_para_todos', 'icone'];
-        if (atual.exibir_no_menu && b.dono_id !== undefined
-          && !(await c.query('SELECT 1 FROM controle.usuario WHERE id = $1 AND excluido_em IS NULL', [b.dono_id])).rowCount) {
+        // Modulos do pacote (de fabrica) fazem parte do app e nao precisam de liberacao.
+        if (!atual.exibir_no_menu && (b.liberacoes !== undefined || b.planos !== undefined || b.liberado_para_todos !== undefined)) {
           return { nao: 422 };
         }
+        const chaves = ['nome', 'descricao', 'ordem', 'icone', ...(atual.exibir_no_menu ? ['liberado_para_todos', 'ativo'] : [])];
         const campos = [];
         const valores = [req.params.codigo];
         for (const k of chaves) {
           if (k in b) { valores.push(k === 'nome' ? b[k].trim() : b[k]); campos.push(`${k} = $${valores.length}`); }
         }
         if (campos.length) await c.query(`UPDATE controle.modulo SET ${campos.join(', ')} WHERE codigo = $1`, valores);
-        if (b.planos !== undefined && !atual.exibir_no_menu) await gravarPlanos(c, req.params.codigo, b.planos);
+        if (b.planos !== undefined) await gravarPlanos(c, req.params.codigo, b.planos);
+        if (b.liberacoes !== undefined) await gravarLiberacoes(c, req.params.codigo, b.liberacoes);
         return { m: (await c.query(`${SELECT} WHERE m.codigo = $1`, [req.params.codigo])).rows[0] };
       });
       if (r.nao === 404) return reply.code(404).send({ erro: 'modulo_nao_encontrado' });
       if (r.nao === 400) return reply.code(400).send({ erro: 'modulo_de_sistema' });
-      if (r.nao === 422) return reply.code(400).send({ erro: 'dados_invalidos', campo: 'dono_id', detalhe: 'Usuário dono não encontrado.' });
+      if (r.nao === 422) return reply.code(400).send({ erro: 'modulo_de_pacote' });
       return r.m;
     } catch (e) { return erroDoBanco(e, reply); }
   });
@@ -135,15 +194,15 @@ export default async function rotasModulos(app) {
     }
   });
 
-  // Modulos do menu do usuario logado: os que ele possui. O SuperUsuario ve os de todos (com o nome do dono).
+  // Modulos do menu do usuario logado: so os liberados para ele e dentro da validade.
+  // O SuperUsuario ve todos os modulos cadastrados.
   app.get('/meus-modulos', { preHandler: app.autenticar }, async (req) => {
     const todos = await app.ehSuperusuario(req.usuarioId);
     return comUsuario(pool, req.usuarioId, async (c) => ({
       itens: (await c.query(
-        `SELECT m.codigo, m.nome, m.descricao, m.icone, m.dono_id,
-                (SELECT u.nome FROM controle.usuario u WHERE u.id = m.dono_id) AS dono_nome
+        `SELECT m.codigo, m.nome, m.descricao, m.icone
            FROM controle.modulo m
-          WHERE m.ativo AND m.exibir_no_menu AND ($2 OR m.dono_id = $1)
+          WHERE m.ativo AND m.exibir_no_menu AND ($2 OR controle.modulo_liberado($1, m.codigo))
           ORDER BY m.ordem, m.nome`, [req.usuarioId, todos])).rows,
     }), { admin: todos });
   });

@@ -386,8 +386,7 @@ CREATE TABLE modulo (
   ativo               boolean NOT NULL DEFAULT true,
   liberado_para_todos boolean NOT NULL DEFAULT false,
   icone               text    NOT NULL DEFAULT 'extension',  -- nome do icone no app
-  exibir_no_menu      boolean NOT NULL DEFAULT false,        -- true = modulo cadastrado pelo SuperUsuario
-  dono_id             uuid    REFERENCES usuario (id) ON DELETE CASCADE  -- dono do modulo (NULL = de fabrica)
+  exibir_no_menu      boolean NOT NULL DEFAULT false         -- true = modulo cadastrado pelo SuperUsuario
 );
 
 CREATE TABLE permissao (
@@ -549,13 +548,18 @@ CREATE TABLE liberacao_modulo (
   grupo_id      uuid REFERENCES grupo (id) ON DELETE CASCADE,
   plano_codigo  text REFERENCES plano (codigo) ON DELETE CASCADE,
   concedida     boolean NOT NULL DEFAULT true,   -- false = bloqueio explicito
+  ativa         boolean NOT NULL DEFAULT true,   -- false = liberacao desativada (nao vale, mas fica cadastrada)
+  vitalicio     boolean NOT NULL DEFAULT true,   -- true = sem data de validade; false = vale entre inicio e fim
   inicio        timestamptz,
   fim           timestamptz,
   criado_em     timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT ck_liberacao_alvo CHECK (num_nonnulls(usuario_id, grupo_id, plano_codigo) = 1),
-  CONSTRAINT ck_liberacao_vigencia CHECK (fim IS NULL OR inicio IS NULL OR fim > inicio)
+  CONSTRAINT ck_liberacao_vigencia CHECK (fim IS NULL OR inicio IS NULL OR fim > inicio),
+  CONSTRAINT ck_liberacao_validade CHECK (vitalicio OR (inicio IS NOT NULL AND fim IS NOT NULL))
 );
 CREATE INDEX ix_liberacao_modulo ON liberacao_modulo (modulo_codigo);
+-- Uma liberacao por usuario em cada modulo.
+CREATE UNIQUE INDEX ux_liberacao_usuario ON liberacao_modulo (modulo_codigo, usuario_id) WHERE usuario_id IS NOT NULL;
 
 -- Todos os planos liberam, de partida, os modulos de uso diario.
 INSERT INTO liberacao_modulo (modulo_codigo, plano_codigo)
@@ -628,8 +632,8 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = controle, public AS $$
     SELECT l.concedida
       FROM liberacao_modulo l
      WHERE l.modulo_codigo = m
-       AND (l.inicio IS NULL OR l.inicio <= now())
-       AND (l.fim IS NULL OR l.fim > now())
+       AND l.ativa
+       AND (l.vitalicio OR ((l.inicio IS NULL OR l.inicio <= now()) AND (l.fim IS NULL OR l.fim > now())))
        AND (l.usuario_id = u
             OR l.grupo_id IN (SELECT grupo_id FROM usuario_grupo WHERE usuario_id = u)
             OR l.plano_codigo IN (SELECT plano_codigo FROM licenca

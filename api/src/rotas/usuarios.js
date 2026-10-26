@@ -43,7 +43,7 @@ export default async function rotasUsuarios(app) {
         'SELECT codigo, nome, periodo FROM controle.plano WHERE ativo ORDER BY duracao_meses NULLS FIRST, codigo')).rows,
       modulos: (await c.query(
         `SELECT codigo, nome, descricao, liberado_para_todos
-           FROM controle.modulo WHERE ativo AND dono_id IS NULL ORDER BY ordem`)).rows,
+           FROM controle.modulo WHERE ativo AND NOT exibir_no_menu ORDER BY ordem`)).rows,
       perfis: (await c.query('SELECT codigo, nome, descricao FROM controle.perfil ORDER BY nome')).rows,
     }));
   });
@@ -111,7 +111,7 @@ export default async function rotasUsuarios(app) {
                      ORDER BY l.criado_em DESC LIMIT 1)
                 WHEN true THEN 'liberado' WHEN false THEN 'bloqueado' ELSE 'padrao' END AS liberacao,
               controle.modulo_liberado($1, m.codigo) AS efetivo
-         FROM controle.modulo m WHERE m.ativo AND m.dono_id IS NULL ORDER BY m.ordem`, [id])).rows;
+         FROM controle.modulo m WHERE m.ativo AND NOT m.exibir_no_menu ORDER BY m.ordem`, [id])).rows;
     const grupos = (await c.query(
       `SELECT g.id, g.nome FROM controle.usuario_grupo ug JOIN controle.grupo g ON g.id = ug.grupo_id
         WHERE ug.usuario_id = $1 ORDER BY g.nome`, [id])).rows;
@@ -146,8 +146,8 @@ export default async function rotasUsuarios(app) {
 
   async function definirModulos(c, id, mapa) {
     for (const [modulo, valor] of Object.entries(mapa)) {
-      // So os modulos de fabrica se liberam por aqui; os do SuperUsuario pertencem a um dono.
-      if (!(await c.query('SELECT 1 FROM controle.modulo WHERE codigo = $1 AND dono_id IS NULL', [modulo])).rowCount) {
+      // So os modulos de fabrica se liberam por aqui; os cadastrados pelo SuperUsuario tem liberacao propria (PUT /modulos).
+      if (!(await c.query('SELECT 1 FROM controle.modulo WHERE codigo = $1 AND NOT exibir_no_menu', [modulo])).rowCount) {
         const e = new Error('modulo invalido'); e.code = '23503'; e.detail = `modulo ${modulo}`; throw e;
       }
       await c.query('DELETE FROM controle.liberacao_modulo WHERE usuario_id = $1 AND modulo_codigo = $2', [id, modulo]);
