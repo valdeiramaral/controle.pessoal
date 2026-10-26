@@ -122,6 +122,19 @@ class Banco extends _$Banco {
         ..orderBy([(e) => OrderingTerm.asc(e.inicio)]))
       .watch();
 
+  /// Eventos que comecam entre [de] e [ate] (dias inclusivos).
+  Stream<List<Evento>> observarEventosEntre(DateTime de, DateTime ate) {
+    final ini = DateTime(de.year, de.month, de.day);
+    final fim = DateTime(ate.year, ate.month, ate.day).add(const Duration(days: 1));
+    return (select(eventos)
+          ..where((e) =>
+              e.excluidoEm.isNull() &
+              e.inicio.isBiggerOrEqualValue(ini) &
+              e.inicio.isSmallerThanValue(fim))
+          ..orderBy([(e) => OrderingTerm.asc(e.inicio)]))
+        .watch();
+  }
+
   Stream<List<Evento>> observarEventosDoDia(DateTime dia) {
     final ini = DateTime(dia.year, dia.month, dia.day);
     final fim = ini.add(const Duration(days: 1));
