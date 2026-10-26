@@ -46,7 +46,7 @@ void main() {
       Scaffold(body: Row(children: [MenuLateral(indice: 0, aoIr: (i) => escolhido = i), const Expanded(child: SizedBox())])),
     ));
     await tester.pumpAndSettle();
-    for (final t in ['Hoje', 'Finanças', 'Saúde', 'Agenda', 'Usuários e acessos', 'Perfis e grupos', 'Meus dados', 'Sair']) {
+    for (final t in ['Hoje', 'Finanças', 'Saúde', 'Agenda', 'Usuários e acessos', 'Perfis e grupos', 'Meus dados', 'Aparência', 'Sair']) {
       expect(find.text(t), findsOneWidget, reason: t);
     }
     await tester.tap(find.text('Finanças'));
