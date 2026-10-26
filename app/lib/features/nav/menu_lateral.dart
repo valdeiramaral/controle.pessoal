@@ -16,6 +16,16 @@ final menuRecolhidoProvider = StateProvider<bool>((_) => false);
 /// Preferencia, em telas largas, por deixar o menu suspenso em vez de fixo.
 final menuSuspensoProvider = StateProvider<bool>((_) => false);
 
+/// Navegador da area de conteudo (ao lado do menu): telas de cadastro abrem aqui
+/// dentro, sem cobrir o menu lateral.
+final chaveConteudo = GlobalKey<NavigatorState>();
+
+/// Abre uma tela na area de conteudo, mantendo o menu visivel.
+Future<T?> abrirNoConteudo<T>(BuildContext context, Widget pagina) {
+  final nav = chaveConteudo.currentState ?? Navigator.of(context);
+  return nav.push<T>(MaterialPageRoute<T>(builder: (_) => pagina));
+}
+
 /// Chave do Scaffold principal, para as paginas abrirem o menu suspenso.
 final chaveCasca = GlobalKey<ScaffoldState>();
 
@@ -69,9 +79,9 @@ class MenuLateral extends ConsumerWidget {
     final largo = MediaQuery.sizeOf(context).width >= larguraMinimaMenuFixo;
 
     void abrir(Widget pagina) {
-      final nav = Navigator.of(context);
-      if (emDrawer) nav.pop();
-      nav.push(MaterialPageRoute<void>(builder: (_) => pagina));
+      final destino = chaveConteudo.currentState ?? Navigator.of(context);
+      if (emDrawer) Navigator.of(context).pop();
+      destino.push(MaterialPageRoute<void>(builder: (_) => pagina));
     }
 
     final modulos = <(IconData, String)>[

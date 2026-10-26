@@ -50,21 +50,28 @@ class _Portao extends ConsumerWidget {
         return const LoginPage();
       case FaseSessao.logado:
       case FaseSessao.local:
-        return const _Casca();
+        return const Casca();
     }
   }
 }
 
 /// Navegacao principal: menu a esquerda (fixo, recolhido ou suspenso) e as paginas.
-class _Casca extends ConsumerStatefulWidget {
-  const _Casca();
+/// As telas de cadastro abrem na area de conteudo, sem cobrir o menu.
+class Casca extends ConsumerStatefulWidget {
+  const Casca({super.key});
 
   @override
-  ConsumerState<_Casca> createState() => _CascaState();
+  ConsumerState<Casca> createState() => _CascaState();
 }
 
-class _CascaState extends ConsumerState<_Casca> {
-  int _indice = 0;
+class _CascaState extends ConsumerState<Casca> {
+  final _indice = ValueNotifier<int>(0);
+
+  @override
+  void dispose() {
+    _indice.dispose();
+    super.dispose();
+  }
 
   static const _paginas = <Widget>[
     HojePage(),
@@ -74,7 +81,9 @@ class _CascaState extends ConsumerState<_Casca> {
   ];
 
   void _ir(int i, {bool fecharMenu = false}) {
-    setState(() => _indice = i);
+    // Volta da tela de cadastro (se houver) e troca de modulo.
+    chaveConteudo.currentState?.popUntil((r) => r.isFirst);
+    _indice.value = i;
     if (fecharMenu) Navigator.of(context).pop();
   }
 
@@ -90,7 +99,10 @@ class _CascaState extends ConsumerState<_Casca> {
               width: 292,
               child: Padding(
                 padding: const EdgeInsets.all(10),
-                child: MenuLateral(emDrawer: true, indice: _indice, aoIr: (i) => _ir(i, fecharMenu: true)),
+                child: ValueListenableBuilder<int>(
+                  valueListenable: _indice,
+                  builder: (_, i, __) => MenuLateral(emDrawer: true, indice: i, aoIr: (n) => _ir(n, fecharMenu: true)),
+                ),
               ),
             )
           : null,
@@ -100,9 +112,25 @@ class _CascaState extends ConsumerState<_Casca> {
           if (!suspenso)
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 12, 0, 12),
-              child: MenuLateral(indice: _indice, aoIr: _ir),
+              child: ValueListenableBuilder<int>(
+                valueListenable: _indice,
+                builder: (_, i, __) => MenuLateral(indice: i, aoIr: _ir),
+              ),
             ),
-          Expanded(child: IndexedStack(index: _indice, children: _paginas)),
+          Expanded(
+            child: NavigatorPopHandler(
+              onPop: () => chaveConteudo.currentState?.maybePop(),
+              child: Navigator(
+                key: chaveConteudo,
+                onGenerateRoute: (_) => MaterialPageRoute<void>(
+                  builder: (_) => ValueListenableBuilder<int>(
+                    valueListenable: _indice,
+                    builder: (_, i, __) => IndexedStack(index: i, children: _paginas),
+                  ),
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );

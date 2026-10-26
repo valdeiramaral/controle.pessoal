@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../admin/perfis_grupos_page.dart';
 import '../admin/usuarios_page.dart';
+import '../nav/menu_lateral.dart';
 import 'meus_dados_page.dart';
 import 'sessao.dart';
 
@@ -49,9 +50,9 @@ class _ContaSheet extends ConsumerWidget {
                 title: const Text('Meus dados'),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () {
-                  final nav = Navigator.of(context);
-                  nav.pop();
-                  nav.push(MaterialPageRoute<void>(builder: (_) => const MeusDadosPage()));
+                  final destino = chaveConteudo.currentState ?? Navigator.of(context);
+                  Navigator.of(context).pop();
+                  destino.push(MaterialPageRoute<void>(builder: (_) => const MeusDadosPage()));
                 },
               ),
             if (logado && s.pode('acesso.usuario.ver'))
@@ -63,9 +64,9 @@ class _ContaSheet extends ConsumerWidget {
                 subtitle: const Text('Cadastrar, liberar módulos e planos'),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () {
-                  final nav = Navigator.of(context);
-                  nav.pop();
-                  nav.push(MaterialPageRoute<void>(builder: (_) => const UsuariosPage()));
+                  final destino = chaveConteudo.currentState ?? Navigator.of(context);
+                  Navigator.of(context).pop();
+                  destino.push(MaterialPageRoute<void>(builder: (_) => const UsuariosPage()));
                 },
               ),
             if (logado &&
@@ -79,9 +80,9 @@ class _ContaSheet extends ConsumerWidget {
                 subtitle: const Text('Permissões detalhadas por perfil e grupo'),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () {
-                  final nav = Navigator.of(context);
-                  nav.pop();
-                  nav.push(MaterialPageRoute<void>(builder: (_) => const PerfisGruposPage()));
+                  final destino = chaveConteudo.currentState ?? Navigator.of(context);
+                  Navigator.of(context).pop();
+                  destino.push(MaterialPageRoute<void>(builder: (_) => const PerfisGruposPage()));
                 },
               ),
             const SizedBox(height: 8),
