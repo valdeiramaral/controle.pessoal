@@ -8,7 +8,8 @@
   "scripts": {
     "start": "node src/servidor.js",
     "test": "node --test",
-    "promover": "node src/cli/promover.js"
+    "promover": "node src/cli/promover.js",
+    "superusuario": "node src/cli/superusuario.js"
   },
   "dependencies": {
     "@fastify/rate-limit": "^10.0.0",

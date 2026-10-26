@@ -101,6 +101,12 @@ O primeiro administrador nasce fora da API, com o comando abaixo (depois de cada
 docker compose exec api node src/cli/promover.js seu-email@exemplo.com
 ```
 
+Superusuário de testes (administrador, plano vitalício, todos os módulos liberados; a senha vem do ambiente, nunca fica no código):
+
+```powershell
+docker compose exec -e SUPER_EMAIL=voce@exemplo.com -e SUPER_SENHA=sua-senha api node src/cli/superusuario.js
+```
+
 Regras que valem para todo código novo da API:
 
 - Todo acesso a dados de usuário passa por `comUsuario()` (`api/src/db.js`), que define `app.usuario_id` na transação para a segurança por linha do banco valer.

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { SignJWT } from 'jose';
 import { criarApp } from '../src/app.js';
 import { criarPool, comUsuario } from '../src/db.js';
-import { promover } from '../src/admin.js';
+import { promover, criarSuperusuario } from '../src/admin.js';
 import { prepararBanco, removerBanco, configDeTeste } from './ajuda.js';
 
 const SENHA = 'uma-senha-forte-123';
@@ -702,3 +702,20 @@ describe('perfis, grupos e permissoes individuais', () => {
   });
 });
 
+describe('superusuario de testes', () => {
+  it('cria com todas as permissoes e modulos, entra pela API e pode ser repetido', async () => {
+    const email = 'super@exemplo.com';
+    const r = await criarSuperusuario(pool, { email, senha: 'senha-super-123' });
+    assert.equal(r.criado, true);
+    const token = await entrar(email, 'senha-super-123');
+    const me = (await get('/me', token)).json();
+    assert.ok(me.permissoes.includes('acesso.perfil.gerenciar'));
+    assert.ok(me.modulos.includes('financas') && me.modulos.includes('saude') && me.modulos.includes('agenda'));
+    assert.equal((await get('/perfis', token)).statusCode, 200);
+
+    const de_novo = await criarSuperusuario(pool, { email, senha: 'outra-senha-456' });
+    assert.equal(de_novo.criado, false);
+    assert.equal(de_novo.id, r.id);
+    await entrar(email, 'outra-senha-456');
+  });
+});
