@@ -5,18 +5,21 @@ import 'package:flutter/material.dart';
 /// Azul da marca usado nas telas de entrada.
 const azulMarca = Color(0xFF0052CC);
 
-/// Tema claro com o azul da marca (campos, botoes e caixas das telas de entrada).
-ThemeData temaAzul(BuildContext context) => Theme.of(context).copyWith(
+/// Tema claro com o azul da marca (campos, botoes e caixas sobre cartoes brancos).
+ThemeData temaAzul(BuildContext context) => ThemeData(
+      useMaterial3: true,
+      brightness: Brightness.light,
       colorScheme: ColorScheme.fromSeed(seedColor: azulMarca, brightness: Brightness.light)
           .copyWith(primary: azulMarca, onPrimary: Colors.white),
+      fontFamily: Theme.of(context).textTheme.bodyMedium?.fontFamily,
+      scaffoldBackgroundColor: Colors.white,
     );
 
-/// Fundo azul com cartoes translucidos ao fundo e conteudo centralizado e rolavel.
-class FundoAuth extends StatelessWidget {
-  const FundoAuth({super.key, required this.filho, this.larguraMax = 440});
+/// Fundo azul em degrade com cartoes translucidos; usado atras de todas as telas.
+class FundoAzul extends StatelessWidget {
+  const FundoAzul({super.key, required this.child});
 
-  final Widget filho;
-  final double larguraMax;
+  final Widget child;
 
   @override
   Widget build(BuildContext context) {
@@ -31,18 +34,33 @@ class FundoAuth extends StatelessWidget {
       child: Stack(
         children: [
           const Positioned.fill(child: IgnorePointer(child: _Decoracao())),
-          SafeArea(
-            child: Center(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(maxWidth: larguraMax),
-                  child: _Entrada(child: filho),
-                ),
-              ),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+/// Telas de entrada: fundo azul e conteudo centralizado e rolavel.
+class FundoAuth extends StatelessWidget {
+  const FundoAuth({super.key, required this.filho, this.larguraMax = 440});
+
+  final Widget filho;
+  final double larguraMax;
+
+  @override
+  Widget build(BuildContext context) {
+    return FundoAzul(
+      child: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: larguraMax),
+              child: _Entrada(child: filho),
             ),
           ),
-        ],
+        ),
       ),
     );
   }

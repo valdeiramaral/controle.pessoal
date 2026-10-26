@@ -4,7 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'features/agenda/agenda_page.dart';
 import 'features/auth/login_page.dart';
+import 'core/tema.dart';
 import 'features/auth/sessao.dart';
+import 'features/auth/widgets_auth.dart';
+import 'features/nav/menu_lateral.dart';
 import 'features/financas/financas_page.dart';
 import 'features/hoje/hoje_page.dart';
 import 'features/saude/saude_page.dart';
@@ -17,15 +20,10 @@ class App extends StatelessWidget {
     return MaterialApp(
       title: 'Controle Pessoal',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorSchemeSeed: const Color(0xFF2E7D6B),
-        useMaterial3: true,
-      ),
-      darkTheme: ThemeData(
-        colorSchemeSeed: const Color(0xFF2E7D6B),
-        brightness: Brightness.dark,
-        useMaterial3: true,
-      ),
+      theme: temaApp(),
+      darkTheme: temaApp(),
+      themeMode: ThemeMode.dark,
+      builder: (context, child) => FundoAzul(child: child ?? const SizedBox.shrink()),
       locale: const Locale('pt', 'BR'),
       supportedLocales: const [Locale('pt', 'BR')],
       localizationsDelegates: const [
@@ -57,15 +55,15 @@ class _Portao extends ConsumerWidget {
   }
 }
 
-/// Navegacao principal: Hoje, Financas, Saude e Agenda.
-class _Casca extends StatefulWidget {
+/// Navegacao principal: menu a esquerda (fixo, recolhido ou suspenso) e as paginas.
+class _Casca extends ConsumerStatefulWidget {
   const _Casca();
 
   @override
-  State<_Casca> createState() => _CascaState();
+  ConsumerState<_Casca> createState() => _CascaState();
 }
 
-class _CascaState extends State<_Casca> {
+class _CascaState extends ConsumerState<_Casca> {
   int _indice = 0;
 
   static const _paginas = <Widget>[
@@ -75,18 +73,36 @@ class _CascaState extends State<_Casca> {
     AgendaPage(),
   ];
 
+  void _ir(int i, {bool fecharMenu = false}) {
+    setState(() => _indice = i);
+    if (fecharMenu) Navigator.of(context).pop();
+  }
+
   @override
   Widget build(BuildContext context) {
+    final suspenso = menuEmModoSuspenso(context, ref.watch(menuSuspensoProvider));
     return Scaffold(
-      body: IndexedStack(index: _indice, children: _paginas),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _indice,
-        onDestinationSelected: (i) => setState(() => _indice = i),
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.today_outlined), selectedIcon: Icon(Icons.today), label: 'Hoje'),
-          NavigationDestination(icon: Icon(Icons.account_balance_wallet_outlined), selectedIcon: Icon(Icons.account_balance_wallet), label: 'Finanças'),
-          NavigationDestination(icon: Icon(Icons.favorite_border), selectedIcon: Icon(Icons.favorite), label: 'Saúde'),
-          NavigationDestination(icon: Icon(Icons.event_outlined), selectedIcon: Icon(Icons.event), label: 'Agenda'),
+      key: chaveCasca,
+      drawer: suspenso
+          ? Drawer(
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              width: 292,
+              child: Padding(
+                padding: const EdgeInsets.all(10),
+                child: MenuLateral(emDrawer: true, indice: _indice, aoIr: (i) => _ir(i, fecharMenu: true)),
+              ),
+            )
+          : null,
+      body: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (!suspenso)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 12, 0, 12),
+              child: MenuLateral(indice: _indice, aoIr: _ir),
+            ),
+          Expanded(child: IndexedStack(index: _indice, children: _paginas)),
         ],
       ),
     );

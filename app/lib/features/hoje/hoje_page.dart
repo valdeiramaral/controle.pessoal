@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/formatos.dart';
 import '../../data/local/banco.dart';
 import '../auth/conta_sheet.dart';
+import '../nav/menu_lateral.dart';
 
 /// Painel unificado: compromissos do dia, contas a vencer e remedios.
 class HojePage extends ConsumerWidget {
@@ -16,7 +17,7 @@ class HojePage extends ConsumerWidget {
     final em7dias = hoje.add(const Duration(days: 7));
 
     return Scaffold(
-      appBar: AppBar(
+      appBar: BarraPagina(
         title: Text('Hoje · ${formatarData(hoje)}'),
         actions: [
           IconButton(
@@ -31,7 +32,7 @@ class HojePage extends ConsumerWidget {
         children: [
           _Secao(
             titulo: 'Compromissos',
-            icone: Icons.event,
+            icone: Icons.event_outlined,
             filho: StreamBuilder<List<Evento>>(
               stream: banco.observarEventosDoDia(hoje),
               builder: (context, snap) {
@@ -52,7 +53,7 @@ class HojePage extends ConsumerWidget {
           ),
           _Secao(
             titulo: 'Contas a pagar (7 dias)',
-            icone: Icons.receipt_long,
+            icone: Icons.receipt_long_outlined,
             filho: StreamBuilder<List<Lancamento>>(
               stream: banco.observarContasPendentes(ate: em7dias),
               builder: (context, snap) {
@@ -76,7 +77,7 @@ class HojePage extends ConsumerWidget {
           ),
           _Secao(
             titulo: 'Remédios',
-            icone: Icons.medication,
+            icone: Icons.medication_outlined,
             filho: StreamBuilder<List<Medicamento>>(
               stream: banco.observarMedicamentos(),
               builder: (context, snap) {

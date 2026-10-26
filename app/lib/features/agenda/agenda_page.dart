@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../nav/menu_lateral.dart';
+
 import '../../core/formatos.dart';
 import '../../core/notificacoes.dart';
 import '../../data/local/banco.dart';
@@ -12,7 +14,7 @@ class AgendaPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final banco = ref.watch(bancoProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('Agenda')),
+      appBar: const BarraPagina(title: Text('Agenda')),
       body: StreamBuilder<List<Evento>>(
         stream: banco.observarEventosFuturos(),
         builder: (context, snap) {
@@ -32,7 +34,7 @@ class AgendaPage extends ConsumerWidget {
                   color: Colors.red,
                   alignment: Alignment.centerRight,
                   padding: const EdgeInsets.only(right: 16),
-                  child: const Icon(Icons.delete, color: Colors.white),
+                  child: const Icon(Icons.delete_outline, color: Colors.white),
                 ),
                 onDismissed: (_) {
                   ServicoNotificacoes.instancia
@@ -40,7 +42,7 @@ class AgendaPage extends ConsumerWidget {
                   banco.excluirEvento(e.id);
                 },
                 child: ListTile(
-                  leading: const Icon(Icons.event),
+                  leading: const Icon(Icons.event_outlined),
                   title: Text(e.titulo),
                   subtitle: Text(formatarDataHora(e.inicio)),
                 ),

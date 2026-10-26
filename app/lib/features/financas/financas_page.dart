@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../nav/menu_lateral.dart';
+
 import '../../core/calculos.dart';
 import '../../core/formatos.dart';
 import '../../data/local/banco.dart';
@@ -12,7 +14,7 @@ class FinancasPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final banco = ref.watch(bancoProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('Finanças')),
+      appBar: const BarraPagina(title: Text('Finanças')),
       body: StreamBuilder<List<Lancamento>>(
         stream: banco.observarLancamentos(),
         builder: (context, snap) {
@@ -49,7 +51,7 @@ class FinancasPage extends ConsumerWidget {
                         color: Colors.red,
                         alignment: Alignment.centerRight,
                         padding: const EdgeInsets.only(right: 16),
-                        child: const Icon(Icons.delete, color: Colors.white),
+                        child: const Icon(Icons.delete_outline, color: Colors.white),
                       ),
                       onDismissed: (_) => banco.excluirLancamento(l.id),
                       child: ListTile(

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../nav/menu_lateral.dart';
+
 import '../../core/notificacoes.dart';
 import '../../data/local/banco.dart';
 
@@ -11,7 +13,7 @@ class SaudePage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final banco = ref.watch(bancoProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('Saúde')),
+      appBar: const BarraPagina(title: Text('Saúde')),
       body: StreamBuilder<List<Medicamento>>(
         stream: banco.observarMedicamentos(),
         builder: (context, snap) {
@@ -31,14 +33,14 @@ class SaudePage extends ConsumerWidget {
                   color: Colors.red,
                   alignment: Alignment.centerRight,
                   padding: const EdgeInsets.only(right: 16),
-                  child: const Icon(Icons.delete, color: Colors.white),
+                  child: const Icon(Icons.delete_outline, color: Colors.white),
                 ),
                 onDismissed: (_) {
                   _cancelarLembretes(m);
                   banco.excluirMedicamento(m.id);
                 },
                 child: ListTile(
-                  leading: const Icon(Icons.medication),
+                  leading: const Icon(Icons.medication_outlined),
                   title: Text('${m.nome} · ${m.dose}'),
                   subtitle: Text('Horários: ${m.horarios.replaceAll(',', ', ')}'),
                 ),
