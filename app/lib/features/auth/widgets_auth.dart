@@ -2,42 +2,98 @@ import 'package:flutter/material.dart';
 
 /// Pecas visuais compartilhadas pelas telas de login e cadastro.
 
-/// Fundo com degrade suave e conteudo centralizado e rolavel.
+/// Azul da marca usado nas telas de entrada.
+const azulMarca = Color(0xFF0052CC);
+
+/// Tema claro com o azul da marca (campos, botoes e caixas das telas de entrada).
+ThemeData temaAzul(BuildContext context) => Theme.of(context).copyWith(
+      colorScheme: ColorScheme.fromSeed(seedColor: azulMarca, brightness: Brightness.light)
+          .copyWith(primary: azulMarca, onPrimary: Colors.white),
+    );
+
+/// Fundo azul com cartoes translucidos ao fundo e conteudo centralizado e rolavel.
 class FundoAuth extends StatelessWidget {
-  const FundoAuth({super.key, required this.filho});
+  const FundoAuth({super.key, required this.filho, this.larguraMax = 440});
 
   final Widget filho;
+  final double larguraMax;
 
   @override
   Widget build(BuildContext context) {
-    final cores = Theme.of(context).colorScheme;
-    final escuro = Theme.of(context).brightness == Brightness.dark;
     return Container(
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: escuro
-              ? [cores.surface, Color.alphaBlend(cores.primary.withValues(alpha: 0.22), cores.surface)]
-              : [
-                  Color.alphaBlend(cores.primary.withValues(alpha: 0.16), Colors.white),
-                  Color.alphaBlend(cores.primary.withValues(alpha: 0.38), Colors.white),
-                ],
+          colors: [Color(0xFF1B54D9), Color(0xFF2B48B8), Color(0xFF3B3AA4)],
         ),
       ),
-      child: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 440),
-              child: _Entrada(child: filho),
+      child: Stack(
+        children: [
+          const Positioned.fill(child: IgnorePointer(child: _Decoracao())),
+          SafeArea(
+            child: Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: larguraMax),
+                  child: _Entrada(child: filho),
+                ),
+              ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }
+}
+
+/// Cartoes translucidos espalhados pelo fundo (so enfeite).
+class _Decoracao extends StatelessWidget {
+  const _Decoracao();
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(builder: (context, c) {
+      final w = c.maxWidth;
+      final h = c.maxHeight;
+      Widget cartao(double x, double y, double largura, double altura, double giro) => Positioned(
+            left: x * w,
+            top: y * h,
+            child: Transform.rotate(
+              angle: giro,
+              child: Container(
+                width: largura,
+                height: altura,
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.07),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+                ),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Container(height: 7, width: largura * 0.6, decoration: _barra()),
+                  const SizedBox(height: 10),
+                  Container(height: 7, width: largura * 0.35, decoration: _barra()),
+                ]),
+              ),
+            ),
+          );
+      return ClipRect(
+        child: Stack(children: [
+          cartao(-0.06, 0.05, 260, 110, -0.12),
+          cartao(0.55, -0.04, 240, 100, 0.10),
+          cartao(0.80, 0.14, 280, 120, -0.10),
+          cartao(-0.04, 0.62, 250, 110, 0.14),
+          cartao(0.48, 0.90, 280, 110, -0.08),
+          cartao(0.86, 0.68, 240, 110, 0.12),
+        ]),
+      );
+    });
+  }
+
+  BoxDecoration _barra() =>
+      BoxDecoration(color: Colors.white.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(4));
 }
 
 /// Aparece suavemente (fade + leve subida).
@@ -101,11 +157,10 @@ class CartaoAuth extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cores = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.fromLTRB(22, 26, 22, 20),
       decoration: BoxDecoration(
-        color: cores.surface,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(28),
         boxShadow: [
           BoxShadow(
@@ -115,7 +170,7 @@ class CartaoAuth extends StatelessWidget {
           ),
         ],
       ),
-      child: filho,
+      child: Theme(data: temaAzul(context), child: filho),
     );
   }
 }

@@ -72,6 +72,7 @@ class _CadastroPageState extends ConsumerState<CadastroPage> {
       appBar: AppBar(
         title: const Text('Criar conta'),
         backgroundColor: Colors.transparent,
+        foregroundColor: Colors.white,
         elevation: 0,
         scrolledUnderElevation: 0,
       ),
@@ -84,11 +85,11 @@ class _CadastroPageState extends ConsumerState<CadastroPage> {
             const SizedBox(height: 14),
             Text('Comece agora',
                 textAlign: TextAlign.center,
-                style: tema.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
+                style: tema.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700, color: Colors.white)),
             const SizedBox(height: 6),
             Text('Crie sua conta em poucos segundos',
                 textAlign: TextAlign.center,
-                style: tema.textTheme.bodyMedium?.copyWith(color: tema.colorScheme.onSurfaceVariant)),
+                style: tema.textTheme.bodyMedium?.copyWith(color: Colors.white70)),
             const SizedBox(height: 24),
             CartaoAuth(
               filho: Form(

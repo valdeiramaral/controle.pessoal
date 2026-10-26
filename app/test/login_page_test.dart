@@ -97,4 +97,17 @@ void main() {
     expect(find.byKey(const Key('campo_nome')), findsOneWidget);
     expect(find.byKey(const Key('botao_criar')), findsOneWidget);
   });
+
+  testWidgets('tela larga mostra o painel da marca ao lado do formulario', (tester) async {
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(_app((r) async => http.Response('{}', 200)));
+    expect(find.text('Controle Pessoal'), findsOneWidget);
+    expect(find.textContaining('Finanças: contas'), findsOneWidget);
+    expect(find.byKey(const Key('campo_email')), findsOneWidget);
+    await tester.tap(find.text('Criar conta'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('campo_nome')), findsOneWidget);
+  });
 }
