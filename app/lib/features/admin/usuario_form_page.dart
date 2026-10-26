@@ -71,10 +71,8 @@ class _UsuarioFormPageState extends ConsumerState<UsuarioFormPage> {
       if (!_novo) det = await api.detalheUsuario(token, widget.usuarioId!);
       var grupos = const <GrupoItem>[];
       var permissoes = const <PermissaoApi>[];
-      if (!_novo) {
-        grupos = await api.listarGrupos(token);
-        if (ref.read(sessaoProvider).pode('acesso.perfil.gerenciar')) permissoes = await api.listarPermissoes(token);
-      }
+      grupos = await api.listarGrupos(token);
+      if (ref.read(sessaoProvider).pode('acesso.perfil.gerenciar')) permissoes = await api.listarPermissoes(token);
       if (!mounted) return;
       setState(() {
         _catalogo = cat;
@@ -138,7 +136,16 @@ class _UsuarioFormPageState extends ConsumerState<UsuarioFormPage> {
               if (e.value != 'padrao') e.key: e.value == 'liberado',
           };
         }
-        await api.criarUsuario(token, corpo);
+        final criado = await api.criarUsuario(token, corpo);
+        final novoId = criado.usuario.id;
+        if (podeGrupos && _grupos.isNotEmpty) await api.definirGrupos(token, novoId, _grupos.toList());
+        if (podePerfis) {
+          final ex = <String, bool?>{
+            for (final e in _excecoes.entries)
+              if (e.value != 'herdar') e.key: e.value == 'permitir',
+          };
+          if (ex.isNotEmpty) await api.definirExcecoes(token, novoId, ex);
+        }
       } else {
         final id = widget.usuarioId!;
         final original = _original!;
@@ -314,7 +321,7 @@ class _UsuarioFormPageState extends ConsumerState<UsuarioFormPage> {
                     ),
                   ],
                 ]),
-                if (!_novo) ...[
+                ...[
                   _cartao('Grupos', Icons.groups_outlined, [
                     Text('O usuário recebe também as permissões dos perfis de cada grupo.', style: tema.textTheme.bodySmall),
                     const SizedBox(height: 8),
