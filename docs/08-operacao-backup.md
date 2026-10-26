@@ -15,7 +15,7 @@ docker compose exec -T api node src/cli/docs-banco.js > docs/05-banco-objetos.md
 (o serviço da API precisa das variáveis `PG*` do compose; se faltar, use `npm run docs:banco` com `PGHOST` etc.)
 
 ## Backup completo
-Execute `backup.bat` na raiz. Cria `backups/<data-hora>/` com:
+Rotina padrão (backup local + GitHub): `publicar.bat`. Só backup: `backup.bat`. na raiz. Cria `backups/<data-hora>/` com:
 - `codigo.bundle` (histórico git completo) e `codigo.zip` (fontes sem node_modules/build);
 - `banco.dump` (pg_dump formato custom) e `banco.sql` (SQL puro);
 - `docs.zip`, `SHA256SUMS.txt` e `manifesto.txt`.
