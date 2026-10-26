@@ -24,6 +24,17 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   bool _enviando = false;
   String? _erro;
 
+  // Apenas para testes: valores vindos de --dart-define (o web.ps1 le do .env, que nao vai para o git).
+  static const _emailTeste = String.fromEnvironment('LOGIN_TESTE_EMAIL');
+  static const _senhaTeste = String.fromEnvironment('LOGIN_TESTE_SENHA');
+
+  @override
+  void initState() {
+    super.initState();
+    _email.text = _emailTeste;
+    _senha.text = _senhaTeste;
+  }
+
   @override
   void dispose() {
     _email.dispose();

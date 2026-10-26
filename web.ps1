@@ -35,9 +35,19 @@ $Porta = Porta-Livre $Porta
 
 Write-Host ""
 Write-Host "==> Abrindo o app no navegador (http://localhost:$Porta)" -ForegroundColor Cyan
+# Login de teste (opcional): LOGIN_TESTE_EMAIL e LOGIN_TESTE_SENHA no .env preenchem a tela de login.
+$defines = @()
+$arqEnv = Join-Path $raiz ".env"
+if (Test-Path $arqEnv) {
+    foreach ($linha in Get-Content $arqEnv) {
+        if ($linha -match '^\s*(LOGIN_TESTE_EMAIL|LOGIN_TESTE_SENHA)\s*=\s*(.+?)\s*$') {
+            $defines += "--dart-define=$($Matches[1])=$($Matches[2].Trim('"', "'"))"
+        }
+    }
+}
 Push-Location (Join-Path $raiz "app")
 try {
-    flutter run -d chrome --web-port $Porta
+    flutter run -d chrome --web-port $Porta @defines
 } finally {
     Pop-Location
 }
