@@ -6,9 +6,18 @@ import { codigoDoNome } from './acesso.js';
 // datas. Passada a data final (ou desativada a liberacao), o usuario deixa de ter acesso ao modulo.
 // Cada modulo pode ser marcado como "incluido no pacote" (vale para todos, sem liberacao): quem decide
 // e o SuperUsuario. Os de fabrica (financas, saude...) nao podem ser excluidos nem desativados.
+// Chaves dos icones (o app desenha cada uma; veja app/lib/core/icones_modulo.dart).
 export const ICONES = [
-  'extension', 'folder', 'star', 'work', 'school', 'cart', 'home', 'fitness', 'pets',
-  'flight', 'book', 'build', 'chart', 'people', 'wallet',
+  'extension', 'folder', 'star', 'build', 'chart', 'people', 'flag', 'bookmark', 'label', 'lock',
+  'security', 'cloud', 'bolt', 'notifications', 'event', 'handyman', 'wallet', 'savings', 'money',
+  'card', 'receipt', 'bank', 'growth', 'pie', 'payments', 'exchange', 'quote', 'calculator',
+  'fitness', 'heart', 'medication', 'heartbeat', 'hospital', 'vaccine', 'run', 'spa', 'sleep',
+  'water', 'food', 'meditation', 'work', 'school', 'book', 'laptop', 'code', 'team', 'business',
+  'assignment', 'checklist', 'notes', 'idea', 'science', 'language', 'translate', 'home', 'cart',
+  'bag', 'kitchen', 'sofa', 'laundry', 'garden', 'baby', 'family', 'cake', 'party', 'gift',
+  'flight', 'car', 'moto', 'bus', 'train', 'boat', 'hotel', 'map', 'luggage', 'beach', 'camera',
+  'pets', 'music', 'movie', 'games', 'art', 'brush', 'headphones', 'theater', 'ball', 'basket',
+  'coffee', 'bar', 'nature', 'sun',
 ];
 
 const paramCodigo = { type: 'object', properties: { codigo: { type: 'string', maxLength: 60 } }, required: ['codigo'] };

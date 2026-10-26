@@ -27,6 +27,8 @@ class _ModuloFormPageState extends ConsumerState<ModuloFormPage> {
   late final _descricao = TextEditingController(text: widget.modulo?.descricao ?? '');
   late final _ordem = TextEditingController(text: widget.modulo == null ? '' : '${widget.modulo!.ordem}');
   late String _icone = widget.modulo?.icone ?? 'extension';
+  final _buscaIcone = TextEditingController();
+  String _filtroIcone = '';
   late bool _ativo = widget.modulo?.ativo ?? true;
   late bool _noPacote = widget.modulo?.noPacote ?? false;
   late Set<String> _planos = {...?widget.modulo?.planos};
@@ -49,6 +51,7 @@ class _ModuloFormPageState extends ConsumerState<ModuloFormPage> {
     _nome.dispose();
     _descricao.dispose();
     _ordem.dispose();
+    _buscaIcone.dispose();
     super.dispose();
   }
 
@@ -136,6 +139,39 @@ class _ModuloFormPageState extends ConsumerState<ModuloFormPage> {
     } on ErroApi catch (e) {
       if (mounted) setState(() => _erro = e.mensagem);
     }
+  }
+
+  /// Icones por categoria, filtrados pela busca (nome do icone ou da categoria).
+  List<Widget> _seletorIcones(BuildContext context, bool pode) {
+    final tema = Theme.of(context);
+    final blocos = <Widget>[];
+    for (final c in categoriasIcones) {
+      final itens = c.icones
+          .where((i) => _filtroIcone.isEmpty ||
+              i.nome.toLowerCase().contains(_filtroIcone) ||
+              i.chave.contains(_filtroIcone) ||
+              c.nome.toLowerCase().contains(_filtroIcone))
+          .toList();
+      if (itens.isEmpty) continue;
+      blocos.add(Padding(
+        padding: const EdgeInsets.only(top: 8, bottom: 4),
+        child: Text(c.nome, style: tema.textTheme.labelMedium?.copyWith(color: tema.colorScheme.onSurfaceVariant)),
+      ));
+      blocos.add(Wrap(spacing: 8, runSpacing: 8, children: [
+        for (final i in itens)
+          Tooltip(
+            message: i.nome,
+            child: ChoiceChip(
+              key: Key('icone_${i.chave}'),
+              label: Icon(i.icone, size: 20, color: corIcone(context, c.cor)),
+              selected: _icone == i.chave,
+              onSelected: pode ? (_) => setState(() => _icone = i.chave) : null,
+            ),
+          ),
+      ]));
+    }
+    if (blocos.isEmpty) blocos.add(const Padding(padding: EdgeInsets.all(8), child: Text('Nenhum ícone encontrado.')));
+    return blocos;
   }
 
   Future<void> _adicionarUsuario() async {
@@ -266,17 +302,19 @@ class _ModuloFormPageState extends ConsumerState<ModuloFormPage> {
                     },
                   ),
                   const SizedBox(height: 18),
-                  Text('Ícone', style: tema.textTheme.titleSmall),
-                  const SizedBox(height: 8),
-                  Wrap(spacing: 8, runSpacing: 8, children: [
-                    for (final e in iconesModulo.entries)
-                      ChoiceChip(
-                        key: Key('icone_${e.key}'),
-                        label: Icon(e.value, size: 20, color: corIcone(context, corBaseDoModulo(e.key))),
-                        selected: _icone == e.key,
-                        onSelected: pode ? (_) => setState(() => _icone = e.key) : null,
-                      ),
+                  Row(children: [
+                    Expanded(child: Text('Ícone', style: tema.textTheme.titleSmall)),
+                    Icon(iconeDoModulo(_icone), color: corIcone(context, corBaseDoModulo(_icone))),
                   ]),
+                  const SizedBox(height: 8),
+                  TextField(
+                    key: const Key('busca_icone'),
+                    controller: _buscaIcone,
+                    decoration: decoracaoCampo(context, 'Buscar ícone (ex.: carro, saúde, música)', Icons.search),
+                    onChanged: (v) => setState(() => _filtroIcone = v.trim().toLowerCase()),
+                  ),
+                  const SizedBox(height: 8),
+                  ..._seletorIcones(context, pode),
                   const SizedBox(height: 12),
                   const SizedBox(height: 8),
                   Text('Liberação', style: tema.textTheme.titleMedium),
