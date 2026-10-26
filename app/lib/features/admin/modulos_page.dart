@@ -7,6 +7,7 @@ import '../../data/api/cliente_api.dart';
 import '../auth/sessao.dart';
 import '../nav/menu_lateral.dart';
 import 'modulo_form_page.dart';
+import '../nav/acoes_usuario.dart';
 
 /// Cadastro de modulos: lista, cria e edita. Modulos novos aparecem no menu.
 class ModulosPage extends ConsumerStatefulWidget {
@@ -56,7 +57,7 @@ class _ModulosPageState extends ConsumerState<ModulosPage> {
     final pode = ref.watch(sessaoProvider).pode('administracao.modulo.gerenciar');
     final tema = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Módulos')),
+      appBar: AppBar(title: const Text('Módulos'), actions: const [AcoesUsuario()]),
       floatingActionButton: pode
           ? FloatingActionButton.extended(
               key: const Key('botao_novo_modulo'),

@@ -9,6 +9,7 @@ import '../aparencia/aparencia_page.dart';
 import '../auth/meus_dados_page.dart';
 import '../auth/sessao.dart';
 import '../auth/widgets_auth.dart';
+import 'acoes_usuario.dart';
 import 'modulos_menu.dart';
 
 /// Abaixo desta largura o menu fica sempre suspenso (some e abre por cima).
@@ -61,7 +62,7 @@ class BarraPagina extends ConsumerWidget implements PreferredSizeWidget {
           : null,
       titleSpacing: suspenso ? null : 20,
       title: title,
-      actions: actions,
+      actions: [...?actions, const AcoesUsuario()],
     );
   }
 }

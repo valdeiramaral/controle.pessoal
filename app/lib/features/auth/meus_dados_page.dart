@@ -7,6 +7,7 @@ import '../admin/usuarios_page.dart' show nomePlano;
 import 'campos_pessoa.dart';
 import 'sessao.dart';
 import 'widgets_auth.dart';
+import '../nav/acoes_usuario.dart';
 
 const _nomesModulos = {
   'acesso': 'Acesso e usuários',
@@ -76,7 +77,7 @@ class _MeusDadosPageState extends ConsumerState<MeusDadosPage> {
     final perfil = ref.watch(sessaoProvider).perfil;
     final tema = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Meus dados')),
+      appBar: AppBar(title: const Text('Meus dados'), actions: const [AcoesUsuario()]),
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(

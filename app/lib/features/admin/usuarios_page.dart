@@ -7,6 +7,7 @@ import '../../core/documentos.dart';
 import '../../data/api/cliente_api.dart';
 import '../auth/sessao.dart';
 import 'usuario_form_page.dart';
+import '../nav/acoes_usuario.dart';
 
 /// Nome do plano para exibir (codigo -> texto).
 String nomePlano(String? codigo) => switch (codigo) {
@@ -80,7 +81,7 @@ class _UsuariosPageState extends ConsumerState<UsuariosPage> {
     final sessao = ref.watch(sessaoProvider);
     final tema = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Usuários')),
+      appBar: AppBar(title: const Text('Usuários'), actions: const [AcoesUsuario()]),
       floatingActionButton: sessao.pode('acesso.usuario.cadastrar')
           ? FloatingActionButton.extended(
               key: const Key('botao_novo_usuario'),

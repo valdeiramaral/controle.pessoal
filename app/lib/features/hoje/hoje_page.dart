@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/aparencia.dart';
 import '../../core/formatos.dart';
 import '../../data/local/banco.dart';
-import '../auth/conta_sheet.dart';
 import '../nav/menu_lateral.dart';
 
 /// Intervalo (inclusivo) de um atalho de periodo.
@@ -122,13 +121,6 @@ class _HojePageState extends ConsumerState<HojePage> {
     return Scaffold(
       appBar: BarraPagina(
         title: Text('Hoje · ${formatarData(DateTime.now())}'),
-        actions: [
-          IconButton(
-            tooltip: 'Conta',
-            icon: const Icon(Icons.account_circle_outlined),
-            onPressed: () => mostrarConta(context),
-          ),
-        ],
       ),
       body: StreamBuilder<List<Evento>>(
         stream: banco.observarEventosEntre(_deAplicado, _ateAplicado),

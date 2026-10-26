@@ -5,6 +5,7 @@ import '../../data/api/cliente_api.dart';
 import '../auth/sessao.dart';
 import 'grupo_form_page.dart';
 import 'perfil_form_page.dart';
+import '../nav/acoes_usuario.dart';
 
 /// Administracao de perfis (conjuntos de permissoes) e grupos (perfis + membros).
 class PerfisGruposPage extends ConsumerStatefulWidget {
@@ -79,6 +80,7 @@ class _PerfisGruposPageState extends ConsumerState<PerfisGruposPage> with Single
     return Scaffold(
       appBar: AppBar(
         title: const Text('Perfis e grupos'),
+        actions: const [AcoesUsuario()],
         bottom: TabBar(controller: _abas, tabs: const [
           Tab(key: Key('aba_perfis'), text: 'Perfis'),
           Tab(key: Key('aba_grupos'), text: 'Grupos'),

@@ -8,6 +8,7 @@ import '../auth/sessao.dart';
 import '../auth/validacoes.dart';
 import '../auth/widgets_auth.dart';
 import 'widgets_acesso.dart';
+import '../nav/acoes_usuario.dart';
 
 /// Cadastro e edicao de usuario pelo administrador: dados da pessoa, plano,
 /// perfis e modulos liberados.
@@ -253,6 +254,7 @@ class _UsuarioFormPageState extends ConsumerState<UsuarioFormPage> {
         actions: [
           if (!_novo && sessao.pode('acesso.usuario.editar') && widget.usuarioId != sessao.usuario?.id)
             IconButton(key: const Key('botao_excluir'), tooltip: 'Excluir usuário', icon: const Icon(Icons.delete_outline), onPressed: _excluir),
+          const AcoesUsuario(),
         ],
       ),
       body: _carregando

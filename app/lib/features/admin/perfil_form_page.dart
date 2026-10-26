@@ -5,6 +5,7 @@ import '../../data/api/cliente_api.dart';
 import '../auth/sessao.dart';
 import '../auth/widgets_auth.dart';
 import 'widgets_acesso.dart';
+import '../nav/acoes_usuario.dart';
 
 /// Cria ou edita um perfil: nome, descricao e as permissoes marcadas.
 class PerfilFormPage extends ConsumerStatefulWidget {
@@ -134,6 +135,7 @@ class _PerfilFormPageState extends ConsumerState<PerfilFormPage> {
         actions: [
           if (!_novo && pode && _original != null && !_original!.sistema)
             IconButton(key: const Key('botao_excluir'), tooltip: 'Excluir', icon: const Icon(Icons.delete_outline), onPressed: _excluir),
+          const AcoesUsuario(),
         ],
       ),
       body: _carregando

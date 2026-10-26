@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/api/cliente_api.dart';
 import '../auth/sessao.dart';
 import '../auth/widgets_auth.dart';
+import '../nav/acoes_usuario.dart';
 
 /// Cria ou edita um grupo: nome, perfis que ele concede e membros.
 class GrupoFormPage extends ConsumerStatefulWidget {
@@ -147,6 +148,7 @@ class _GrupoFormPageState extends ConsumerState<GrupoFormPage> {
         actions: [
           if (!_novo && pode)
             IconButton(key: const Key('botao_excluir'), tooltip: 'Excluir', icon: const Icon(Icons.delete_outline), onPressed: _excluir),
+          const AcoesUsuario(),
         ],
       ),
       body: _carregando

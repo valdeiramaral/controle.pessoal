@@ -7,6 +7,7 @@ import '../../data/api/cliente_api.dart';
 import '../auth/sessao.dart';
 import '../auth/widgets_auth.dart';
 import '../nav/modulos_menu.dart';
+import '../nav/acoes_usuario.dart';
 
 /// Cria ou edita um modulo. Ao salvar, o menu lateral se atualiza.
 class ModuloFormPage extends ConsumerStatefulWidget {
@@ -145,6 +146,7 @@ class _ModuloFormPageState extends ConsumerState<ModuloFormPage> {
         actions: [
           if (!_novo && pode && !_sistema)
             IconButton(key: const Key('botao_excluir'), tooltip: 'Excluir', icon: const Icon(Icons.delete_outline), onPressed: _excluir),
+          const AcoesUsuario(),
         ],
       ),
       body: SafeArea(
