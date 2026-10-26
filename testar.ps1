@@ -34,6 +34,36 @@ if ($python -and (Tem "psql") -and (Test-Path $envFile)) {
     Write-Host "PULADO (opcional): este teste precisa de Python, do cliente psql e do banco no ar (.\iniciar.ps1 cria o .env e sobe o banco)." -ForegroundColor Yellow
 }
 
+# ---- API (roda dentro do Docker, entao nao precisa de Node no Windows)
+Write-Host ""
+Write-Host "==> Testes da API (Docker)" -ForegroundColor Cyan
+if ((Tem "docker") -and (Test-Path $envFile)) {
+    $cfgApi = @{}
+    Get-Content $envFile | ForEach-Object {
+        if ($_ -match "^\s*([A-Z_]+)\s*=\s*(.*)$") { $cfgApi[$Matches[1]] = $Matches[2].Trim() }
+    }
+    Push-Location $raiz
+    try {
+        docker compose up -d --wait db
+        if ($LASTEXITCODE -eq 0) {
+            docker compose build api
+        }
+        if ($LASTEXITCODE -eq 0) {
+            $usuarioPg = if ($cfgApi["POSTGRES_USER"]) { $cfgApi["POSTGRES_USER"] } else { "postgres" }
+            docker compose run --rm --no-deps `
+                -v "$($raiz)\banco:/banco:ro" -e SCHEMA_SQL=/banco/schema.sql `
+                -e PGHOST=db -e PGPORT=5432 -e PGUSER=$usuarioPg -e PGPASSWORD=$($cfgApi["POSTGRES_PASSWORD"]) `
+                api node --test | Out-Host
+            if ($LASTEXITCODE -ne 0) { $falhou = $true }
+        } else {
+            $falhou = $true
+            Write-Host "Nao consegui subir o banco ou montar a API no Docker." -ForegroundColor Red
+        }
+    } finally { Pop-Location }
+} else {
+    Write-Host "PULADO (opcional): precisa do Docker Desktop aberto e do arquivo .env (.\iniciar.ps1 cria)." -ForegroundColor Yellow
+}
+
 # ---- App
 Write-Host ""
 Write-Host "==> Testes do app (Flutter)" -ForegroundColor Cyan

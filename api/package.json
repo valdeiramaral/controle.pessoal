@@ -1,0 +1,20 @@
+{
+  "name": "controle-pessoal-api",
+  "version": "0.1.0",
+  "private": true,
+  "description": "API do app de controle pessoal (fase 1: cadastro, login, perfil e administracao de usuarios)",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "start": "node src/servidor.js",
+    "test": "node --test",
+    "promover": "node src/cli/promover.js"
+  },
+  "dependencies": {
+    "@fastify/rate-limit": "^10.0.0",
+    "@node-rs/argon2": "^2.0.0",
+    "fastify": "^5.0.0",
+    "jose": "^6.0.0",
+    "pg": "^8.11.0"
+  }
+}

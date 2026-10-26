@@ -2,4 +2,5 @@
 *.log
 app/build/
 app/.dart_tool/
+api/node_modules/
 ~$*

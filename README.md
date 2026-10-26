@@ -11,12 +11,13 @@ App para controlar finanças, saúde e compromissos no Android e no iOS.
 | `banco/testes/test_schema.py` | 108 testes do esquema (restrições, triggers, ligações entre módulos, isolamento entre usuários, integridade entre usuários) |
 | `instalar-requisitos.bat` | Instala Git, Flutter, Android SDK/emulador e Docker Desktop (uma vez) |
 | `iniciar.ps1`, `parar.ps1`, `testar.ps1` (e `.bat` de duplo clique) | Iniciam, param e testam tudo (ver Início rápido) |
-| `docker-compose.yml`, `.env.example`, `banco/init/` | Banco PostgreSQL local no Docker, criado com o schema e o papel `app_api` |
+| `docker-compose.yml`, `.env.example`, `banco/init/` | Banco PostgreSQL e API no Docker; o banco nasce com o schema e o papel `app_api` |
+| `api/` | API Node.js (fase 1): cadastro, login, perfil `/me` e administração de usuários. Ver a seção API |
 | `app/` | Esqueleto do app Flutter (banco local, 4 telas, lembretes locais, sincronização em esboço) |
 | `contrato-sincronizacao.md` | Contrato entre app e API: ids, tipos, ordem das tabelas, protocolo e regra de conflito |
 | `fontes/diagrama-arquitetura.jsx` | Fonte do diagrama de arquitetura do documento de escopo |
 
-## Estado atual (fase 0, fundação)
+## Estado atual (fase 0 em fechamento, fase 1 iniciada)
 
 **Banco: testado.** O `schema.sql` foi carregado em um PostgreSQL 16 real e passa nos 108 testes de `banco/testes/test_schema.py` (rodado de novo em 20/10/2026, depois das correções da revisão: cursor de sincronização com hora real, e-mail reaproveitável após exclusão, referências entre usuários e lembretes validadas, fuso e moeda validados). Os testes acharam e corrigiram dois defeitos na segurança por linha (erro em conexão reaproveitada e tabela `usuario` sem isolamento).
 
@@ -31,11 +32,14 @@ O que o esqueleto já faz:
 - Banco local com as 14 entidades (valores em centavos, UUID, exclusão lógica).
 - Dois testes do banco em `app/test/`.
 
+**API (fase 1, semana 1): testada.** 22 testes em `api/teste/`, contra um PostgreSQL 16 real, cobrindo cadastro, login, bloqueio após 5 erros, `/me`, permissões e o modo administrador. Os arquivos do Docker (`Dockerfile`, serviço `api` no `docker-compose.yml`) e as mudanças em `iniciar.ps1` e `testar.ps1` ainda não rodaram no Windows com Docker.
+
 O que falta (fases seguintes do roadmap):
 
 - Banco local criptografado (SQLCipher) e biometria.
-- Sincronização com o servidor: `app/lib/data/sync/` é só o esboço, sem rede.
-- Login, cartão de crédito, orçamento, metas, relatórios, indicadores de saúde, documentos.
+- Sincronização com o servidor: `app/lib/data/sync/` é só o esboço, sem rede (regras em `contrato-sincronizacao.md`).
+- Telas de login e cadastro no app, perfis, grupos e liberação de módulos na API (restante da fase 1 e fase 2).
+- Cartão de crédito, orçamento, metas, relatórios, indicadores de saúde, documentos.
 - Sincronização de calendário e integração com Apple Health e Health Connect.
 
 ## Início rápido (Windows)
@@ -74,9 +78,36 @@ O `iniciar.ps1` faz, nesta ordem:
 4. Na primeira vez, gera as pastas `android/` e `ios/` do app e ajusta o Android para os lembretes (permissões, receivers e *core library desugaring*).
 5. Baixa os pacotes, gera o código do banco local (`build_runner`) e abre o app.
 
-**Importante:** hoje o app guarda tudo no banco local do próprio aparelho. O banco PostgreSQL do Docker já sobe e está pronto, mas nada no app se conecta a ele ainda, porque a API e a sincronização não existem (`app/lib/data/sync/` é só um esboço). Quando existir uma API, ela entra como um novo serviço no `docker-compose.yml` e uma nova etapa no `iniciar.ps1`.
+**Importante:** hoje o app guarda tudo no banco local do próprio aparelho. O banco e a API sobem no Docker, mas nada no app se conecta a eles ainda: as telas de login e a sincronização vêm nas próximas fases (`app/lib/data/sync/` é só um esboço).
 
 **O que foi e o que não foi testado:** o `docker-compose.yml` foi validado (`docker compose config`) e a configuração de primeira subida do banco foi simulada em um PostgreSQL real. Os scripts `.ps1` **não foram executados** (não havia Windows, PowerShell, Flutter nem Docker em funcionamento no ambiente onde foram escritos). Se algum passo falhar, a mensagem de erro indica qual; me mande o texto que eu corrijo.
+
+## API (Node.js, fase 1)
+
+Sobe sozinha com o `.\iniciar.ps1` (serviço `api` do Docker) e fica em `http://localhost:3000` (porta `API_PORTA` do `.env`). O `iniciar.ps1` acrescenta o `JWT_SECRET` ao seu `.env` se ele ainda não existir. Teste rápido: abra `http://localhost:3000/saude`.
+
+| Rota | O que faz | Quem pode |
+| --- | --- | --- |
+| `GET /saude` | Confere se a API e o banco estão de pé | Todos |
+| `POST /cadastro` | Cria o usuário (nome, e-mail, senha de 8+ caracteres, país e idioma opcionais). Senha guardada só como hash argon2id | Todos |
+| `POST /login` | Devolve um token válido por 1 hora. 5 erros seguidos bloqueiam a conta por 15 minutos | Todos |
+| `GET /me` | Dados do usuário, licença, módulos liberados e permissões | Logado |
+| `GET /usuarios` | Lista os usuários | Permissão `acesso.usuario.ver` |
+| `PATCH /usuarios/:id` | Ativa ou desativa um usuário (vale na hora, inclusive para o token que ele já tinha) | Permissão `acesso.usuario.editar` |
+
+O primeiro administrador nasce fora da API, com o comando abaixo (depois de cadastrar o usuário):
+
+```powershell
+docker compose exec api node src/cli/promover.js seu-email@exemplo.com
+```
+
+Regras que valem para todo código novo da API:
+
+- Todo acesso a dados de usuário passa por `comUsuario()` (`api/src/db.js`), que define `app.usuario_id` na transação para a segurança por linha do banco valer.
+- O modo administrador (`admin: true`) só é ligado depois de conferir a permissão do usuário logado (`app.exigir('...')`).
+- Nunca montar SQL juntando texto vindo do usuário: sempre parâmetros (`$1`, `$2`).
+
+Ainda não existe: confirmação de e-mail, recuperação de senha, renovação de token, rotas de perfis, grupos e liberação de módulos (restante das fases 1 e 2).
 
 ## Como rodar o app (passo a passo manual)
 
@@ -118,6 +149,14 @@ python3 banco/testes/test_schema.py
 
 ```bash
 cd app && flutter test
+```
+
+**API** (o `.\testar.ps1` faz isso dentro do Docker; sem Docker, precisa de Node 20+ e de um PostgreSQL acessível):
+
+```bash
+cd api && npm install
+export PGHOST=localhost PGUSER=postgres      # ajuste conforme o seu servidor
+npm test
 ```
 
 ## Como criar o banco do servidor (sem Docker)

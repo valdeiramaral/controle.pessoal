@@ -5,7 +5,7 @@
 .DESCRIPTION
   1. Confere os programas (Flutter e Docker).
   2. Cria o arquivo .env com senhas aleatorias (so na primeira vez).
-  3. Sobe o banco PostgreSQL no Docker e espera ele ficar pronto.
+  3. Sobe o banco PostgreSQL e a API no Docker e espera ficarem prontos.
   4. Na primeira vez, gera as pastas android/ e ios/ do app e ajusta as
      permissoes de lembretes do Android.
   5. Baixa os pacotes, gera o codigo do banco local e abre o app.
@@ -14,12 +14,14 @@
   .\iniciar.ps1                              # banco + app (Flutter pergunta o dispositivo)
   .\iniciar.ps1 -Dispositivo emulator-5554   # escolhe o dispositivo
   .\iniciar.ps1 -SemBanco                    # so o app (o app usa banco local no aparelho)
+  .\iniciar.ps1 -SemApi                     # banco e app, sem subir a API
   .\iniciar.ps1 -SoPreparar                  # prepara tudo, mas nao abre o app
   .\iniciar.ps1 -ListarDispositivos          # mostra emuladores e aparelhos
 #>
 param(
     [string]$Dispositivo = "",
     [switch]$SemBanco,
+    [switch]$SemApi,
     [switch]$SoPreparar,
     [switch]$ListarDispositivos
 )
@@ -107,8 +109,16 @@ if (-not (Test-Path $arquivoEnv)) {
     $modelo = Get-Content (Join-Path $raiz ".env.example") -Raw
     $modelo = $modelo.Replace("troque-esta-senha-da-api", (Senha-Aleatoria))
     $modelo = $modelo.Replace("troque-esta-senha", (Senha-Aleatoria))
+    $modelo = $modelo.Replace("troque-este-segredo-da-api", ((Senha-Aleatoria) + (Senha-Aleatoria)))
     Gravar-Texto $arquivoEnv $modelo
     Write-Host ".env criado. Guarde esse arquivo: ele tem as senhas do banco."
+}
+
+# .env criado antes da API existir: acrescenta o segredo que assina os tokens de login.
+if ((Get-Content $arquivoEnv -Raw) -notmatch "(?m)^\s*JWT_SECRET\s*=") {
+    $segredo = (Senha-Aleatoria) + (Senha-Aleatoria)
+    Add-Content -Path $arquivoEnv -Value "`r`n# Segredo que assina os tokens de login da API (minimo 32 caracteres; nao compartilhe).`r`nJWT_SECRET=$segredo"
+    Write-Host "JWT_SECRET acrescentado ao .env."
 }
 
 # ---------------------------------------------------------------- 3. Banco
@@ -121,6 +131,19 @@ if (-not $SemBanco) {
     } finally { Pop-Location }
     if ($bancoOk) {
         Write-Host "Banco pronto em localhost (porta do .env, padrao 5432)."
+        if (-not $SemApi) {
+            Passo "Subindo a API (Docker)"
+            Push-Location $raiz
+            try {
+                docker compose up -d --build --wait api
+                $apiOk = ($LASTEXITCODE -eq 0)
+            } finally { Pop-Location }
+            if ($apiOk) {
+                Write-Host "API pronta em http://localhost:3000 (porta API_PORTA do .env). Teste: http://localhost:3000/saude"
+            } else {
+                Write-Host "AVISO: a API nao subiu. Veja o motivo com: docker compose logs api" -ForegroundColor Yellow
+            }
+        }
     } else {
         Write-Host "AVISO: o banco PostgreSQL nao subiu (o Docker Desktop esta aberto?)." -ForegroundColor Yellow
         Write-Host "O app ainda usa so o banco local do aparelho, entao vou continuar sem ele." -ForegroundColor Yellow
