@@ -9,7 +9,9 @@
     "start": "node src/servidor.js",
     "test": "node --test",
     "promover": "node src/cli/promover.js",
-    "superusuario": "node src/cli/superusuario.js"
+    "superusuario": "node src/cli/superusuario.js",
+    "docs:banco": "node src/cli/docs-banco.js",
+    "docs:api": "node src/cli/docs-api.js"
   },
   "dependencies": {
     "@fastify/rate-limit": "^10.0.0",
