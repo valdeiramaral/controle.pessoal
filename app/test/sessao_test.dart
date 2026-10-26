@@ -78,34 +78,6 @@ void main() {
     expect(c.read(sessaoProvider).fase, FaseSessao.deslogado);
   });
 
-  test('reabrir com sessao valida confirma no servidor', () async {
-    final guarda = ArmazenamentoMemoria()
-      ..valor = SessaoSalva(token: 'tok', usuario: UsuarioApi.deJson(_usuario));
-    final c = _montar((r) async => _json(200, {'usuario': {..._usuario, 'nome': 'Bia Nova'}}), guarda);
-    await _aguardarFim(c);
-    expect(c.read(sessaoProvider).fase, FaseSessao.logado);
-    expect(c.read(sessaoProvider).usuario?.nome, 'Bia Nova');
-  });
-
-  test('reabrir sem internet continua logado com os dados guardados', () async {
-    final guarda = ArmazenamentoMemoria()
-      ..valor = SessaoSalva(token: 'tok', usuario: UsuarioApi.deJson(_usuario));
-    final c = _montar((r) async => throw http.ClientException('sem rede'), guarda);
-    await _aguardarFim(c);
-    expect(c.read(sessaoProvider).fase, FaseSessao.logado);
-    expect(c.read(sessaoProvider).usuario?.nome, 'Bia');
-  });
-
-  test('reabrir com token recusado volta ao login com aviso e apaga a sessao', () async {
-    final guarda = ArmazenamentoMemoria()
-      ..valor = SessaoSalva(token: 'velho', usuario: UsuarioApi.deJson(_usuario));
-    final c = _montar((r) async => _json(401, {'erro': 'nao_autenticado'}), guarda);
-    await _aguardarFim(c);
-    expect(c.read(sessaoProvider).fase, FaseSessao.deslogado);
-    expect(c.read(sessaoProvider).aviso, contains('expirou'));
-    expect(guarda.valor, isNull);
-  });
-
   test('lembrar de mim guarda e-mail e senha; sair apaga so a senha e o token', () async {
     final guarda = ArmazenamentoMemoria();
     final c = _montar((r) async => _json(200, {'token': 'tok', 'expira_em_segundos': 3600, 'usuario': _usuario}), guarda);
@@ -130,35 +102,6 @@ void main() {
     expect(guarda.valor?.senhaLembrada, isNull);
   });
 
-  test('token vencido com senha lembrada: entra sozinho', () async {
-    final guarda = ArmazenamentoMemoria()
-      ..valor = SessaoSalva(
-          token: 'velho', usuario: UsuarioApi.deJson(_usuario), emailLembrado: 'a@b.com', senhaLembrada: 'segredo123');
-    final c = _montar((r) async {
-      if (r.url.path == '/me') return _json(401, {'erro': 'nao_autenticado'});
-      return _json(200, {'token': 'novo', 'expira_em_segundos': 3600, 'usuario': _usuario});
-    }, guarda);
-    await _aguardarFim(c);
-    expect(c.read(sessaoProvider).fase, FaseSessao.logado);
-    expect(c.read(sessaoProvider).token, 'novo');
-    expect(guarda.valor?.token, 'novo');
-  });
-
-  test('token vencido e senha lembrada recusada: volta ao login com o e-mail e esquece a senha', () async {
-    final guarda = ArmazenamentoMemoria()
-      ..valor = SessaoSalva(
-          token: 'velho', usuario: UsuarioApi.deJson(_usuario), emailLembrado: 'a@b.com', senhaLembrada: 'antiga');
-    final c = _montar((r) async {
-      if (r.url.path == '/me') return _json(401, {'erro': 'nao_autenticado'});
-      return _json(401, {'erro': 'credenciais_invalidas'});
-    }, guarda);
-    await _aguardarFim(c);
-    expect(c.read(sessaoProvider).fase, FaseSessao.deslogado);
-    expect(c.read(sessaoProvider).emailLembrado, 'a@b.com');
-    expect(guarda.valor?.senhaLembrada, isNull);
-    expect(guarda.valor?.emailLembrado, 'a@b.com');
-  });
-
   test('apos entrar, o perfil traz plano, modulos e permissoes', () async {
     final c = _montar((r) async {
       if (r.url.path == '/login') {
@@ -179,15 +122,25 @@ void main() {
     expect(s.pode('acesso.usuario.editar'), isFalse);
   });
 
-  test('usar sem conta fica guardado', () async {
-    final guarda = ArmazenamentoMemoria();
-    final c = _montar((r) async => _json(500, {}), guarda);
+  test('ao abrir, o login e obrigatorio mesmo com sessao valida guardada', () async {
+    final guarda = ArmazenamentoMemoria()
+      ..valor = SessaoSalva(
+          token: 'tok', usuario: UsuarioApi.deJson(_usuario), emailLembrado: 'a@b.com', senhaLembrada: 'segredo123');
+    final c = _montar((r) async => _json(200, {'usuario': _usuario}), guarda);
     await _aguardarFim(c);
-    await c.read(sessaoProvider.notifier).continuarSemConta();
-    expect(c.read(sessaoProvider).fase, FaseSessao.local);
+    final s = c.read(sessaoProvider);
+    expect(s.fase, FaseSessao.deslogado);
+    expect(s.token, isNull);
+    expect(s.emailLembrado, 'a@b.com');
+    expect(guarda.valor?.token, isNull);
+    expect(guarda.valor?.senhaLembrada, isNull);
+  });
 
-    final c2 = _montar((r) async => _json(500, {}), guarda);
-    await _aguardarFim(c2);
-    expect(c2.read(sessaoProvider).fase, FaseSessao.local);
+  test('ao abrir sem lembrar de mim, nada fica guardado e vai ao login', () async {
+    final guarda = ArmazenamentoMemoria()..valor = SessaoSalva(token: 'tok', usuario: UsuarioApi.deJson(_usuario));
+    final c = _montar((r) async => _json(200, {'usuario': _usuario}), guarda);
+    await _aguardarFim(c);
+    expect(c.read(sessaoProvider).fase, FaseSessao.deslogado);
+    expect(guarda.valor, isNull);
   });
 }

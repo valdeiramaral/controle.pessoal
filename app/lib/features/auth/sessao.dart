@@ -45,60 +45,19 @@ class SessaoNotifier extends Notifier<EstadoSessao> {
     return const EstadoSessao(FaseSessao.iniciando);
   }
 
-  /// Reabre a sessao guardada. Sem internet, continua logado com os dados guardados
-  /// (o app funciona offline); com token recusado pelo servidor, volta ao login.
+  /// Ao abrir o app, o login e sempre obrigatorio: nenhuma sessao guardada reabre sozinha.
+  /// So o e-mail lembrado (se o usuario pediu) volta preenchido; token e senha guardados sao apagados.
   Future<void> restaurar() async {
     final salva = await _guarda.ler();
-    if (salva == null) {
-      state = const EstadoSessao(FaseSessao.deslogado);
-      return;
-    }
-    final email = salva.emailLembrado;
-    final senha = salva.senhaLembrada;
-    if (salva.local) {
-      state = const EstadoSessao(FaseSessao.local);
-      return;
-    }
-    final token = salva.token;
-    if (token == null || salva.usuario == null) {
-      state = EstadoSessao(FaseSessao.deslogado, emailLembrado: email);
-      return;
-    }
-    try {
-      final p = await _api.eu(token);
-      final u = p.usuario;
-      await _guarda.gravar(SessaoSalva(
-          token: token, expiraEm: salva.expiraEm, usuario: u, emailLembrado: email, senhaLembrada: senha));
-      state = EstadoSessao(FaseSessao.logado, usuario: u, token: token, perfil: p);
-    } on ErroApi catch (e) {
-      if (e.status == 401 || e.status == 403) {
-        // Token vencido: se o usuario pediu para lembrar, entra sozinho.
-        if (email != null && senha != null) {
-          try {
-            await entrar(email, senha, lembrar: true);
-            return;
-          } on ErroApi catch (e2) {
-            if (e2.semConexao) {
-              state = EstadoSessao(FaseSessao.logado,
-                  usuario: salva.usuario, token: token, emailLembrado: email);
-              return;
-            }
-            // Senha mudou ou conta bloqueada: esquece a senha guardada.
-            await _guarda.gravar(SessaoSalva(emailLembrado: email));
-            state = EstadoSessao(FaseSessao.deslogado, aviso: e2.mensagem, emailLembrado: email);
-            return;
-          }
-        }
-        if (email != null) {
-          await _guarda.gravar(SessaoSalva(emailLembrado: email));
-        } else {
-          await _guarda.limpar();
-        }
-        state = EstadoSessao(FaseSessao.deslogado, aviso: e.mensagem, emailLembrado: email);
+    final email = salva?.emailLembrado;
+    if (salva != null) {
+      if (email != null) {
+        await _guarda.gravar(SessaoSalva(emailLembrado: email));
       } else {
-        state = EstadoSessao(FaseSessao.logado, usuario: salva.usuario, token: token);
+        await _guarda.limpar();
       }
     }
+    state = EstadoSessao(FaseSessao.deslogado, emailLembrado: email);
   }
 
   /// Lanca [ErroApi] em caso de falha (a tela mostra a mensagem).
@@ -172,11 +131,6 @@ class SessaoNotifier extends Notifier<EstadoSessao> {
     await _api.cadastrar(
         nome: nome, email: email, senha: senha, cpf: cpf, telefone: telefone, nascimento: nascimento, endereco: endereco);
     await entrar(email, senha, lembrar: lembrar);
-  }
-
-  Future<void> continuarSemConta() async {
-    await _guarda.gravar(const SessaoSalva(local: true));
-    state = const EstadoSessao(FaseSessao.local);
   }
 
   /// Busca de novo os dados e permissoes da conta (GET /me). Devolve a mensagem de erro, ou null se deu certo.

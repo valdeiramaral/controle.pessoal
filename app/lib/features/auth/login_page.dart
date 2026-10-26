@@ -71,12 +71,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     final mensagem = _erro ?? aviso;
     final largo = MediaQuery.sizeOf(context).width >= 820;
     final formulario = _formulario(context, tema, mensagem);
-    final semConta = TextButton.icon(
-      style: TextButton.styleFrom(foregroundColor: Colors.white70),
-      onPressed: _enviando ? null : () => ref.read(sessaoProvider.notifier).continuarSemConta(),
-      icon: const Icon(Icons.phone_android, size: 18),
-      label: const Text('Usar sem conta neste aparelho'),
-    );
     return Scaffold(
       body: FundoAuth(
         larguraMax: largo ? 940 : 440,
@@ -112,8 +106,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
               const SizedBox(height: 24),
               CartaoAuth(filho: formulario),
             ],
-            const SizedBox(height: 14),
-            Align(child: semConta),
           ],
         ),
       ),
