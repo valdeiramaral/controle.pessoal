@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/documentos.dart';
 import '../../data/api/cliente_api.dart';
+import 'campos_pessoa.dart';
 import 'sessao.dart';
 import 'validacoes.dart';
 import 'widgets_auth.dart';
@@ -15,8 +17,7 @@ class CadastroPage extends ConsumerStatefulWidget {
 
 class _CadastroPageState extends ConsumerState<CadastroPage> {
   final _form = GlobalKey<FormState>();
-  final _nome = TextEditingController();
-  final _email = TextEditingController();
+  final _d = DadosPessoaisControladores();
   final _senha = TextEditingController();
   final _confirma = TextEditingController();
   bool _ver = false;
@@ -25,8 +26,7 @@ class _CadastroPageState extends ConsumerState<CadastroPage> {
 
   @override
   void dispose() {
-    _nome.dispose();
-    _email.dispose();
+    _d.dispose();
     _senha.dispose();
     _confirma.dispose();
     super.dispose();
@@ -39,7 +39,17 @@ class _CadastroPageState extends ConsumerState<CadastroPage> {
       _erro = null;
     });
     try {
-      await ref.read(sessaoProvider.notifier).cadastrar(_nome.text, _email.text, _senha.text, lembrar: true);
+      final endereco = _d.enderecoJson()..removeWhere((_, v) => v == null);
+      await ref.read(sessaoProvider.notifier).cadastrar(
+            _d.nome.text,
+            _d.email.text,
+            _senha.text,
+            cpf: soDigitos(_d.cpf.text),
+            telefone: soDigitos(_d.telefone.text),
+            nascimento: _d.nascimentoIso(),
+            endereco: endereco,
+            lembrar: true,
+          );
       // Conta criada e login feito: volta ao portao, que mostra a tela principal.
       if (mounted) Navigator.of(context).popUntil((r) => r.isFirst);
     } on ErroApi catch (e) {
@@ -86,25 +96,13 @@ class _CadastroPageState extends ConsumerState<CadastroPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    TextFormField(
-                      key: const Key('campo_nome'),
-                      controller: _nome,
-                      textCapitalization: TextCapitalization.words,
-                      autofillHints: const [AutofillHints.name],
-                      textInputAction: TextInputAction.next,
-                      decoration: decoracaoCampo(context, 'Nome', Icons.person_outline),
-                      validator: validarNome,
-                    ),
+                    campoNome(context, _d),
                     const SizedBox(height: 14),
-                    TextFormField(
-                      key: const Key('campo_email'),
-                      controller: _email,
-                      keyboardType: TextInputType.emailAddress,
-                      autofillHints: const [AutofillHints.email],
-                      textInputAction: TextInputAction.next,
-                      decoration: decoracaoCampo(context, 'E-mail', Icons.mail_outline),
-                      validator: validarEmail,
-                    ),
+                    campoEmail(context, _d),
+                    const SizedBox(height: 14),
+                    campoCpf(context, _d),
+                    const SizedBox(height: 14),
+                    campoTelefone(context, _d),
                     const SizedBox(height: 14),
                     TextFormField(
                       key: const Key('campo_senha'),
@@ -126,6 +124,8 @@ class _CadastroPageState extends ConsumerState<CadastroPage> {
                       decoration: decoracaoCampo(context, 'Repita a senha', Icons.lock_reset_outlined),
                       validator: (v) => v == _senha.text ? null : 'As senhas não são iguais.',
                     ),
+                    const SizedBox(height: 6),
+                    SecaoOpcional(c: _d),
                     if (_erro != null) ...[
                       const SizedBox(height: 14),
                       CaixaMensagem(texto: _erro!),

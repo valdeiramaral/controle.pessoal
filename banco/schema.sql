@@ -69,6 +69,21 @@ INSERT INTO pais (codigo, nome, idioma_padrao, moeda_padrao, fuso_padrao) VALUES
   ('AR', 'Argentina',      'es',    'ARS', 'America/Argentina/Buenos_Aires');
 
 -- ---------- 1. Usuario ----------
+-- CPF valido? Recebe so os 11 digitos (a API tira pontos e traco antes).
+-- Confere os dois digitos verificadores e recusa sequencias como 111.111.111-11.
+CREATE FUNCTION cpf_valido(c text) RETURNS boolean
+LANGUAGE plpgsql IMMUTABLE AS $$
+DECLARE s int := 0; d1 int; d2 int; i int;
+BEGIN
+  IF c IS NULL OR c !~ '^[0-9]{11}$' OR c ~ '^(.)\1{10}$' THEN RETURN false; END IF;
+  FOR i IN 1..9 LOOP s := s + substr(c, i, 1)::int * (11 - i); END LOOP;
+  d1 := (s * 10) % 11; IF d1 = 10 THEN d1 := 0; END IF;
+  s := 0;
+  FOR i IN 1..10 LOOP s := s + substr(c, i, 1)::int * (12 - i); END LOOP;
+  d2 := (s * 10) % 11; IF d2 = 10 THEN d2 := 0; END IF;
+  RETURN d1 = substr(c, 10, 1)::int AND d2 = substr(c, 11, 1)::int;
+END $$;
+
 -- Login por e-mail e senha. A senha NUNCA fica aqui em texto: so o hash
 -- (argon2id ou bcrypt, gerado pela API). O e-mail e gravado em minusculas.
 CREATE TABLE usuario (
@@ -81,6 +96,17 @@ CREATE TABLE usuario (
   fuso_horario        text NOT NULL DEFAULT 'America/Sao_Paulo',
   moeda_padrao        char(3) NOT NULL DEFAULT 'BRL',
   preferencias        jsonb NOT NULL DEFAULT '{}'::jsonb,
+  -- Dados da pessoa (so digitos em cpf, telefone e cep; a API normaliza).
+  cpf                 text,
+  telefone            text,
+  data_nascimento     date,
+  cep                 text,
+  logradouro          text,
+  numero              text,
+  complemento         text,
+  bairro              text,
+  cidade              text,
+  uf                  char(2),
   ativo               boolean NOT NULL DEFAULT true,
   email_verificado_em timestamptz,
   tentativas_login    integer NOT NULL DEFAULT 0,
@@ -89,12 +115,20 @@ CREATE TABLE usuario (
   criado_em           timestamptz NOT NULL DEFAULT now(),
   atualizado_em       timestamptz NOT NULL DEFAULT now(),
   excluido_em         timestamptz,
-  CONSTRAINT ck_usuario_email CHECK (email = lower(email) AND email ~ '^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$')
+  CONSTRAINT ck_usuario_email CHECK (email = lower(email) AND email ~ '^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$'),
+  CONSTRAINT ck_usuario_cpf CHECK (cpf IS NULL OR cpf_valido(cpf)),
+  CONSTRAINT ck_usuario_telefone CHECK (telefone IS NULL OR telefone ~ '^[0-9]{10,13}$'),
+  CONSTRAINT ck_usuario_nascimento CHECK (data_nascimento IS NULL
+    OR (data_nascimento >= DATE '1900-01-01' AND data_nascimento <= current_date)),
+  CONSTRAINT ck_usuario_cep CHECK (cep IS NULL OR cep ~ '^[0-9]{8}$'),
+  CONSTRAINT ck_usuario_uf CHECK (uf IS NULL OR uf ~ '^[A-Z]{2}$')
 );
 
 -- E-mail unico apenas entre usuarios nao excluidos: quem apagou a conta pode
 -- se cadastrar de novo com o mesmo e-mail.
 CREATE UNIQUE INDEX ux_usuario_email ON usuario (email) WHERE excluido_em IS NULL;
+-- CPF tambem unico entre os nao excluidos (uma conta por pessoa).
+CREATE UNIQUE INDEX ux_usuario_cpf ON usuario (cpf) WHERE cpf IS NOT NULL AND excluido_em IS NULL;
 
 -- ---------- 2. Conta ----------
 CREATE TABLE conta (
@@ -665,7 +699,9 @@ $$;
 -- Cadastro de usuario novo: cria o usuario com o perfil "usuario" e a
 -- licenca gratuita. Pais e idioma em branco usam os padroes do pais.
 CREATE FUNCTION cadastrar_usuario(p_nome text, p_email text, p_senha_hash text,
-                                  p_pais text DEFAULT 'BR', p_idioma text DEFAULT NULL)
+                                  p_pais text DEFAULT 'BR', p_idioma text DEFAULT NULL,
+                                  p_cpf text DEFAULT NULL, p_telefone text DEFAULT NULL,
+                                  p_nascimento date DEFAULT NULL, p_endereco jsonb DEFAULT NULL)
 RETURNS uuid
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = controle, public AS $$
 DECLARE
@@ -683,9 +719,17 @@ BEGIN
     RAISE EXCEPTION 'senha_hash ausente: a API deve enviar o hash da senha';
   END IF;
 
-  INSERT INTO usuario (nome, email, senha_hash, pais, idioma, fuso_horario, moeda_padrao)
+  -- p_endereco: {"cep","logradouro","numero","complemento","bairro","cidade","uf"} (todos opcionais)
+  INSERT INTO usuario (nome, email, senha_hash, pais, idioma, fuso_horario, moeda_padrao,
+                       cpf, telefone, data_nascimento,
+                       cep, logradouro, numero, complemento, bairro, cidade, uf)
   VALUES (btrim(p_nome), lower(btrim(p_email)), p_senha_hash, v_pais.codigo, v_idioma,
-          v_pais.fuso_padrao, v_pais.moeda_padrao)
+          v_pais.fuso_padrao, v_pais.moeda_padrao,
+          nullif(p_cpf, ''), nullif(p_telefone, ''), p_nascimento,
+          nullif(p_endereco->>'cep', ''), nullif(p_endereco->>'logradouro', ''),
+          nullif(p_endereco->>'numero', ''), nullif(p_endereco->>'complemento', ''),
+          nullif(p_endereco->>'bairro', ''), nullif(p_endereco->>'cidade', ''),
+          nullif(upper(p_endereco->>'uf'), ''))
   RETURNING id INTO v_id;
 
   INSERT INTO usuario_perfil (usuario_id, perfil_id)
@@ -698,7 +742,8 @@ END $$;
 -- Execucao so para quem a API usa (o script de papel concede ao app_api).
 REVOKE ALL ON FUNCTION tem_acesso(uuid), modulo_liberado(uuid, text),
   permissoes_do_usuario(uuid), modulos_do_usuario(uuid), buscar_login(text),
-  registrar_login(uuid, boolean), cadastrar_usuario(text, text, text, text, text)
+  registrar_login(uuid, boolean),
+  cadastrar_usuario(text, text, text, text, text, text, text, date, jsonb)
   FROM PUBLIC;
 
 -- ---------- Triggers de atualizado_em ----------

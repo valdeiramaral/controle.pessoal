@@ -23,8 +23,22 @@ const patch = (url, payload, token) => app.inject({
   method: 'PATCH', url, payload, headers: { authorization: `Bearer ${token}` },
 });
 
+// CPF valido e diferente a cada chamada (numero base sequencial + 2 digitos verificadores).
+let seqCpf = 100000000;
+function cpfNovo() {
+  const d = String(++seqCpf).padStart(9, '0').split('').map(Number);
+  const dv = (n) => {
+    const s = d.slice(0, n).reduce((a, x, i) => a + x * (n + 1 - i), 0);
+    const r = (s * 10) % 11;
+    return r === 10 ? 0 : r;
+  };
+  d.push(dv(9)); d.push(dv(10));
+  return d.join('');
+}
+const pessoa = () => ({ cpf: cpfNovo(), telefone: '(11) 98765-4321' });
+
 async function cadastrar(email, extra = {}) {
-  const r = await post('/cadastro', { nome: 'Pessoa Teste', email, senha: SENHA, ...extra });
+  const r = await post('/cadastro', { nome: 'Pessoa Teste', email, senha: SENHA, ...pessoa(), ...extra });
   assert.equal(r.statusCode, 201, r.body);
   return r.json().id;
 }
@@ -93,13 +107,13 @@ describe('cadastro', () => {
   });
 
   it('recusa e-mail repetido (mesmo com maiusculas) com 409', async () => {
-    const r = await post('/cadastro', { nome: 'X', email: 'ANA@exemplo.com', senha: SENHA });
+    const r = await post('/cadastro', { nome: 'X', email: 'ANA@exemplo.com', senha: SENHA, ...pessoa() });
     assert.equal(r.statusCode, 409);
     assert.equal(r.json().erro, 'email_ja_cadastrado');
   });
 
   it('recusa e-mail invalido, senha curta, nome vazio e campo desconhecido', async () => {
-    const base = { nome: 'X', email: 'x@exemplo.com', senha: SENHA };
+    const base = { nome: 'X', email: 'x@exemplo.com', senha: SENHA, ...pessoa() };
     assert.equal((await post('/cadastro', { ...base, email: 'sem-arroba' })).json().erro, 'email_invalido');
     assert.equal((await post('/cadastro', { ...base, senha: '1234567' })).statusCode, 400);
     assert.equal((await post('/cadastro', { ...base, nome: '   ' })).statusCode, 400);
@@ -107,7 +121,7 @@ describe('cadastro', () => {
   });
 
   it('recusa pais inexistente', async () => {
-    const r = await post('/cadastro', { nome: 'X', email: 'pais@exemplo.com', senha: SENHA, pais: 'ZZ' });
+    const r = await post('/cadastro', { nome: 'X', email: 'pais@exemplo.com', senha: SENHA, pais: 'ZZ', ...pessoa() });
     assert.equal(r.statusCode, 400);
   });
 
@@ -117,6 +131,85 @@ describe('cadastro', () => {
     assert.equal(me.usuario.idioma, 'pt-PT');
     assert.equal(me.usuario.moeda_padrao, 'EUR');
     assert.equal(me.usuario.fuso_horario, 'Europe/Lisbon');
+  });
+});
+
+describe('cadastro: dados da pessoa', () => {
+  const base = () => ({ nome: 'Cida', email: `cida${Math.random().toString(36).slice(2)}@exemplo.com`, senha: SENHA });
+
+  it('CPF e telefone sao obrigatorios', async () => {
+    const semCpf = await post('/cadastro', { ...base(), telefone: '11987654321' });
+    assert.equal(semCpf.statusCode, 400);
+    const semTel = await post('/cadastro', { ...base(), cpf: cpfNovo() });
+    assert.equal(semTel.statusCode, 400);
+  });
+
+  it('CPF invalido e recusado com o campo no erro', async () => {
+    const r = await post('/cadastro', { ...base(), cpf: '529.982.247-24', telefone: '11987654321' });
+    assert.equal(r.statusCode, 400);
+    assert.equal(r.json().campo, 'cpf');
+    const igual = await post('/cadastro', { ...base(), cpf: '111.111.111-11', telefone: '11987654321' });
+    assert.equal(igual.json().campo, 'cpf');
+  });
+
+  it('telefone fora do formato e recusado', async () => {
+    const r = await post('/cadastro', { ...base(), cpf: cpfNovo(), telefone: '1234' });
+    assert.equal(r.statusCode, 400);
+    assert.equal(r.json().campo, 'telefone');
+  });
+
+  it('aceita CPF e telefone com mascara, guarda so os digitos, e CPF repetido da 409', async () => {
+    const r = await post('/cadastro', { ...base(), cpf: '529.982.247-25', telefone: '(11) 98765-4321' });
+    assert.equal(r.statusCode, 201, r.body);
+    const { rows } = await su.query('SELECT cpf, telefone FROM controle.usuario WHERE id = $1', [r.json().id]);
+    assert.deepEqual(rows[0], { cpf: '52998224725', telefone: '11987654321' });
+
+    const dup = await post('/cadastro', { ...base(), cpf: '52998224725', telefone: '11987654321' });
+    assert.equal(dup.statusCode, 409);
+    assert.equal(dup.json().erro, 'cpf_ja_cadastrado');
+  });
+
+  it('guarda nascimento e endereco completo e devolve em /me', async () => {
+    const email = 'endereco@exemplo.com';
+    await cadastrar(email, {
+      nascimento: '1990-05-17',
+      endereco: { cep: '01310-100', logradouro: 'Av. Paulista', numero: '1000', complemento: 'Sala 2',
+        bairro: 'Bela Vista', cidade: 'Sao Paulo', uf: 'sp' },
+    });
+    const me = (await get('/me', await entrar(email))).json().usuario;
+    assert.equal(me.nascimento, '1990-05-17');
+    assert.deepEqual(me.endereco, { cep: '01310100', logradouro: 'Av. Paulista', numero: '1000',
+      complemento: 'Sala 2', bairro: 'Bela Vista', cidade: 'Sao Paulo', uf: 'SP' });
+    assert.equal(me.telefone, '11987654321');
+    assert.equal(me.cpf.length, 11);
+  });
+
+  it('recusa nascimento no futuro, CEP e UF invalidos', async () => {
+    const f = await post('/cadastro', { ...base(), ...pessoa(), nascimento: '2999-01-01' });
+    assert.equal(f.json().campo, 'nascimento');
+    const cep = await post('/cadastro', { ...base(), ...pessoa(), endereco: { cep: '123' } });
+    assert.equal(cep.json().campo, 'cep');
+    const uf = await post('/cadastro', { ...base(), ...pessoa(), endereco: { uf: 'XX' } });
+    assert.equal(uf.json().campo, 'uf');
+  });
+});
+
+describe('PATCH /me (o proprio usuario)', () => {
+  it('atualiza telefone e endereco, mas nao CPF nem e-mail', async () => {
+    const email = 'perfil@exemplo.com';
+    await cadastrar(email);
+    const token = await entrar(email);
+    const ok = await app.inject({ method: 'PATCH', url: '/me', headers: { authorization: `Bearer ${token}` },
+      payload: { telefone: '21 3333-4444', endereco: { cidade: 'Rio de Janeiro', uf: 'rj' } } });
+    assert.equal(ok.statusCode, 200, ok.body);
+    assert.equal(ok.json().usuario.telefone, '2133334444');
+    assert.equal(ok.json().usuario.endereco.uf, 'RJ');
+
+    for (const proibido of [{ cpf: '52998224725' }, { email: 'outro@exemplo.com' }, { ativo: false }]) {
+      const r = await app.inject({ method: 'PATCH', url: '/me', headers: { authorization: `Bearer ${token}` }, payload: proibido });
+      assert.equal(r.statusCode, 400, JSON.stringify(proibido));
+    }
+    assert.equal((await app.inject({ method: 'PATCH', url: '/me', payload: { telefone: '11987654321' } })).statusCode, 401);
   });
 });
 
@@ -280,6 +373,140 @@ describe('administracao de usuarios', () => {
     assert.equal((await patch(`/usuarios/${idAdmin}`, { ativo: false }, tokenAdmin)).statusCode, 400);
     assert.equal((await patch('/usuarios/nao-e-uuid', { ativo: false }, tokenAdmin)).statusCode, 400);
     assert.equal((await patch('/usuarios/11111111-1111-1111-1111-111111111111', { ativo: false }, tokenAdmin)).statusCode, 404);
+  });
+
+  const put = (url, payload, token) => app.inject({
+    method: 'PUT', url, payload, headers: { authorization: `Bearer ${token}` } });
+
+  it('GET /usuarios/:id traz dados, plano, perfis e modulos; usuario comum recebe 403', async () => {
+    assert.equal((await get(`/usuarios/${idComum}`, tokenComum)).statusCode, 403);
+    const r = await get(`/usuarios/${idComum}`, tokenAdmin);
+    assert.equal(r.statusCode, 200);
+    const j = r.json();
+    assert.equal(j.usuario.email, 'comum@exemplo.com');
+    assert.equal(j.usuario.cpf.length, 11);
+    assert.equal(j.licenca.plano, 'gratuito');
+    assert.deepEqual(j.perfis, ['usuario']);
+    const fin = j.modulos.find((m) => m.codigo === 'financas');
+    assert.equal(fin.liberacao, 'padrao');
+    assert.equal(fin.efetivo, true);
+    assert.equal((await get('/usuarios/11111111-1111-1111-1111-111111111111', tokenAdmin)).statusCode, 404);
+  });
+
+  it('busca por nome, e-mail ou CPF', async () => {
+    const cpf = (await get(`/usuarios/${idComum}`, tokenAdmin)).json().usuario.cpf;
+    const porEmail = (await get('/usuarios?busca=comum@', tokenAdmin)).json();
+    assert.equal(porEmail.total, 1);
+    const porCpf = (await get(`/usuarios?busca=${cpf.slice(0, 6)}`, tokenAdmin)).json();
+    assert.ok(porCpf.itens.some((u) => u.id === idComum));
+    assert.equal((await get('/usuarios?busca=zzzz-nao-existe', tokenAdmin)).json().total, 0);
+  });
+
+  it('GET /catalogo lista planos, modulos e perfis', async () => {
+    assert.equal((await get('/catalogo', tokenComum)).statusCode, 403);
+    const j = (await get('/catalogo', tokenAdmin)).json();
+    assert.deepEqual(j.planos.map((p) => p.codigo).sort(), ['anual', 'gratuito', 'mensal', 'vitalicio']);
+    assert.ok(j.modulos.some((m) => m.codigo === 'saude'));
+    assert.ok(j.perfis.some((p) => p.codigo === 'administrador'));
+  });
+
+  it('administrador bloqueia e libera modulos de UM usuario, e isso vale em /me', async () => {
+    const r = await put(`/usuarios/${idComum}/modulos`, { modulos: { saude: false } }, tokenAdmin);
+    assert.equal(r.statusCode, 200, r.body);
+    const saude = r.json().modulos.find((m) => m.codigo === 'saude');
+    assert.equal(saude.liberacao, 'bloqueado');
+    assert.equal(saude.efetivo, false);
+    const me = (await get('/me', tokenComum)).json();
+    assert.ok(!me.modulos.includes('saude'));
+    assert.ok(me.modulos.includes('financas'));
+
+    // volta ao padrao do plano
+    const volta = await put(`/usuarios/${idComum}/modulos`, { modulos: { saude: null } }, tokenAdmin);
+    assert.equal(volta.json().modulos.find((m) => m.codigo === 'saude').efetivo, true);
+    assert.ok((await get('/me', tokenComum)).json().modulos.includes('saude'));
+
+    assert.equal((await put(`/usuarios/${idComum}/modulos`, { modulos: { saude: false } }, tokenComum)).statusCode, 403);
+    assert.equal((await put(`/usuarios/${idComum}/modulos`, { modulos: { modulo_falso: true } }, tokenAdmin)).statusCode, 400);
+    await put(`/usuarios/${idComum}/modulos`, { modulos: { saude: null } }, tokenAdmin);
+  });
+
+  it('administrador troca o plano; a licenca antiga e cancelada', async () => {
+    const r = await put(`/usuarios/${idComum}/plano`, { plano: 'anual' }, tokenAdmin);
+    assert.equal(r.statusCode, 200, r.body);
+    assert.equal(r.json().licenca.plano, 'anual');
+    assert.equal(r.json().licenca.origem, 'cortesia');
+    const { rows } = await su.query(
+      "SELECT plano_codigo, status FROM controle.licenca WHERE usuario_id = $1 ORDER BY criado_em, plano_codigo", [idComum]);
+    assert.ok(rows.some((l) => l.plano_codigo === 'gratuito' && l.status === 'cancelada'));
+    assert.equal(rows.filter((l) => l.status === 'ativa').length, 1);
+
+    assert.equal((await put(`/usuarios/${idComum}/plano`, { plano: 'anual' }, tokenComum)).statusCode, 403);
+    assert.equal((await put(`/usuarios/${idComum}/plano`, { plano: 'inexistente' }, tokenAdmin)).statusCode, 400);
+    await put(`/usuarios/${idComum}/plano`, { plano: 'gratuito' }, tokenAdmin);
+  });
+
+  it('administrador troca os perfis e nao tira o proprio perfil de administrador', async () => {
+    const r = await put(`/usuarios/${idComum}/perfis`, { perfis: ['leitura'] }, tokenAdmin);
+    assert.equal(r.statusCode, 200, r.body);
+    assert.deepEqual(r.json().perfis, ['leitura']);
+    const me = (await get('/me', tokenComum)).json();
+    assert.ok(!me.permissoes.includes('financas.lancamento.editar'));
+    assert.ok(me.permissoes.includes('financas.lancamento.ver'));
+
+    assert.equal((await put(`/usuarios/${idComum}/perfis`, { perfis: ['perfil-falso'] }, tokenAdmin)).statusCode, 400);
+    assert.equal((await put(`/usuarios/${idComum}/perfis`, { perfis: [] }, tokenAdmin)).statusCode, 400);
+    const idAdmin = (await su.query("SELECT id FROM controle.usuario WHERE email = 'admin@exemplo.com'")).rows[0].id;
+    const sozinho = await put(`/usuarios/${idAdmin}/perfis`, { perfis: ['usuario'] }, tokenAdmin);
+    assert.equal(sozinho.statusCode, 400);
+    await put(`/usuarios/${idComum}/perfis`, { perfis: ['usuario'] }, tokenAdmin);
+  });
+
+  it('administrador cadastra um usuario ja com plano, perfil e modulos liberados', async () => {
+    const r = await app.inject({
+      method: 'POST', url: '/usuarios', headers: { authorization: `Bearer ${tokenAdmin}` },
+      payload: {
+        nome: 'Davi Novo', email: 'davi@exemplo.com', senha: SENHA, ...pessoa(),
+        nascimento: '1985-03-02', endereco: { cidade: 'Curitiba', uf: 'PR' },
+        plano: 'mensal', perfis: ['usuario'], modulos: { saude: false, painel: true },
+      },
+    });
+    assert.equal(r.statusCode, 201, r.body);
+    const j = r.json();
+    assert.equal(j.licenca.plano, 'mensal');
+    assert.deepEqual(j.perfis, ['usuario']);
+    assert.equal(j.modulos.find((m) => m.codigo === 'saude').efetivo, false);
+    assert.equal(j.modulos.find((m) => m.codigo === 'painel').liberacao, 'liberado');
+    assert.equal(j.usuario.endereco.cidade, 'Curitiba');
+
+    // o novo usuario ja consegue entrar e so ve os modulos liberados
+    const me = (await get('/me', await entrar('davi@exemplo.com'))).json();
+    assert.ok(me.modulos.includes('financas'));
+    assert.ok(!me.modulos.includes('saude'));
+  });
+
+  it('cadastro pelo administrador: CPF repetido da 409 e usuario comum recebe 403', async () => {
+    const cpf = (await get(`/usuarios/${idComum}`, tokenAdmin)).json().usuario.cpf;
+    const dup = await app.inject({ method: 'POST', url: '/usuarios', headers: { authorization: `Bearer ${tokenAdmin}` },
+      payload: { nome: 'Eva', email: 'eva@exemplo.com', senha: SENHA, cpf, telefone: '11987654321' } });
+    assert.equal(dup.statusCode, 409);
+    assert.equal(dup.json().erro, 'cpf_ja_cadastrado');
+    const negado = await app.inject({ method: 'POST', url: '/usuarios', headers: { authorization: `Bearer ${tokenComum}` },
+      payload: { nome: 'Eva', email: 'eva@exemplo.com', senha: SENHA, ...pessoa() } });
+    assert.equal(negado.statusCode, 403);
+  });
+
+  it('administrador edita os dados pessoais de outro usuario (inclusive CPF)', async () => {
+    const novoCpf = cpfNovo();
+    const r = await patch(`/usuarios/${idComum}`, { nome: 'Comum Editado', cpf: novoCpf, telefone: '31 99999-0000',
+      endereco: { cidade: 'Belo Horizonte', uf: 'MG' } }, tokenAdmin);
+    assert.equal(r.statusCode, 200, r.body);
+    const d = (await get(`/usuarios/${idComum}`, tokenAdmin)).json().usuario;
+    assert.equal(d.nome, 'Comum Editado');
+    assert.equal(d.cpf, novoCpf);
+    assert.equal(d.telefone, '31999990000');
+    assert.equal(d.endereco.uf, 'MG');
+    const ruim = await patch(`/usuarios/${idComum}`, { cpf: '123' }, tokenAdmin);
+    assert.equal(ruim.statusCode, 400);
   });
 
   it('promover avisa quando o usuario ou o perfil nao existem', async () => {

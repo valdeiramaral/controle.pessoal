@@ -70,9 +70,98 @@ void main() {
         visto = r;
         return _json(200, {'usuario': {'id': 'u1', 'nome': 'Bia', 'email': 'a@b.com'}});
       });
-      final u = await api.eu('tok');
+      final p = await api.eu('tok');
       expect(visto.headers['authorization'], 'Bearer tok');
-      expect(u.email, 'a@b.com');
+      expect(p.usuario.email, 'a@b.com');
+      expect(p.pode('acesso.usuario.ver'), isFalse);
+    });
+
+    test('GET /me traz dados pessoais, plano, modulos e permissoes', () async {
+      final api = _api((r) async => _json(200, {
+            'usuario': {
+              'id': 'u1', 'nome': 'Bia', 'email': 'a@b.com', 'cpf': '52998224725', 'telefone': '11987654321',
+              'nascimento': '1990-05-17',
+              'endereco': {'cep': '01310100', 'cidade': 'Sao Paulo', 'uf': 'SP'},
+            },
+            'licenca': {'plano': 'anual'},
+            'modulos': ['financas', 'saude'],
+            'permissoes': ['acesso.usuario.ver'],
+          }));
+      final p = await api.eu('tok');
+      expect(p.usuario.cpf, '52998224725');
+      expect(p.usuario.endereco.uf, 'SP');
+      expect(p.usuario.nascimento, '1990-05-17');
+      expect(p.plano, 'anual');
+      expect(p.modulos, ['financas', 'saude']);
+      expect(p.pode('acesso.usuario.ver'), isTrue);
+    });
+
+    test('cadastro envia CPF, telefone e endereco; CPF repetido tem mensagem propria', () async {
+      late http.Request visto;
+      final api = _api((r) async {
+        visto = r;
+        return _json(409, {'erro': 'cpf_ja_cadastrado'});
+      });
+      final e = await _erroDe(() => api.cadastrar(
+            nome: 'Bia', email: 'a@b.com', senha: '12345678', cpf: '52998224725', telefone: '11987654321',
+            nascimento: '1990-05-17', endereco: {'cidade': 'Sao Paulo'}));
+      expect(e.mensagem, 'Já existe uma conta com este CPF.');
+      final corpo = jsonDecode(visto.body) as Map<String, dynamic>;
+      expect(corpo['cpf'], '52998224725');
+      expect(corpo['telefone'], '11987654321');
+      expect(corpo['nascimento'], '1990-05-17');
+      expect(corpo['endereco'], {'cidade': 'Sao Paulo'});
+    });
+
+    test('erro de campo da API (dados_invalidos) mostra o texto e o campo', () async {
+      final api = _api((r) async => _json(400, {'erro': 'dados_invalidos', 'campo': 'cpf', 'detalhe': 'CPF inválido.'}));
+      final e = await _erroDe(() => api.cadastrar(
+          nome: 'Bia', email: 'a@b.com', senha: '12345678', cpf: '1', telefone: '11987654321'));
+      expect(e.campo, 'cpf');
+      expect(e.mensagem, 'CPF inválido.');
+    });
+
+    test('administracao: catalogo, lista, detalhe, plano, modulos e perfis', () async {
+      final pedidos = <String>[];
+      final api = _api((r) async {
+        pedidos.add('${r.method} ${r.url.path}${r.url.hasQuery ? '?${r.url.query}' : ''} ${r.body}');
+        if (r.url.path == '/catalogo') {
+          return _json(200, {
+            'planos': [{'codigo': 'gratuito', 'nome': 'Gratuito'}],
+            'modulos': [{'codigo': 'saude', 'nome': 'Saúde'}],
+            'perfis': [{'codigo': 'usuario', 'nome': 'Usuário'}],
+          });
+        }
+        if (r.url.path == '/usuarios' && r.method == 'GET') {
+          return _json(200, {'total': 1, 'itens': [{'id': 'u1', 'nome': 'Ana', 'email': 'a@x.com', 'plano': 'anual', 'ativo': true}]});
+        }
+        return _json(200, {
+          'usuario': {'id': 'u1', 'nome': 'Ana', 'email': 'a@x.com', 'ativo': true},
+          'licenca': {'plano': 'anual'},
+          'perfis': ['usuario'],
+          'modulos': [{'codigo': 'saude', 'nome': 'Saúde', 'liberacao': 'bloqueado', 'efetivo': false}],
+        });
+      });
+      expect((await api.catalogo('t')).modulos.single.nome, 'Saúde');
+      final lista = await api.listarUsuarios('t', busca: 'ana lima');
+      expect(lista.itens.single.plano, 'anual');
+      final d = await api.detalheUsuario('t', 'u1');
+      expect(d.modulos.single.liberacao, 'bloqueado');
+      expect(d.plano, 'anual');
+      await api.definirPlano('t', 'u1', 'mensal');
+      await api.definirModulos('t', 'u1', {'saude': null, 'agenda': true});
+      await api.definirPerfis('t', 'u1', ['leitura']);
+      expect(pedidos[1], contains('GET /usuarios?'));
+      expect(pedidos[1], contains('busca=ana+lima'));
+      expect(pedidos[3], 'PUT /usuarios/u1/plano {"plano":"mensal"}');
+      expect(pedidos[4], 'PUT /usuarios/u1/modulos {"modulos":{"saude":null,"agenda":true}}');
+      expect(pedidos[5], 'PUT /usuarios/u1/perfis {"perfis":["leitura"]}');
+    });
+
+    test('403 vira mensagem de permissao', () async {
+      final api = _api((r) async => _json(403, {'erro': 'sem_permissao', 'permissao': 'acesso.usuario.ver'}));
+      final e = await _erroDe(() => api.catalogo('t'));
+      expect(e.mensagem, 'Você não tem permissão para isso.');
     });
 
     test('token recusado e identificado como nao autenticado', () async {

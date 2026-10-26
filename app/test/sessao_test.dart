@@ -65,8 +65,9 @@ void main() {
       return _json(200, {'token': 'tok', 'expira_em_segundos': 3600, 'usuario': _usuario});
     }, ArmazenamentoMemoria());
     await _aguardarFim(c);
-    await c.read(sessaoProvider.notifier).cadastrar('Bia', 'a@b.com', 'segredo123');
-    expect(caminhos, ['/cadastro', '/login']);
+    await c.read(sessaoProvider.notifier).cadastrar('Bia', 'a@b.com', 'segredo123',
+        cpf: '52998224725', telefone: '11987654321');
+    expect(caminhos, ['/cadastro', '/login', '/me']);
     expect(c.read(sessaoProvider).fase, FaseSessao.logado);
   });
 
@@ -156,6 +157,26 @@ void main() {
     expect(c.read(sessaoProvider).emailLembrado, 'a@b.com');
     expect(guarda.valor?.senhaLembrada, isNull);
     expect(guarda.valor?.emailLembrado, 'a@b.com');
+  });
+
+  test('apos entrar, o perfil traz plano, modulos e permissoes', () async {
+    final c = _montar((r) async {
+      if (r.url.path == '/login') {
+        return _json(200, {'token': 'tok', 'expira_em_segundos': 3600, 'usuario': _usuario});
+      }
+      return _json(200, {
+        'usuario': _usuario,
+        'licenca': {'plano': 'anual'},
+        'modulos': ['financas'],
+        'permissoes': ['acesso.usuario.ver'],
+      });
+    }, ArmazenamentoMemoria());
+    await _aguardarFim(c);
+    await c.read(sessaoProvider.notifier).entrar('a@b.com', 'segredo123');
+    final s = c.read(sessaoProvider);
+    expect(s.perfil?.plano, 'anual');
+    expect(s.pode('acesso.usuario.ver'), isTrue);
+    expect(s.pode('acesso.usuario.editar'), isFalse);
   });
 
   test('usar sem conta fica guardado', () async {

@@ -4,6 +4,7 @@ import { comUsuario } from './db.js';
 import { lerToken } from './seguranca.js';
 import rotasAuth from './rotas/auth.js';
 import rotasUsuarios from './rotas/usuarios.js';
+import { ErroDado } from './pessoa.js';
 
 export async function criarApp({ pool, config, logger = false }) {
   const app = Fastify({
@@ -33,6 +34,9 @@ export async function criarApp({ pool, config, logger = false }) {
   });
 
   app.setErrorHandler((erro, req, reply) => {
+    if (erro instanceof ErroDado) {
+      return reply.code(400).send({ erro: 'dados_invalidos', campo: erro.campo, detalhe: erro.detalhe });
+    }
     if (erro.validation) {
       return reply.code(400).send({ erro: 'dados_invalidos', detalhe: erro.message });
     }
@@ -69,6 +73,14 @@ export async function criarApp({ pool, config, logger = false }) {
       'SELECT 1 FROM controle.permissoes_do_usuario($1) AS p(codigo) WHERE p.codigo = $2',
       [req.usuarioId, codigo]);
     if (!r.rowCount) return reply.code(403).send({ erro: 'sem_permissao', permissao: codigo });
+  });
+
+  // Confere uma permissao sem responder a requisicao (para rotas com varias acoes).
+  app.decorate('temPermissao', async (usuarioId, codigo) => {
+    const r = await pool.query(
+      'SELECT 1 FROM controle.permissoes_do_usuario($1) AS p(codigo) WHERE p.codigo = $2',
+      [usuarioId, codigo]);
+    return r.rowCount > 0;
   });
 
   app.get('/saude', async () => {

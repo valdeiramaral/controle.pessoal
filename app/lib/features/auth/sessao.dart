@@ -7,11 +7,16 @@ import '../../data/auth/armazenamento_sessao.dart';
 enum FaseSessao { iniciando, deslogado, logado, local }
 
 class EstadoSessao {
-  const EstadoSessao(this.fase, {this.usuario, this.token, this.aviso, this.emailLembrado});
+  const EstadoSessao(this.fase, {this.usuario, this.token, this.aviso, this.emailLembrado, this.perfil});
 
   final FaseSessao fase;
   final UsuarioApi? usuario;
   final String? token;
+
+  /// Plano, modulos e permissoes do usuario (de GET /me). Nulo offline ou sem conta.
+  final PerfilApi? perfil;
+
+  bool pode(String permissao) => perfil?.pode(permissao) ?? false;
 
   /// Mensagem mostrada na tela de login (ex.: sessao expirada).
   final String? aviso;
@@ -58,10 +63,11 @@ class SessaoNotifier extends Notifier<EstadoSessao> {
       return;
     }
     try {
-      final u = await _api.eu(token);
+      final p = await _api.eu(token);
+      final u = p.usuario;
       await _guarda.gravar(SessaoSalva(
           token: token, expiraEm: salva.expiraEm, usuario: u, emailLembrado: email, senhaLembrada: senha));
-      state = EstadoSessao(FaseSessao.logado, usuario: u, token: token);
+      state = EstadoSessao(FaseSessao.logado, usuario: u, token: token, perfil: p);
     } on ErroApi catch (e) {
       if (e.status == 401 || e.status == 403) {
         // Token vencido: se o usuario pediu para lembrar, entra sozinho.
@@ -100,19 +106,64 @@ class SessaoNotifier extends Notifier<EstadoSessao> {
   Future<void> entrar(String email, String senha, {bool lembrar = false}) async {
     final r = await _api.entrar(email: email, senha: senha);
     final emailGuardado = lembrar ? email.trim() : null;
+    // Busca dados completos, plano e permissoes; se falhar, segue so com o basico do login.
+    PerfilApi? perfil;
+    try {
+      perfil = await _api.eu(r.token);
+    } on ErroApi {
+      perfil = null;
+    } catch (_) {
+      perfil = null;
+    }
+    final usuario = perfil?.usuario ?? r.usuario;
     await _guarda.gravar(SessaoSalva(
       token: r.token,
       expiraEm: r.expiraEm,
-      usuario: r.usuario,
+      usuario: usuario,
       emailLembrado: emailGuardado,
       senhaLembrada: (lembrar && !kIsWeb) ? senha : null,
     ));
     state = EstadoSessao(FaseSessao.logado,
-        usuario: r.usuario, token: r.token, emailLembrado: emailGuardado);
+        usuario: usuario, token: r.token, emailLembrado: emailGuardado, perfil: perfil);
   }
 
-  Future<void> cadastrar(String nome, String email, String senha, {bool lembrar = false}) async {
-    await _api.cadastrar(nome: nome, email: email, senha: senha);
+  /// Atualiza os dados do proprio usuario (PATCH /me) e a sessao.
+  Future<void> atualizarMeusDados(Map<String, dynamic> corpo) async {
+    final token = state.token;
+    if (token == null) return;
+    final u = await _api.atualizarMeusDados(token, corpo);
+    final salva = await _guarda.ler();
+    if (salva != null) {
+      await _guarda.gravar(SessaoSalva(
+        token: salva.token,
+        expiraEm: salva.expiraEm,
+        usuario: u,
+        emailLembrado: salva.emailLembrado,
+        senhaLembrada: salva.senhaLembrada,
+      ));
+    }
+    final p = state.perfil;
+    state = EstadoSessao(FaseSessao.logado,
+        usuario: u,
+        token: token,
+        emailLembrado: state.emailLembrado,
+        perfil: p == null
+            ? null
+            : PerfilApi(usuario: u, plano: p.plano, modulos: p.modulos, permissoes: p.permissoes));
+  }
+
+  Future<void> cadastrar(
+    String nome,
+    String email,
+    String senha, {
+    required String cpf,
+    required String telefone,
+    String? nascimento,
+    Map<String, dynamic>? endereco,
+    bool lembrar = false,
+  }) async {
+    await _api.cadastrar(
+        nome: nome, email: email, senha: senha, cpf: cpf, telefone: telefone, nascimento: nascimento, endereco: endereco);
     await entrar(email, senha, lembrar: lembrar);
   }
 

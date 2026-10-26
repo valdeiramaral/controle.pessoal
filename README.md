@@ -8,7 +8,7 @@ App para controlar finanças, saúde e compromissos no Android e no iOS.
 | --- | --- |
 | `escopo-app-controle-pessoal.md` | Escopo completo: módulos, requisitos, stack, modelo de dados, roadmap, riscos |
 | `banco/schema.sql` | Esquema PostgreSQL do servidor: 14 tabelas, índices de sincronização, triggers e segurança por linha |
-| `banco/testes/test_schema.py` | 108 testes do esquema (restrições, triggers, ligações entre módulos, isolamento entre usuários, integridade entre usuários) |
+| `banco/testes/test_schema.py` | 118 testes do esquema (restrições, triggers, ligações entre módulos, isolamento entre usuários, integridade entre usuários) |
 | `instalar-requisitos.bat` | Instala Git, Flutter, Android SDK/emulador e Docker Desktop (uma vez) |
 | `iniciar.ps1`, `parar.ps1`, `testar.ps1` (e `.bat` de duplo clique) | Iniciam, param e testam tudo (ver Início rápido) |
 | `docker-compose.yml`, `.env.example`, `banco/init/` | Banco PostgreSQL e API no Docker; o banco nasce com o schema e o papel `app_api` |
@@ -19,7 +19,7 @@ App para controlar finanças, saúde e compromissos no Android e no iOS.
 
 ## Estado atual (fase 0 em fechamento, fase 1 iniciada)
 
-**Banco: testado.** O `schema.sql` foi carregado em um PostgreSQL 16 real e passa nos 108 testes de `banco/testes/test_schema.py` (rodado de novo em 20/10/2026, depois das correções da revisão: cursor de sincronização com hora real, e-mail reaproveitável após exclusão, referências entre usuários e lembretes validadas, fuso e moeda validados). Os testes acharam e corrigiram dois defeitos na segurança por linha (erro em conexão reaproveitada e tabela `usuario` sem isolamento).
+**Banco: testado.** O `schema.sql` foi carregado em um PostgreSQL 16 real e passa nos 118 testes de `banco/testes/test_schema.py` (rodado de novo em 20/10/2026, depois das correções da revisão: cursor de sincronização com hora real, e-mail reaproveitável após exclusão, referências entre usuários e lembretes validadas, fuso e moeda validados). Os testes acharam e corrigiram dois defeitos na segurança por linha (erro em conexão reaproveitada e tabela `usuario` sem isolamento).
 
 **App Flutter: 35 testes passando no seu PC (26/10/2026).** Cobrem banco local, saldo, valores digitados, id de notificação, cliente da API, sessão e telas de login/cadastro. Falta abrir o app no emulador.
 
@@ -32,7 +32,7 @@ O que o esqueleto já faz:
 - Banco local com as 14 entidades (valores em centavos, UUID, exclusão lógica).
 - Dois testes do banco em `app/test/`.
 
-**API (fase 1, semana 1): testada.** 22 testes em `api/teste/`, contra um PostgreSQL 16 real, cobrindo cadastro, login, bloqueio após 5 erros, `/me`, permissões e o modo administrador. Os testes da API já rodam no Docker do seu PC (22 passando em 26/10/2026). Neste PC a porta 5432 é bloqueada pelo Windows; a porta do banco é `POSTGRES_PORT` no `.env` (está em 5440).
+**API (fase 1, semana 1): testada.** 40 testes em `api/teste/`, contra um PostgreSQL 16 real, cobrindo cadastro, login, bloqueio após 5 erros, `/me`, permissões e o modo administrador. Os testes da API já rodam no Docker do seu PC (40 passando; rodar de novo após a mudança). Neste PC a porta 5432 é bloqueada pelo Windows; a porta do banco é `POSTGRES_PORT` no `.env` (está em 5440).
 
 O que falta (fases seguintes do roadmap):
 
@@ -135,6 +135,14 @@ Depois do `flutter create .`, configure as permissões de lembretes:
 Siga também o guia do pacote `flutter_local_notifications` para os receivers de notificação agendada e o desugaring do Java.
 
 **iOS:** a permissão de notificação é pedida ao abrir o app; não precisa de ajuste no `Info.plist`.
+
+## Cadastro, dados da pessoa e liberação de módulos
+
+- **Cadastro (pessoa):** nome, e-mail, senha, **CPF** (validado) e **telefone** são obrigatórios; endereço completo e data de nascimento são opcionais. Só dígitos ficam guardados (a API tira máscaras).
+- **Administrador:** em *Conta > Usuários e acessos* cadastra e edita usuários, informando os dados da pessoa, o **tipo de plano**, o **perfil** e **cada módulo** (Padrão do plano, Liberado ou Bloqueado para aquele usuário). Cada ação exige a sua permissão (`acesso.usuario.cadastrar`, `licencas.licenca.conceder`, `acesso.perfil.gerenciar`, `administracao.liberacao.gerenciar`).
+- **Usuário comum:** em *Conta > Meus dados* vê o plano e os módulos liberados e atualiza telefone, nascimento e endereço. CPF e e-mail só o administrador altera.
+- **Banco:** o `schema.sql` mudou (colunas em `usuario` e `cadastrar_usuario` com novos parâmetros). Para um banco já criado, rode `.\parar.ps1 -ApagarDados` e depois o `preparar.bat` (apaga os dados de teste).
+- **Rotas novas da API:** `GET /catalogo`, `GET|POST /usuarios`, `GET|PATCH /usuarios/:id`, `PUT /usuarios/:id/plano|modulos|perfis`, `PATCH /me`.
 
 ## Testar no navegador (sem emulador)
 

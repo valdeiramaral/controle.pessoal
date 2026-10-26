@@ -309,6 +309,36 @@ def main():
           erro="idioma invalido")
     teste("cadastro sem hash de senha e recusado",
           "SELECT cadastrar_usuario('N','n@x.com','curto','BR',NULL);", erro="senha_hash")
+    # ---- Dados da pessoa: CPF, telefone, nascimento, endereco
+    teste("cpf_valido: validos e invalidos",
+          "SELECT concat_ws(',', cpf_valido('52998224725'), cpf_valido('11144477735'), cpf_valido('52998224724'), "
+          "cpf_valido('11111111111'), cpf_valido('1234'), cpf_valido(NULL));",
+          valor="t,t,f,f,f,f")
+    teste("cadastro grava CPF, telefone, nascimento e endereco",
+          "SELECT cadastrar_usuario('Cida','cida@x.com','%s','BR',NULL,'52998224725','11987654321','1990-05-17',"
+          "'{\"cep\":\"01310100\",\"logradouro\":\"Av. Paulista\",\"numero\":\"1000\",\"cidade\":\"Sao Paulo\",\"uf\":\"sp\"}'::jsonb) AS id \\gset\n" % H +
+          "SELECT cpf || '|' || telefone || '|' || data_nascimento || '|' || cep || '|' || logradouro || '|' || uf FROM usuario WHERE id = :'id';",
+          valor="52998224725|11987654321|1990-05-17|01310100|Av. Paulista|SP")
+    teste("cadastro com CPF invalido e recusado",
+          "SELECT cadastrar_usuario('N','n@x.com','%s','BR',NULL,'52998224724');" % H, erro="ck_usuario_cpf")
+    teste("CPF repetido entre usuarios ativos e recusado",
+          "SELECT cadastrar_usuario('A1','a1@x.com','%s','BR',NULL,'52998224725');" % H +
+          "SELECT cadastrar_usuario('A2','a2@x.com','%s','BR',NULL,'52998224725');" % H, erro="ux_usuario_cpf")
+    teste("CPF de usuario excluido pode ser reaproveitado",
+          "SELECT cadastrar_usuario('A1','a1@x.com','%s','BR',NULL,'52998224725') AS id \\gset\n" % H +
+          "UPDATE usuario SET excluido_em = now() WHERE id = :'id';" +
+          "SELECT cadastrar_usuario('A2','a2@x.com','%s','BR',NULL,'52998224725') IS NOT NULL;" % H, valor="t")
+    teste("telefone com letras ou curto demais e recusado",
+          "SELECT cadastrar_usuario('N','n@x.com','%s','BR',NULL,NULL,'12ab');" % H, erro="ck_usuario_telefone")
+    teste("nascimento no futuro e recusado",
+          "SELECT cadastrar_usuario('N','n@x.com','%s','BR',NULL,NULL,NULL,current_date + 1);" % H, erro="ck_usuario_nascimento")
+    teste("CEP invalido e recusado",
+          "SELECT cadastrar_usuario('N','n@x.com','%s','BR',NULL,NULL,NULL,NULL,'{\"cep\":\"123\"}'::jsonb);" % H, erro="ck_usuario_cep")
+    teste("UF com tres letras e recusada",
+          "SELECT cadastrar_usuario('N','n@x.com','%s','BR',NULL,NULL,NULL,NULL,'{\"uf\":\"SPP\"}'::jsonb);" % H, erro="value too long")
+    teste("cadastro sem dados pessoais continua valendo (campos opcionais no banco)",
+          novo() + "SELECT cpf IS NULL AND telefone IS NULL FROM usuario WHERE id = %s;" % ID, valor="t")
+
     teste("buscar_login acha pelo e-mail (sem diferenciar maiusculas)",
           novo() + "SELECT length(senha_hash) FROM buscar_login(' NOVO@X.COM ');", valor="30")
     teste("buscar_login de e-mail desconhecido nao devolve nada",

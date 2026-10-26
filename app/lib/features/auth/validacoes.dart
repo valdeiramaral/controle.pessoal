@@ -1,3 +1,5 @@
+import '../../core/documentos.dart';
+
 /// Validacoes dos formularios (mesmas regras da API). Devolvem o texto do erro ou null.
 String? validarNome(String? v) {
   if (v == null || v.trim().isEmpty) return 'Informe seu nome.';
@@ -23,3 +25,39 @@ String? validarSenhaNova(String? v) {
 
 String? validarSenhaLogin(String? v) =>
     (v == null || v.isEmpty) ? 'Informe sua senha.' : null;
+
+String? validarCpf(String? v) {
+  if (v == null || v.trim().isEmpty) return 'Informe o CPF.';
+  return cpfValido(v) ? null : 'CPF inválido.';
+}
+
+String? validarTelefone(String? v) {
+  if (v == null || v.trim().isEmpty) return 'Informe o telefone.';
+  final n = soDigitos(v).length;
+  return (n >= 10 && n <= 11) ? null : 'Telefone inválido. Use DDD + número.';
+}
+
+/// Campos opcionais: vazio vale.
+String? validarCepOpcional(String? v) {
+  if (v == null || v.trim().isEmpty) return null;
+  return soDigitos(v).length == 8 ? null : 'CEP inválido.';
+}
+
+const ufsBrasil = [
+  'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA',
+  'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO',
+];
+
+String? validarUfOpcional(String? v) {
+  if (v == null || v.trim().isEmpty) return null;
+  return ufsBrasil.contains(v.trim().toUpperCase()) ? null : 'UF inválida.';
+}
+
+String? validarNascimentoOpcional(String? v) {
+  if (v == null || v.trim().isEmpty) return null;
+  final iso = dataBrParaIso(v);
+  if (iso == null) return 'Data inválida (dd/mm/aaaa).';
+  final d = DateTime.parse(iso);
+  if (d.isAfter(DateTime.now()) || d.year < 1900) return 'Data de nascimento inválida.';
+  return null;
+}
