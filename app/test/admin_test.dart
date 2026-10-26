@@ -81,6 +81,8 @@ Widget _app(List<_Pedido> pedidos, {List<String> permissoes = _permissoes}) {
     pedidos.add(_Pedido(r.method, r.url.path, r.body.isEmpty ? null : jsonDecode(r.body) as Map<String, dynamic>));
     final p = r.url.path;
     if (p == '/catalogo') return _json(200, _catalogo);
+    if (p == '/grupos') return _json(200, {'itens': []});
+    if (p == '/permissoes') return _json(200, {'permissoes': []});
     if (p == '/usuarios' && r.method == 'GET') {
       return _json(200, {
         'total': 2,
