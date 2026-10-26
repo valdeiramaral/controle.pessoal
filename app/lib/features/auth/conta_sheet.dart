@@ -11,6 +11,7 @@ void mostrarConta(BuildContext context) {
   showModalBottomSheet<void>(
     context: context,
     showDragHandle: true,
+    isScrollControlled: true,
     builder: (_) => const _ContaSheet(),
   );
 }
@@ -23,7 +24,7 @@ class _ContaSheet extends ConsumerWidget {
     final s = ref.watch(sessaoProvider);
     final logado = s.fase == FaseSessao.logado;
     return SafeArea(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
