@@ -94,16 +94,17 @@ class MenuLateral extends ConsumerWidget {
       (Icons.account_balance_wallet_outlined, 'Finanças'),
       (Icons.favorite_border, 'Saúde'),
       (Icons.event_outlined, 'Agenda'),
-      for (final m in extras) (iconeDoModulo(m.icone), m.nome),
+      for (final m in extras) (iconeDoModulo(m.icone), m.donoNome == null ? m.nome : '${m.nome} · ${m.donoNome}'),
     ];
     final admin = <(IconData, String, Widget)>[
       if (logado && s.pode('acesso.usuario.ver'))
         (Icons.manage_accounts_outlined, 'Usuários e acessos', const UsuariosPage()),
       if (logado &&
+          s.superusuario &&
           s.pode('acesso.usuario.ver') &&
           (s.pode('acesso.perfil.gerenciar') || s.pode('acesso.grupo.gerenciar')))
         (Icons.admin_panel_settings_outlined, 'Perfis e grupos', const PerfisGruposPage()),
-      if (logado && s.pode('administracao.modulo.gerenciar'))
+      if (logado && s.superusuario && s.pode('administracao.modulo.gerenciar'))
         (Icons.extension_outlined, 'Módulos', const ModulosPage()),
     ];
 

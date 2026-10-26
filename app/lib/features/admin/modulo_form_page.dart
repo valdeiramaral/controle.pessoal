@@ -28,6 +28,8 @@ class _ModuloFormPageState extends ConsumerState<ModuloFormPage> {
   late bool _paraTodos = widget.modulo?.liberadoParaTodos ?? true;
   late Set<String> _planos = {...?widget.modulo?.planos};
   List<OpcaoCatalogo> _planosDisponiveis = const [];
+  List<ItemUsuario> _usuarios = const [];
+  String? _donoId;
   bool _salvando = false;
   String? _erro;
 
@@ -37,6 +39,7 @@ class _ModuloFormPageState extends ConsumerState<ModuloFormPage> {
   @override
   void initState() {
     super.initState();
+    _donoId = widget.modulo?.donoId;
     _carregarPlanos();
   }
 
@@ -53,7 +56,13 @@ class _ModuloFormPageState extends ConsumerState<ModuloFormPage> {
     if (token == null) return;
     try {
       final c = await ref.read(clienteApiProvider).catalogo(token);
-      if (mounted) setState(() => _planosDisponiveis = c.planos);
+      final u = _sistema ? null : await ref.read(clienteApiProvider).listarUsuarios(token);
+      if (mounted) {
+        setState(() {
+          _planosDisponiveis = c.planos;
+          if (u != null) _usuarios = u.itens;
+        });
+      }
     } on ErroApi {
       // sem permissao para ver o catalogo: segue sem a escolha de planos
     }
@@ -61,6 +70,10 @@ class _ModuloFormPageState extends ConsumerState<ModuloFormPage> {
 
   Future<void> _salvar() async {
     if (!_form.currentState!.validate()) return;
+    if (!_sistema && _donoId == null) {
+      setState(() => _erro = 'Escolha o usuário dono do módulo.');
+      return;
+    }
     final token = ref.read(sessaoProvider).token;
     if (token == null) return;
     final api = ref.read(clienteApiProvider);
@@ -75,8 +88,8 @@ class _ModuloFormPageState extends ConsumerState<ModuloFormPage> {
         'nome': _nome.text.trim(),
         'descricao': desc,
         'icone': _icone,
-        'liberado_para_todos': _paraTodos,
-        'planos': (_planos.toList()..sort()),
+        if (_sistema) ...{'liberado_para_todos': _paraTodos, 'planos': (_planos.toList()..sort())},
+        if (!_sistema) 'dono_id': _donoId,
         if (ordem != null) 'ordem': ordem,
         if (!_sistema) 'ativo': _ativo,
       };
@@ -102,7 +115,7 @@ class _ModuloFormPageState extends ConsumerState<ModuloFormPage> {
       context: context,
       builder: (c) => AlertDialog(
         title: const Text('Excluir módulo?'),
-        content: Text('O módulo "${widget.modulo!.nome}" sai do menu de todos.'),
+        content: Text('O módulo "${widget.modulo!.nome}" sai do menu do dono.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancelar')),
           FilledButton(key: const Key('confirmar_exclusao'), onPressed: () => Navigator.pop(c, true), child: const Text('Excluir')),
@@ -183,7 +196,22 @@ class _ModuloFormPageState extends ConsumerState<ModuloFormPage> {
                       ),
                   ]),
                   const SizedBox(height: 12),
-                  SwitchListTile(
+                  if (!_sistema) ...[
+                    DropdownButtonFormField<String>(
+                      key: const Key('campo_dono_modulo'),
+                      value: _usuarios.any((u) => u.id == _donoId) ? _donoId : null,
+                      isExpanded: true,
+                      decoration: decoracaoCampo(context, 'Dono do módulo', Icons.person_outline),
+                      items: [
+                        for (final u in _usuarios)
+                          DropdownMenuItem(value: u.id, child: Text('${u.nome} (${u.email})', overflow: TextOverflow.ellipsis)),
+                      ],
+                      onChanged: pode ? (v) => setState(() => _donoId = v) : null,
+                    ),
+                    const SizedBox(height: 8),
+                    Text('Só o dono (e você, SuperUsuário) vê este módulo no menu.', style: tema.textTheme.bodySmall),
+                  ],
+                  if (_sistema) SwitchListTile(
                     key: const Key('campo_para_todos'),
                     contentPadding: EdgeInsets.zero,
                     title: const Text('Liberado para todos os usuários'),
@@ -191,7 +219,7 @@ class _ModuloFormPageState extends ConsumerState<ModuloFormPage> {
                     value: _paraTodos,
                     onChanged: pode ? (v) => setState(() => _paraTodos = v) : null,
                   ),
-                  if (!_paraTodos && _planosDisponiveis.isNotEmpty) ...[
+                  if (_sistema && !_paraTodos && _planosDisponiveis.isNotEmpty) ...[
                     Text('Planos que liberam este módulo', style: tema.textTheme.titleSmall),
                     const SizedBox(height: 8),
                     Wrap(spacing: 8, runSpacing: 4, children: [
@@ -213,7 +241,7 @@ class _ModuloFormPageState extends ConsumerState<ModuloFormPage> {
                     title: const Text('Ativo'),
                     subtitle: Text(_sistema
                         ? 'Módulo de fábrica: não pode ser desativado nem excluído.'
-                        : 'Desativado, ele some do menu de todos.'),
+                        : 'Desativado, ele some do menu do dono.'),
                     value: _ativo,
                     onChanged: (pode && !_sistema) ? (v) => setState(() => _ativo = v) : null,
                   ),

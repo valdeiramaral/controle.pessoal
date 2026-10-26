@@ -106,7 +106,7 @@ Widget _app(List<_Pedido> pedidos, {List<String> permissoes = _permissoes}) {
             FaseSessao.logado,
             token: 'tok',
             usuario: const UsuarioApi(id: 'admin', nome: 'Admin'),
-            perfil: PerfilApi(usuario: const UsuarioApi(id: 'admin', nome: 'Admin'), permissoes: permissoes),
+            perfil: PerfilApi(usuario: const UsuarioApi(id: 'admin', nome: 'Admin'), permissoes: permissoes, superusuario: true),
           ))),
     ],
     child: const MaterialApp(home: UsuariosPage()),

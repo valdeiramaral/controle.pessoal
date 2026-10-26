@@ -20,7 +20,7 @@ EstadoSessao _logado(List<String> permissoes) => EstadoSessao(
       FaseSessao.logado,
       token: 't',
       usuario: _admin,
-      perfil: PerfilApi(usuario: _admin, permissoes: permissoes),
+      perfil: PerfilApi(usuario: _admin, permissoes: permissoes, superusuario: true),
     );
 
 Widget _app(EstadoSessao estado, Widget home) => ProviderScope(

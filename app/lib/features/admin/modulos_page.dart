@@ -87,8 +87,7 @@ class _ModulosPageState extends ConsumerState<ModulosPage> {
                             title: Text(m.nome),
                             subtitle: Text([
                               m.codigo,
-                              m.sistema ? 'de fábrica' : 'criado por você',
-                              m.liberadoParaTodos ? 'liberado para todos' : 'por plano/usuário',
+                              if (m.sistema) 'de fábrica' else 'dono: ${m.donoNome ?? '—'}',
                             ].join(' · ')),
                             trailing: m.ativo
                                 ? const Icon(Icons.chevron_right)

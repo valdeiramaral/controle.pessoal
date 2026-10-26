@@ -18,6 +18,8 @@ class EstadoSessao {
 
   bool pode(String permissao) => perfil?.pode(permissao) ?? false;
 
+  bool get superusuario => perfil?.superusuario ?? false;
+
   /// Mensagem mostrada na tela de login (ex.: sessao expirada).
   final String? aviso;
 
@@ -149,7 +151,12 @@ class SessaoNotifier extends Notifier<EstadoSessao> {
         emailLembrado: state.emailLembrado,
         perfil: p == null
             ? null
-            : PerfilApi(usuario: u, plano: p.plano, modulos: p.modulos, permissoes: p.permissoes));
+            : PerfilApi(
+                usuario: u,
+                plano: p.plano,
+                modulos: p.modulos,
+                permissoes: p.permissoes,
+                superusuario: p.superusuario));
   }
 
   Future<void> cadastrar(

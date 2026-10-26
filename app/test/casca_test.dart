@@ -85,6 +85,9 @@ void main() {
         modulos.add(novo);
         return json(201, novo);
       }
+      if (r.url.path == '/usuarios') {
+        return json(200, {'total': 1, 'itens': [{'id': 'u1', 'nome': 'Maria', 'email': 'maria@x.com', 'ativo': true}]});
+      }
       if (r.url.path == '/modulos') return json(200, {'itens': modulos});
       if (r.url.path == '/meus-modulos') {
         return json(200, {'itens': [for (final m in modulos) {'codigo': m['codigo'], 'nome': m['nome'], 'descricao': null, 'icone': m['icone']}]});
@@ -102,7 +105,7 @@ void main() {
               FaseSessao.logado,
               token: 't',
               usuario: admin,
-              perfil: PerfilApi(usuario: admin, permissoes: const ['acesso.usuario.ver', 'administracao.modulo.gerenciar']),
+              perfil: PerfilApi(usuario: admin, permissoes: const ['acesso.usuario.ver', 'administracao.modulo.gerenciar'], superusuario: true),
             ))),
       ],
       child: MaterialApp(theme: temaApp(), home: const Casca()),
@@ -118,12 +121,16 @@ void main() {
     await tester.enterText(find.byKey(const Key('campo_nome_modulo')), 'Academia');
     await tester.tap(find.byKey(const Key('icone_fitness')));
     await tester.pump();
+    await tester.tap(find.byKey(const Key('campo_dono_modulo')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.textContaining('Maria').last);
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('botao_salvar')));
     await tester.pumpAndSettle();
 
     expect(postado!['nome'], 'Academia');
     expect(postado!['icone'], 'fitness');
-    expect(postado!['liberado_para_todos'], true);
+    expect(postado!['dono_id'], 'u1');
     expect(noMenu, findsOneWidget); // apareceu no menu
 
     await tester.tap(noMenu);

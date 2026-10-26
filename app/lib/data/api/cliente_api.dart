@@ -124,12 +124,16 @@ class UsuarioApi {
 
 /// Resposta de GET /me: dados da pessoa, plano, modulos liberados e permissoes.
 class PerfilApi {
-  const PerfilApi({required this.usuario, this.plano, this.modulos = const [], this.permissoes = const []});
+  const PerfilApi(
+      {required this.usuario, this.plano, this.modulos = const [], this.permissoes = const [], this.superusuario = false});
 
   final UsuarioApi usuario;
   final String? plano;
   final List<String> modulos;
   final List<String> permissoes;
+
+  /// Unico que enxerga e administra os dados de todos os usuarios.
+  final bool superusuario;
 
   bool pode(String permissao) => permissoes.contains(permissao);
 }
@@ -267,6 +271,8 @@ class ModuloAdmin {
     this.icone = 'extension',
     this.sistema = false,
     this.planos = const [],
+    this.donoId,
+    this.donoNome,
   });
 
   final String codigo;
@@ -283,6 +289,10 @@ class ModuloAdmin {
   /// Planos que liberam o modulo (usado quando nao e liberado para todos).
   final List<String> planos;
 
+  /// Dono do modulo (so ele e o SuperUsuario o veem); nulo nos modulos de fabrica.
+  final String? donoId;
+  final String? donoNome;
+
   factory ModuloAdmin.deJson(Map<String, dynamic> j) => ModuloAdmin(
         codigo: j['codigo'] as String,
         nome: j['nome'] as String,
@@ -293,23 +303,29 @@ class ModuloAdmin {
         icone: j['icone'] as String? ?? 'extension',
         sistema: j['sistema'] as bool? ?? false,
         planos: (j['planos'] as List? ?? const []).cast<String>(),
+        donoId: j['dono_id'] as String?,
+        donoNome: j['dono_nome'] as String?,
       );
 }
 
 /// Modulo que aparece no menu do usuario logado.
 class ModuloMenu {
-  const ModuloMenu({required this.codigo, required this.nome, this.descricao, this.icone = 'extension'});
+  const ModuloMenu({required this.codigo, required this.nome, this.descricao, this.icone = 'extension', this.donoNome});
 
   final String codigo;
   final String nome;
   final String? descricao;
   final String icone;
 
+  /// So vem preenchido para o SuperUsuario, que ve os modulos de todos.
+  final String? donoNome;
+
   factory ModuloMenu.deJson(Map<String, dynamic> j) => ModuloMenu(
         codigo: j['codigo'] as String,
         nome: j['nome'] as String,
         descricao: j['descricao'] as String?,
         icone: j['icone'] as String? ?? 'extension',
+        donoNome: j['dono_nome'] as String?,
       );
 }
 
@@ -468,6 +484,7 @@ class ClienteApi {
       plano: (j['licenca'] as Map<String, dynamic>?)?['plano'] as String?,
       modulos: (j['modulos'] as List? ?? const []).cast<String>(),
       permissoes: (j['permissoes'] as List? ?? const []).cast<String>(),
+      superusuario: j['superusuario'] as bool? ?? false,
     );
   }
 

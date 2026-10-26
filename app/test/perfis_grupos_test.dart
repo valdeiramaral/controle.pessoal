@@ -115,7 +115,7 @@ Widget _app(Widget home, List<_Pedido> pedidos, {Map<String, http.Response> fixa
             FaseSessao.logado,
             token: 'tok',
             usuario: const UsuarioApi(id: 'admin', nome: 'Admin'),
-            perfil: PerfilApi(usuario: const UsuarioApi(id: 'admin', nome: 'Admin'), permissoes: _todas),
+            perfil: PerfilApi(usuario: const UsuarioApi(id: 'admin', nome: 'Admin'), permissoes: _todas, superusuario: true),
           ))),
     ],
     child: MaterialApp(home: home),
