@@ -5,6 +5,7 @@ import '../../core/icones_modulo.dart';
 import '../admin/modulos_page.dart';
 import '../admin/perfis_grupos_page.dart';
 import '../admin/usuarios_page.dart';
+import '../aparencia/aparencia_page.dart';
 import '../auth/meus_dados_page.dart';
 import '../auth/sessao.dart';
 import '../auth/widgets_auth.dart';
@@ -89,23 +90,25 @@ class MenuLateral extends ConsumerWidget {
 
     // Modulos de fabrica + os cadastrados pelo administrador (aparecem aqui assim que criados).
     final extras = ref.watch(modulosMenuProvider).valueOrNull ?? const [];
-    final modulos = <(IconData, String)>[
-      (Icons.today_outlined, 'Hoje'),
-      (Icons.account_balance_wallet_outlined, 'Finanças'),
-      (Icons.favorite_border, 'Saúde'),
-      (Icons.event_outlined, 'Agenda'),
-      for (final m in extras) (iconeDoModulo(m.icone), m.donoNome == null ? m.nome : '${m.nome} · ${m.donoNome}'),
+    // O menu e sempre escuro, entao os icones usam o tom claro (shade300) de cada cor.
+    final modulos = <(IconData, String, Color)>[
+      (Icons.today_outlined, 'Hoje', Colors.amber.shade300),
+      (Icons.account_balance_wallet_outlined, 'Finanças', Colors.lightGreen.shade300),
+      (Icons.favorite_border, 'Saúde', Colors.pink.shade200),
+      (Icons.event_outlined, 'Agenda', Colors.lightBlue.shade300),
+      for (final m in extras)
+        (iconeDoModulo(m.icone), m.donoNome == null ? m.nome : '${m.nome} · ${m.donoNome}', corBaseDoModulo(m.icone).shade300),
     ];
-    final admin = <(IconData, String, Widget)>[
+    final admin = <(IconData, String, Widget, Color)>[
       if (logado && s.pode('acesso.usuario.ver'))
-        (Icons.manage_accounts_outlined, 'Usuários e acessos', const UsuariosPage()),
+        (Icons.manage_accounts_outlined, 'Usuários e acessos', const UsuariosPage(), Colors.teal.shade200),
       if (logado &&
           s.superusuario &&
           s.pode('acesso.usuario.ver') &&
           (s.pode('acesso.perfil.gerenciar') || s.pode('acesso.grupo.gerenciar')))
-        (Icons.admin_panel_settings_outlined, 'Perfis e grupos', const PerfisGruposPage()),
+        (Icons.admin_panel_settings_outlined, 'Perfis e grupos', const PerfisGruposPage(), Colors.deepPurple.shade200),
       if (logado && s.superusuario && s.pode('administracao.modulo.gerenciar'))
-        (Icons.extension_outlined, 'Módulos', const ModulosPage()),
+        (Icons.extension_outlined, 'Módulos', const ModulosPage(), Colors.orange.shade300),
     ];
 
     return ClipRRect(
@@ -114,11 +117,11 @@ class MenuLateral extends ConsumerWidget {
         duration: const Duration(milliseconds: 200),
         curve: Curves.easeOut,
         width: emDrawer ? 280 : (recolhido ? 76 : 250),
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [Color(0xFF0F2A63), Color(0xFF33307F)],
+            colors: ref.watch(aparenciaProvider).corSistema.menu,
           ),
         ),
         child: SafeArea(
@@ -134,6 +137,7 @@ class MenuLateral extends ConsumerWidget {
                     for (var i = 0; i < modulos.length; i++)
                       _Item(
                         icone: modulos[i].$1,
+                        cor: modulos[i].$3,
                         rotulo: modulos[i].$2,
                         selecionado: indice == i,
                         recolhido: recolhido,
@@ -142,7 +146,7 @@ class MenuLateral extends ConsumerWidget {
                     if (admin.isNotEmpty) ...[
                       const _Secao('Administração'),
                       for (final a in admin)
-                        _Item(icone: a.$1, rotulo: a.$2, recolhido: recolhido, aoTocar: () => abrir(a.$3)),
+                        _Item(icone: a.$1, cor: a.$4, rotulo: a.$2, recolhido: recolhido, aoTocar: () => abrir(a.$3)),
                     ],
                   ],
                 ),
@@ -154,13 +158,24 @@ class MenuLateral extends ConsumerWidget {
                   if (logado)
                     _Item(
                       icone: Icons.badge_outlined,
+                      cor: Colors.cyan.shade200,
                       rotulo: 'Meus dados',
                       recolhido: recolhido,
                       aoTocar: () => abrir(const MeusDadosPage()),
                     ),
+                  if (logado)
+                    _Item(
+                      chave: const Key('menu_aparencia'),
+                      icone: Icons.palette_outlined,
+                      cor: Colors.pinkAccent.shade100,
+                      rotulo: 'Aparência',
+                      recolhido: recolhido,
+                      aoTocar: () => abrir(const AparenciaPage()),
+                    ),
                   _Item(
                     chave: const Key('menu_sair'),
                     icone: logado ? Icons.logout : Icons.login,
+                    cor: Colors.red.shade200,
                     rotulo: logado ? 'Sair' : 'Entrar ou criar conta',
                     recolhido: recolhido,
                     aoTocar: () {
@@ -260,6 +275,7 @@ class _Secao extends StatelessWidget {
 class _Item extends StatelessWidget {
   const _Item({
     required this.icone,
+    required this.cor,
     required this.rotulo,
     required this.recolhido,
     required this.aoTocar,
@@ -268,6 +284,7 @@ class _Item extends StatelessWidget {
   });
 
   final IconData icone;
+  final Color cor;
   final String rotulo;
   final bool recolhido;
   final bool selecionado;
@@ -286,7 +303,7 @@ class _Item extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Row(children: [
-            Icon(icone, size: 22, color: selecionado ? Colors.white : Colors.white70),
+            Icon(icone, size: 22, color: cor),
             if (!recolhido) ...[
               const SizedBox(width: 14),
               Expanded(

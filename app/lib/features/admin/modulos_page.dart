@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/aparencia.dart';
 import '../../core/icones_modulo.dart';
 import '../../data/api/cliente_api.dart';
 import '../auth/sessao.dart';
@@ -83,7 +84,7 @@ class _ModulosPageState extends ConsumerState<ModulosPage> {
                         Card(
                           child: ListTile(
                             key: Key('modulo_item_${m.codigo}'),
-                            leading: Icon(iconeDoModulo(m.icone)),
+                            leading: Icon(iconeDoModulo(m.icone), color: corIcone(context, corBaseDoModulo(m.icone))),
                             title: Text(m.nome),
                             subtitle: Text([
                               m.codigo,

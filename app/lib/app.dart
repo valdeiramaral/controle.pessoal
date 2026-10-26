@@ -14,18 +14,24 @@ import 'features/financas/financas_page.dart';
 import 'features/hoje/hoje_page.dart';
 import 'features/saude/saude_page.dart';
 
-class App extends StatelessWidget {
+class App extends ConsumerWidget {
   const App({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final aparencia = ref.watch(aparenciaProvider);
+    final cor = aparencia.corSistema;
     return MaterialApp(
       title: 'Controle Pessoal',
       debugShowCheckedModeBanner: false,
-      theme: temaApp(),
-      darkTheme: temaApp(),
-      themeMode: ThemeMode.dark,
-      builder: (context, child) => FundoAzul(child: child ?? const SizedBox.shrink()),
+      theme: temaApp(brilho: Brightness.light, cor: cor),
+      darkTheme: temaApp(brilho: Brightness.dark, cor: cor),
+      themeMode: aparencia.modo.themeMode,
+      builder: (context, child) => MediaQuery(
+        // Tamanho da letra escolhido pelo usuario, aplicado a todo o app.
+        data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(aparencia.escala)),
+        child: FundoAzul(child: child ?? const SizedBox.shrink()),
+      ),
       locale: const Locale('pt', 'BR'),
       supportedLocales: const [Locale('pt', 'BR')],
       localizationsDelegates: const [

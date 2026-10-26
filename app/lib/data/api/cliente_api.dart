@@ -5,6 +5,8 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 
+import '../../core/aparencia.dart';
+
 /// Endereco da API. Use --dart-define=API_URL=http://... para trocar.
 /// No emulador Android, 10.0.2.2 e o computador que roda o emulador.
 String urlPadraoApi() {
@@ -125,7 +127,7 @@ class UsuarioApi {
 /// Resposta de GET /me: dados da pessoa, plano, modulos liberados e permissoes.
 class PerfilApi {
   const PerfilApi(
-      {required this.usuario, this.plano, this.modulos = const [], this.permissoes = const [], this.superusuario = false});
+      {required this.usuario, this.plano, this.modulos = const [], this.permissoes = const [], this.superusuario = false, this.aparencia = Aparencia.padrao});
 
   final UsuarioApi usuario;
   final String? plano;
@@ -134,6 +136,18 @@ class PerfilApi {
 
   /// Unico que enxerga e administra os dados de todos os usuarios.
   final bool superusuario;
+
+  /// Preferencias de aparencia (modo, tamanho da letra, cor) da conta.
+  final Aparencia aparencia;
+
+  PerfilApi copiarCom({UsuarioApi? usuario, Aparencia? aparencia}) => PerfilApi(
+        usuario: usuario ?? this.usuario,
+        plano: plano,
+        modulos: modulos,
+        permissoes: permissoes,
+        superusuario: superusuario,
+        aparencia: aparencia ?? this.aparencia,
+      );
 
   bool pode(String permissao) => permissoes.contains(permissao);
 }
@@ -485,8 +499,13 @@ class ClienteApi {
       modulos: (j['modulos'] as List? ?? const []).cast<String>(),
       permissoes: (j['permissoes'] as List? ?? const []).cast<String>(),
       superusuario: j['superusuario'] as bool? ?? false,
+      aparencia: Aparencia.deJson(j['preferencias']),
     );
   }
+
+  /// Guarda a aparencia escolhida na conta do usuario.
+  Future<void> salvarAparencia(String token, Aparencia a) async =>
+      _chamar('PUT', '/me/preferencias', corpo: a.paraJson(), token: token);
 
   /// O proprio usuario atualiza nome, telefone, nascimento e endereco.
   Future<UsuarioApi> atualizarMeusDados(String token, Map<String, dynamic> corpo) async {

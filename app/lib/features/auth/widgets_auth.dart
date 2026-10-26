@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../core/aparencia.dart';
+import 'sessao.dart';
 
 /// Pecas visuais compartilhadas pelas telas de login e cadastro.
 
@@ -15,25 +19,28 @@ ThemeData temaAzul(BuildContext context) => ThemeData(
       scaffoldBackgroundColor: Colors.white,
     );
 
-/// Fundo azul em degrade com cartoes translucidos; usado atras de todas as telas.
-class FundoAzul extends StatelessWidget {
+/// Fundo em degrade com cartoes translucidos atras de todas as telas; segue a cor e o modo
+/// escolhidos pelo usuario (azul escuro enquanto ninguem esta logado).
+class FundoAzul extends ConsumerWidget {
   const FundoAzul({super.key, required this.child});
 
   final Widget child;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cor = ref.watch(aparenciaProvider).corSistema;
+    final claro = Theme.of(context).brightness == Brightness.light;
     return Container(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF1B54D9), Color(0xFF2B48B8), Color(0xFF3B3AA4)],
+          colors: claro ? cor.fundoClaro : cor.fundo,
         ),
       ),
       child: Stack(
         children: [
-          const Positioned.fill(child: IgnorePointer(child: _Decoracao())),
+          Positioned.fill(child: IgnorePointer(child: _Decoracao(claro: claro, cor: cor.semente))),
           child,
         ],
       ),
@@ -68,7 +75,10 @@ class FundoAuth extends StatelessWidget {
 
 /// Cartoes translucidos espalhados pelo fundo (so enfeite).
 class _Decoracao extends StatelessWidget {
-  const _Decoracao();
+  const _Decoracao({required this.claro, required this.cor});
+
+  final bool claro;
+  final Color cor;
 
   @override
   Widget build(BuildContext context) {
@@ -85,9 +95,9 @@ class _Decoracao extends StatelessWidget {
                 height: altura,
                 padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.07),
+                  color: (claro ? cor : Colors.white).withValues(alpha: claro ? 0.05 : 0.07),
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+                  border: Border.all(color: (claro ? cor : Colors.white).withValues(alpha: claro ? 0.10 : 0.12)),
                 ),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Container(height: 7, width: largura * 0.6, decoration: _barra()),
@@ -111,7 +121,7 @@ class _Decoracao extends StatelessWidget {
   }
 
   BoxDecoration _barra() =>
-      BoxDecoration(color: Colors.white.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(4));
+      BoxDecoration(color: (claro ? cor : Colors.white).withValues(alpha: claro ? 0.08 : 0.12), borderRadius: BorderRadius.circular(4));
 }
 
 /// Aparece suavemente (fade + leve subida).

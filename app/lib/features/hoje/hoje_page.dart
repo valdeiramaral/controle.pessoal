@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/aparencia.dart';
 import '../../core/formatos.dart';
 import '../../data/local/banco.dart';
 import '../auth/conta_sheet.dart';
@@ -258,7 +259,7 @@ class _HojePageState extends ConsumerState<HojePage> {
                     child: Text(
                       nomes[i],
                       style: tema.textTheme.titleSmall?.copyWith(
-                        color: _aba == i ? tema.colorScheme.primary : Colors.white70,
+                        color: _aba == i ? tema.colorScheme.primary : tema.colorScheme.onSurfaceVariant,
                         fontWeight: _aba == i ? FontWeight.w700 : FontWeight.w500,
                       ),
                     ),
@@ -287,19 +288,19 @@ class _HojePageState extends ConsumerState<HojePage> {
   Widget _vazio(String t) => Padding(padding: const EdgeInsets.symmetric(vertical: 12), child: Text(t));
 
   Widget _cabecalho(BuildContext context, List<(String, int)> cols) {
-    final estilo = Theme.of(context).textTheme.labelSmall?.copyWith(color: Colors.white60, letterSpacing: .6);
+    final estilo = Theme.of(context).textTheme.labelSmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant, letterSpacing: .6);
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-      color: Colors.white.withValues(alpha: .06),
+      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: .06),
       child: Row(children: [
         for (final c in cols) Expanded(flex: c.$2, child: Text(c.$1.toUpperCase(), style: estilo)),
       ]),
     );
   }
 
-  Widget _linha(List<Widget> cels, List<int> flex) => Container(
+  Widget _linha(BuildContext context, List<Widget> cels, List<int> flex) => Container(
         padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
-        decoration: BoxDecoration(border: Border(bottom: BorderSide(color: Colors.white.withValues(alpha: .08)))),
+        decoration: BoxDecoration(border: Border(bottom: BorderSide(color: Theme.of(context).colorScheme.outlineVariant))),
         child: Row(children: [for (var i = 0; i < cels.length; i++) Expanded(flex: flex[i], child: cels[i])]),
       );
 
@@ -311,7 +312,7 @@ class _HojePageState extends ConsumerState<HojePage> {
       else ...[
         _cabecalho(context, const [('Data', 2), ('Hora', 1), ('Compromisso', 4), ('Local', 2)]),
         for (final e in d.eventos)
-          _linha([
+          _linha(context, [
             Text(formatarData(e.inicio)),
             Text(e.diaInteiro ? 'Dia todo' : formatarDataHora(e.inicio).substring(11)),
             Text(e.titulo, style: const TextStyle(fontWeight: FontWeight.w600)),
@@ -342,7 +343,7 @@ class _HojePageState extends ConsumerState<HojePage> {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       _titulo(context, 'Contas (${itens.length})'),
       Wrap(spacing: 8, runSpacing: 8, crossAxisAlignment: WrapCrossAlignment.center, children: [
-        Text('STATUS', style: Theme.of(context).textTheme.labelSmall?.copyWith(color: Colors.white60)),
+        Text('STATUS', style: Theme.of(context).textTheme.labelSmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
         for (final f in filtros)
           ChoiceChip(
             key: Key('status_$f'),
@@ -357,13 +358,13 @@ class _HojePageState extends ConsumerState<HojePage> {
       else ...[
         _cabecalho(context, const [('Vencimento', 2), ('Descrição', 4), ('Status', 2), ('Valor', 2)]),
         for (final l in itens)
-          _linha([
+          _linha(context, [
             Text(formatarData(l.dia)),
             Text(l.descricao, style: const TextStyle(fontWeight: FontWeight.w600)),
             Align(alignment: Alignment.centerLeft, child: _Etiqueta(d.atrasada(l) ? 'ATRASADA' : l.status.toUpperCase(),
-                d.atrasada(l) ? Colors.redAccent : (l.status == 'pago' ? Colors.greenAccent : Colors.amberAccent))),
+                corIcone(context, d.atrasada(l) ? Colors.red : (l.status == 'pago' ? Colors.green : Colors.amber)))),
             Text(formatarCentavos(l.valorCentavos), textAlign: TextAlign.right,
-                style: TextStyle(color: l.tipo == 'receita' ? Colors.greenAccent : null)),
+                style: TextStyle(color: l.tipo == 'receita' ? corIcone(context, Colors.green) : null)),
           ], const [2, 4, 2, 2]),
       ],
     ]);
@@ -377,7 +378,7 @@ class _HojePageState extends ConsumerState<HojePage> {
       else ...[
         _cabecalho(context, const [('Medicamento', 4), ('Dose', 2), ('Horários', 3)]),
         for (final m in d.medicamentos)
-          _linha([
+          _linha(context, [
             Text(m.nome, style: const TextStyle(fontWeight: FontWeight.w600)),
             Text(m.dose),
             Text(m.horarios.replaceAll(',', '  ')),
@@ -395,14 +396,14 @@ class _HojePageState extends ConsumerState<HojePage> {
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(rotulo), Text(formatarCentavos(v))]),
             const SizedBox(height: 6),
-            LinearProgressIndicator(value: v / maior, minHeight: 10, color: cor, backgroundColor: Colors.white12,
+            LinearProgressIndicator(value: v / maior, minHeight: 10, color: cor, backgroundColor: Theme.of(context).colorScheme.onSurface.withValues(alpha: .12),
                 borderRadius: BorderRadius.circular(6)),
           ]),
         );
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       _titulo(context, 'Resumo do período'),
-      barra('Receitas', rec, Colors.greenAccent),
-      barra('Despesas', desp, Colors.redAccent),
+      barra('Receitas', rec, corIcone(context, Colors.green)),
+      barra('Despesas', desp, corIcone(context, Colors.red)),
       Text('Saldo do período: ${formatarCentavos(rec - desp)}', style: Theme.of(context).textTheme.titleMedium),
     ]);
   }
@@ -467,25 +468,33 @@ class _Indicadores extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tema = Theme.of(context);
-    Widget cartao(String chave, String rotulo, String valor, String nota, {Color? cor}) => Card(
+    Widget cartao(String chave, String rotulo, String valor, String nota, IconData icone, MaterialColor cor) => Card(
           margin: EdgeInsets.zero,
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(rotulo.toUpperCase(), style: tema.textTheme.labelSmall?.copyWith(color: Colors.white60, letterSpacing: .6)),
+              Row(children: [
+                Expanded(
+                  child: Text(rotulo.toUpperCase(),
+                      style: tema.textTheme.labelSmall?.copyWith(color: tema.colorScheme.onSurfaceVariant, letterSpacing: .6)),
+                ),
+                Icon(icone, size: 20, color: corIcone(context, cor)),
+              ]),
               const SizedBox(height: 8),
-              Text(valor, key: Key('kpi_$chave'), style: tema.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w700, color: cor)),
+              Text(valor,
+                  key: Key('kpi_$chave'),
+                  style: tema.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w700, color: corIcone(context, cor))),
               const SizedBox(height: 4),
-              Text(nota, style: tema.textTheme.bodySmall?.copyWith(color: Colors.white70)),
+              Text(nota, style: tema.textTheme.bodySmall?.copyWith(color: tema.colorScheme.onSurfaceVariant)),
             ]),
           ),
         );
     final itens = [
-      cartao('compromissos', 'Compromissos', '${dados.eventos.length}', 'no período'),
-      cartao('abertas', 'Contas em aberto', '${dados.abertas}', 'despesas pendentes no total', cor: Colors.lightBlueAccent),
-      cartao('atrasadas', 'Atrasadas', '${dados.atrasadas}', 'vencidas e não pagas', cor: Colors.redAccent),
-      cartao('a_pagar', 'A pagar no período', formatarCentavos(dados.aPagarNoPeriodo), 'despesas pendentes'),
-      cartao('remedios', 'Remédios', '${dados.medicamentos.length}', 'cadastrados', cor: Colors.purpleAccent),
+      cartao('compromissos', 'Compromissos', '${dados.eventos.length}', 'no período', Icons.event_outlined, Colors.lightBlue),
+      cartao('abertas', 'Contas em aberto', '${dados.abertas}', 'despesas pendentes no total', Icons.receipt_long_outlined, Colors.amber),
+      cartao('atrasadas', 'Atrasadas', '${dados.atrasadas}', 'vencidas e não pagas', Icons.warning_amber_outlined, Colors.red),
+      cartao('a_pagar', 'A pagar no período', formatarCentavos(dados.aPagarNoPeriodo), 'despesas pendentes', Icons.payments_outlined, Colors.green),
+      cartao('remedios', 'Remédios', '${dados.medicamentos.length}', 'cadastrados', Icons.medication_outlined, Colors.purple),
     ];
     return LayoutBuilder(builder: (context, c) {
       final colunas = c.maxWidth >= 1000 ? 5 : c.maxWidth >= 640 ? 3 : 2;

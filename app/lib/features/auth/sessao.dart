@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/aparencia.dart';
 import '../../data/api/cliente_api.dart';
 import '../../data/auth/armazenamento_sessao.dart';
 
@@ -20,6 +21,9 @@ class EstadoSessao {
 
   bool get superusuario => perfil?.superusuario ?? false;
 
+  /// Aparencia da conta; sem login (ou offline) vale o padrao.
+  Aparencia get aparencia => fase == FaseSessao.logado ? (perfil?.aparencia ?? Aparencia.padrao) : Aparencia.padrao;
+
   /// Mensagem mostrada na tela de login (ex.: sessao expirada).
   final String? aviso;
 
@@ -31,6 +35,9 @@ final clienteApiProvider = Provider<ClienteApi>((ref) => ClienteApi(baseUrl: url
 
 final armazenamentoSessaoProvider =
     Provider<ArmazenamentoSessao>((ref) => ArmazenamentoSeguro());
+
+/// Aparencia do usuario logado (padrao quando ninguem esta logado).
+final aparenciaProvider = Provider<Aparencia>((ref) => ref.watch(sessaoProvider.select((s) => s.aparencia)));
 
 final sessaoProvider =
     NotifierProvider<SessaoNotifier, EstadoSessao>(SessaoNotifier.new);
@@ -108,14 +115,23 @@ class SessaoNotifier extends Notifier<EstadoSessao> {
         usuario: u,
         token: token,
         emailLembrado: state.emailLembrado,
-        perfil: p == null
-            ? null
-            : PerfilApi(
-                usuario: u,
-                plano: p.plano,
-                modulos: p.modulos,
-                permissoes: p.permissoes,
-                superusuario: p.superusuario));
+        perfil: p?.copiarCom(usuario: u));
+  }
+
+  /// Aplica na hora a aparencia escolhida e guarda na conta (a tela nao espera a rede).
+  /// Devolve a mensagem de erro se nao conseguiu guardar; a aparencia continua valendo ate sair.
+  Future<String?> definirAparencia(Aparencia nova) async {
+    final p = state.perfil;
+    final token = state.token;
+    if (p == null || token == null) return null;
+    state = EstadoSessao(FaseSessao.logado,
+        usuario: state.usuario, token: token, emailLembrado: state.emailLembrado, perfil: p.copiarCom(aparencia: nova));
+    try {
+      await _api.salvarAparencia(token, nova);
+      return null;
+    } on ErroApi catch (e) {
+      return e.mensagem;
+    }
   }
 
   Future<void> cadastrar(

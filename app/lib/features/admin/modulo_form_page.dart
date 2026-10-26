@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/aparencia.dart';
 import '../../core/icones_modulo.dart';
 import '../../data/api/cliente_api.dart';
 import '../auth/sessao.dart';
@@ -190,7 +191,7 @@ class _ModuloFormPageState extends ConsumerState<ModuloFormPage> {
                     for (final e in iconesModulo.entries)
                       ChoiceChip(
                         key: Key('icone_${e.key}'),
-                        label: Icon(e.value, size: 20),
+                        label: Icon(e.value, size: 20, color: corIcone(context, corBaseDoModulo(e.key))),
                         selected: _icone == e.key,
                         onSelected: pode ? (_) => setState(() => _icone = e.key) : null,
                       ),

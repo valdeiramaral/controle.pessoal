@@ -21,3 +21,24 @@ const iconesModulo = <String, IconData>{
 };
 
 IconData iconeDoModulo(String? chave) => iconesModulo[chave] ?? Icons.extension_outlined;
+
+/// Cor de cada icone de modulo (os icones do app sao coloridos).
+const coresModulo = <String, MaterialColor>{
+  'extension': Colors.deepPurple,
+  'folder': Colors.amber,
+  'star': Colors.orange,
+  'work': Colors.brown,
+  'school': Colors.indigo,
+  'cart': Colors.pink,
+  'home': Colors.teal,
+  'fitness': Colors.red,
+  'pets': Colors.deepOrange,
+  'flight': Colors.lightBlue,
+  'book': Colors.green,
+  'build': Colors.blueGrey,
+  'chart': Colors.cyan,
+  'people': Colors.purple,
+  'wallet': Colors.lightGreen,
+};
+
+MaterialColor corBaseDoModulo(String? chave) => coresModulo[chave] ?? Colors.deepPurple;

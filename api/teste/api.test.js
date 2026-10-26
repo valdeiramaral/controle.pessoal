@@ -849,3 +849,21 @@ describe('isolamento por usuario', () => {
     assert.equal((await com('GET', '/modulos', tokenA)).statusCode, 403);
   });
 });
+
+describe('preferencias de aparencia', () => {
+  it('cada usuario guarda o proprio padrao e valida os valores', async () => {
+    await cadastrar('pref-a@exemplo.com');
+    await cadastrar('pref-b@exemplo.com');
+    const ta = await entrar('pref-a@exemplo.com');
+    const tb = await entrar('pref-b@exemplo.com');
+    const put = (token, payload) => app.inject({ method: 'PUT', url: '/me/preferencias', payload, headers: { authorization: `Bearer ${token}` } });
+    assert.deepEqual((await get('/me', ta)).json().preferencias, {});
+    const ok = await put(ta, { modo: 'claro', escala: 1.15, cor: 'verde' });
+    assert.equal(ok.statusCode, 200, ok.body);
+    assert.deepEqual((await get('/me', ta)).json().preferencias, { modo: 'claro', escala: 1.15, cor: 'verde' });
+    assert.deepEqual((await get('/me', tb)).json().preferencias, {});
+    assert.equal((await put(ta, { modo: 'rosa', escala: 1, cor: 'verde' })).statusCode, 400);
+    assert.equal((await put(ta, { modo: 'claro', escala: 5, cor: 'verde' })).statusCode, 400);
+    assert.equal((await put(ta, { modo: 'claro', escala: 1, cor: 'marrom' })).statusCode, 400);
+  });
+});

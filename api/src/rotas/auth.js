@@ -110,8 +110,32 @@ export default async function rotasAuth(app) {
       const permissoes = (await c.query('SELECT p FROM controle.permissoes_do_usuario($1) AS p', [id])).rows.map((r) => r.p);
       const acesso = (await c.query('SELECT controle.tem_acesso($1) AS a', [id])).rows[0].a;
       const superusuario = (await c.query('SELECT controle.e_superusuario($1) AS s', [id])).rows[0].s;
-      return { usuario: serializarUsuario(u), licenca, acesso, modulos, permissoes, superusuario };
+      const preferencias = (await c.query('SELECT preferencias FROM controle.usuario WHERE id = $1', [id])).rows[0].preferencias;
+      return { usuario: serializarUsuario(u), licenca, acesso, modulos, permissoes, superusuario, preferencias };
     });
+  });
+
+  // ------------------------------------------- PUT /me/preferencias (aparencia)
+  // Cada usuario tem o seu padrao: modo (claro/escuro/sistema), escala da letra e cor do sistema.
+  app.put('/me/preferencias', {
+    preHandler: app.autenticar,
+    schema: {
+      body: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['modo', 'escala', 'cor'],
+        properties: {
+          modo: { enum: ['claro', 'escuro', 'sistema'] },
+          escala: { type: 'number', minimum: 0.8, maximum: 1.6 },
+          cor: { enum: ['azul', 'verde', 'roxo', 'laranja', 'rosa', 'turquesa'] },
+        },
+      },
+    },
+  }, async (req) => {
+    const p = await comUsuario(pool, req.usuarioId, async (c) =>
+      (await c.query('UPDATE controle.usuario SET preferencias = $2::jsonb WHERE id = $1 RETURNING preferencias',
+        [req.usuarioId, JSON.stringify(req.body)])).rows[0].preferencias);
+    return { preferencias: p };
   });
 
   // ----------------------------------------------------- PATCH /me (dados)
