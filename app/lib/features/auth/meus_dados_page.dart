@@ -38,7 +38,8 @@ class _MeusDadosPageState extends ConsumerState<MeusDadosPage> {
   @override
   void initState() {
     super.initState();
-    _d = DadosPessoaisControladores(ref.read(sessaoProvider).usuario);
+    _d = DadosPessoaisControladores(
+        ref.read(sessaoProvider).perfil?.usuario ?? ref.read(sessaoProvider).usuario);
   }
 
   @override
