@@ -514,3 +514,191 @@ describe('administracao de usuarios', () => {
     await assert.rejects(() => promover(pool, 'ana@exemplo.com', 'perfil-falso'), /perfil nao encontrado/);
   });
 });
+
+describe('perfis, grupos e permissoes individuais', () => {
+  let tokenAdmin;
+  let tokenComum;
+  let idComum;
+  let idAdmin;
+
+  const send = (method, url, payload, token) => app.inject({
+    method, url, payload, headers: { authorization: `Bearer ${token}` } });
+  const permissoesDe = async (token) => (await get('/me', token)).json().permissoes;
+
+  before(async () => {
+    idAdmin = await cadastrar('adm-acesso@exemplo.com');
+    idComum = await cadastrar('comum-acesso@exemplo.com');
+    await promover(pool, 'adm-acesso@exemplo.com');
+    tokenAdmin = await entrar('adm-acesso@exemplo.com');
+    tokenComum = await entrar('comum-acesso@exemplo.com');
+  });
+
+  it('GET /permissoes lista o catalogo por modulo; usuario comum recebe 403', async () => {
+    assert.equal((await get('/permissoes', tokenComum)).statusCode, 403);
+    const j = (await get('/permissoes', tokenAdmin)).json();
+    assert.ok(j.permissoes.length >= 27);
+    const p = j.permissoes.find((x) => x.codigo === 'financas.conta.gerenciar');
+    assert.equal(p.modulo_codigo, 'financas');
+    assert.equal(p.modulo_nome, 'Finanças');
+  });
+
+  it('GET /perfis lista os de fabrica com contagens', async () => {
+    const j = (await get('/perfis', tokenAdmin)).json();
+    const adm = j.itens.find((x) => x.codigo === 'administrador');
+    assert.equal(adm.sistema, true);
+    assert.ok(adm.total_permissoes >= 27);
+    assert.ok(adm.total_usuarios >= 1);
+    assert.ok(j.itens.some((x) => x.codigo === 'leitura'));
+  });
+
+  let idPerfil;
+  it('cria um perfil novo com permissoes detalhadas e o codigo vem do nome', async () => {
+    const r = await send('POST', '/perfis', {
+      nome: 'Contador Externo', descricao: 'So finanças',
+      permissoes: ['financas.lancamento.ver', 'financas.lancamento.editar'],
+    }, tokenAdmin);
+    assert.equal(r.statusCode, 201, r.body);
+    const j = r.json();
+    assert.equal(j.codigo, 'contador_externo');
+    assert.equal(j.sistema, false);
+    assert.deepEqual(j.permissoes, ['financas.lancamento.editar', 'financas.lancamento.ver']);
+    idPerfil = j.id;
+
+    assert.equal((await send('POST', '/perfis', { nome: 'contador externo' }, tokenAdmin)).statusCode, 409);
+    assert.equal((await send('POST', '/perfis', { nome: 'X', permissoes: ['nao.existe.nada'] }, tokenAdmin)).statusCode, 400);
+    assert.equal((await send('POST', '/perfis', { nome: '!!!' }, tokenAdmin)).statusCode, 400);
+    assert.equal((await send('POST', '/perfis', { nome: 'Outro' }, tokenComum)).statusCode, 403);
+  });
+
+  it('atribuir o perfil novo ao usuario libera exatamente aquelas permissoes', async () => {
+    const r = await send('PUT', `/usuarios/${idComum}/perfis`, { perfis: ['contador_externo'] }, tokenAdmin);
+    assert.equal(r.statusCode, 200, r.body);
+    const ps = await permissoesDe(tokenComum);
+    assert.deepEqual(ps, ['financas.lancamento.editar', 'financas.lancamento.ver']);
+  });
+
+  it('editar as permissoes do perfil vale na hora para quem o tem', async () => {
+    const r = await send('PUT', `/perfis/${idPerfil}`, {
+      nome: 'Contador', permissoes: ['financas.lancamento.ver'] }, tokenAdmin);
+    assert.equal(r.statusCode, 200, r.body);
+    assert.equal(r.json().nome, 'Contador');
+    assert.equal(r.json().codigo, 'contador_externo'); // o codigo nao muda
+    assert.deepEqual(await permissoesDe(tokenComum), ['financas.lancamento.ver']);
+    assert.equal((await send('PUT', `/perfis/${idPerfil}`, { nome: 'Z' }, tokenComum)).statusCode, 403);
+    assert.equal((await send('PUT', '/perfis/11111111-1111-1111-1111-111111111111', { nome: 'Z' }, tokenAdmin)).statusCode, 404);
+  });
+
+  it('o perfil administrador nao tem as permissoes alteradas, mas pode mudar de descricao', async () => {
+    const adm = (await get('/perfis', tokenAdmin)).json().itens.find((x) => x.codigo === 'administrador');
+    const trava = await send('PUT', `/perfis/${adm.id}`, { permissoes: ['acesso.usuario.ver'] }, tokenAdmin);
+    assert.equal(trava.statusCode, 400);
+    assert.equal(trava.json().erro, 'perfil_administrador_fixo');
+    const ok = await send('PUT', `/perfis/${adm.id}`, { descricao: 'Acesso total' }, tokenAdmin);
+    assert.equal(ok.statusCode, 200);
+    assert.equal(ok.json().descricao, 'Acesso total');
+    assert.ok((await permissoesDe(tokenAdmin)).includes('acesso.usuario.editar'));
+  });
+
+  it('nao apaga perfil de fabrica nem perfil em uso; apaga o que ninguem usa', async () => {
+    const leitura = (await get('/perfis', tokenAdmin)).json().itens.find((x) => x.codigo === 'leitura');
+    const sist = await send('DELETE', `/perfis/${leitura.id}`, undefined, tokenAdmin);
+    assert.equal(sist.statusCode, 400);
+    assert.equal(sist.json().erro, 'perfil_de_sistema');
+
+    const uso = await send('DELETE', `/perfis/${idPerfil}`, undefined, tokenAdmin);
+    assert.equal(uso.statusCode, 409);
+    assert.equal(uso.json().usuarios, 1);
+
+    await send('PUT', `/usuarios/${idComum}/perfis`, { perfis: ['usuario'] }, tokenAdmin);
+    assert.equal((await send('DELETE', `/perfis/${idPerfil}`, undefined, tokenAdmin)).statusCode, 204);
+    assert.equal((await get(`/perfis/${idPerfil}`, tokenAdmin)).statusCode, 404);
+  });
+
+  let idGrupo;
+  it('cria um grupo com perfil e membros; o membro herda as permissoes do perfil do grupo', async () => {
+    await send('POST', '/perfis', { nome: 'Agenda Leve', permissoes: ['agenda.evento.ver', 'agenda.evento.editar'] }, tokenAdmin);
+    // tira do usuario comum o perfil "usuario" para ver so o efeito do grupo
+    await send('PUT', `/usuarios/${idComum}/perfis`, { perfis: ['leitura'] }, tokenAdmin);
+    const antes = await permissoesDe(tokenComum);
+    assert.ok(!antes.includes('agenda.evento.editar'));
+
+    const r = await send('POST', '/grupos', {
+      nome: 'Equipe Agenda', descricao: 'Time de agenda', perfis: ['agenda_leve'], membros: [idComum],
+    }, tokenAdmin);
+    assert.equal(r.statusCode, 201, r.body);
+    const g = r.json();
+    assert.deepEqual(g.perfis, ['agenda_leve']);
+    assert.deepEqual(g.membros.map((m) => m.id), [idComum]);
+    idGrupo = g.id;
+    assert.ok((await permissoesDe(tokenComum)).includes('agenda.evento.editar'));
+  });
+
+  it('GET /grupos lista com contagens; nome repetido da 409; comum recebe 403', async () => {
+    const j = (await get('/grupos', tokenAdmin)).json();
+    const g = j.itens.find((x) => x.id === idGrupo);
+    assert.equal(g.total_membros, 1);
+    assert.deepEqual(g.perfis, ['agenda_leve']);
+    assert.equal((await send('POST', '/grupos', { nome: 'Equipe Agenda' }, tokenAdmin)).statusCode, 409);
+    assert.equal((await send('POST', '/grupos', { nome: 'Nada' }, tokenComum)).statusCode, 403);
+    assert.equal((await send('POST', '/grupos', { nome: 'Ruim', perfis: ['perfil-falso'] }, tokenAdmin)).statusCode, 400);
+  });
+
+  it('editar o grupo troca perfis e membros', async () => {
+    const r = await send('PUT', `/grupos/${idGrupo}`, { nome: 'Equipe de Agenda', membros: [] }, tokenAdmin);
+    assert.equal(r.statusCode, 200, r.body);
+    assert.equal(r.json().nome, 'Equipe de Agenda');
+    assert.deepEqual(r.json().membros, []);
+    assert.ok(!(await permissoesDe(tokenComum)).includes('agenda.evento.editar'));
+
+    const volta = await send('PUT', `/usuarios/${idComum}/grupos`, { grupos: [idGrupo] }, tokenAdmin);
+    assert.equal(volta.statusCode, 200, volta.body);
+    assert.deepEqual(volta.json().grupos.map((x) => x.id), [idGrupo]);
+    assert.ok((await permissoesDe(tokenComum)).includes('agenda.evento.editar'));
+    assert.equal((await send('PUT', `/usuarios/${idComum}/grupos`, { grupos: ['11111111-1111-1111-1111-111111111111'] }, tokenAdmin)).statusCode, 400);
+  });
+
+  it('excecoes individuais: conceder uma permissao e negar outra (a negacao vence)', async () => {
+    // concede: o usuario comum ganha uma permissao fora dos seus perfis
+    const r = await send('PUT', `/usuarios/${idComum}/permissoes`, {
+      permissoes: { 'financas.conta.gerenciar': true, 'agenda.evento.editar': false } }, tokenAdmin);
+    assert.equal(r.statusCode, 200, r.body);
+    assert.deepEqual(r.json().excecoes, { 'financas.conta.gerenciar': true, 'agenda.evento.editar': false });
+    const ps = await permissoesDe(tokenComum);
+    assert.ok(ps.includes('financas.conta.gerenciar'));
+    assert.ok(!ps.includes('agenda.evento.editar')); // negada mesmo vindo do grupo
+    assert.ok(r.json().permissoes.includes('financas.conta.gerenciar'));
+
+    // volta ao herdado
+    const volta = await send('PUT', `/usuarios/${idComum}/permissoes`, {
+      permissoes: { 'financas.conta.gerenciar': null, 'agenda.evento.editar': null } }, tokenAdmin);
+    assert.deepEqual(volta.json().excecoes, {});
+    assert.ok((await permissoesDe(tokenComum)).includes('agenda.evento.editar'));
+
+    assert.equal((await send('PUT', `/usuarios/${idComum}/permissoes`, { permissoes: { 'x.y.z': true } }, tokenAdmin)).statusCode, 400);
+    assert.equal((await send('PUT', `/usuarios/${idComum}/permissoes`, { permissoes: { 'agenda.evento.ver': false } }, tokenComum)).statusCode, 403);
+  });
+
+  it('o administrador nao nega a si mesmo permissoes de acesso e administracao', async () => {
+    const r = await send('PUT', `/usuarios/${idAdmin}/permissoes`, { permissoes: { 'acesso.usuario.editar': false } }, tokenAdmin);
+    assert.equal(r.statusCode, 400);
+    assert.equal(r.json().erro, 'nao_pode_negar_a_si_mesmo');
+    // negar outra coisa a si mesmo pode
+    const ok = await send('PUT', `/usuarios/${idAdmin}/permissoes`, { permissoes: { 'painel.relatorio.exportar': false } }, tokenAdmin);
+    assert.equal(ok.statusCode, 200);
+    await send('PUT', `/usuarios/${idAdmin}/permissoes`, { permissoes: { 'painel.relatorio.exportar': null } }, tokenAdmin);
+  });
+
+  it('GET /usuarios/:id traz grupos, excecoes e permissoes efetivas', async () => {
+    const j = (await get(`/usuarios/${idComum}`, tokenAdmin)).json();
+    assert.deepEqual(j.grupos.map((x) => x.id), [idGrupo]);
+    assert.deepEqual(j.excecoes, {});
+    assert.ok(Array.isArray(j.permissoes) && j.permissoes.includes('agenda.evento.editar'));
+  });
+
+  it('apagar o grupo tira as permissoes que vinham dele', async () => {
+    assert.equal((await send('DELETE', `/grupos/${idGrupo}`, undefined, tokenAdmin)).statusCode, 204);
+    assert.ok(!(await permissoesDe(tokenComum)).includes('agenda.evento.editar'));
+    assert.equal((await send('DELETE', `/grupos/${idGrupo}`, undefined, tokenAdmin)).statusCode, 404);
+  });
+});
+

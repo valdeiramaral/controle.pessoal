@@ -96,7 +96,16 @@ export default async function rotasUsuarios(app) {
                 WHEN true THEN 'liberado' WHEN false THEN 'bloqueado' ELSE 'padrao' END AS liberacao,
               controle.modulo_liberado($1, m.codigo) AS efetivo
          FROM controle.modulo m WHERE m.ativo ORDER BY m.ordem`, [id])).rows;
-    return { usuario: serializarUsuario(u), licenca, perfis, modulos };
+    const grupos = (await c.query(
+      `SELECT g.id, g.nome FROM controle.usuario_grupo ug JOIN controle.grupo g ON g.id = ug.grupo_id
+        WHERE ug.usuario_id = $1 ORDER BY g.nome`, [id])).rows;
+    // excecoes individuais: { 'financas.conta.gerenciar': false, ... } (true concede, false nega)
+    const excecoes = Object.fromEntries((await c.query(
+      'SELECT permissao_codigo, concedida FROM controle.usuario_permissao WHERE usuario_id = $1', [id]))
+      .rows.map((r) => [r.permissao_codigo, r.concedida]));
+    const permissoes = (await c.query(
+      'SELECT p FROM controle.permissoes_do_usuario($1) AS p', [id])).rows.map((r) => r.p);
+    return { usuario: serializarUsuario(u), licenca, perfis, modulos, grupos, excecoes, permissoes };
   }
 
   app.get('/usuarios/:id', {
@@ -274,6 +283,72 @@ export default async function rotasUsuarios(app) {
           'SELECT 1 FROM controle.usuario WHERE id = $1 AND excluido_em IS NULL', [req.params.id])).rowCount;
         if (!existe) return null;
         await definirModulos(c, req.params.id, req.body.modulos);
+        return detalhe(c, req.params.id);
+      }, { admin: true });
+      return r ?? naoEncontrado(reply);
+    } catch (e) { return erroDoBanco(e, reply); }
+  });
+
+  // --------------------------------------------------------------- grupos
+  app.put('/usuarios/:id/grupos', {
+    preHandler: app.exigir('acesso.grupo.gerenciar'),
+    schema: {
+      params: paramId,
+      body: {
+        type: 'object', required: ['grupos'], additionalProperties: false,
+        properties: { grupos: { type: 'array', items: { type: 'string', format: 'uuid' }, maxItems: 100, uniqueItems: true } },
+      },
+    },
+  }, async (req, reply) => {
+    try {
+      const r = await comUsuario(pool, req.usuarioId, async (c) => {
+        const existe = (await c.query(
+          'SELECT 1 FROM controle.usuario WHERE id = $1 AND excluido_em IS NULL', [req.params.id])).rowCount;
+        if (!existe) return null;
+        await c.query('DELETE FROM controle.usuario_grupo WHERE usuario_id = $1', [req.params.id]);
+        if (req.body.grupos.length) {
+          await c.query(
+            'INSERT INTO controle.usuario_grupo (usuario_id, grupo_id) SELECT $1, unnest($2::uuid[])',
+            [req.params.id, req.body.grupos]);
+        }
+        return detalhe(c, req.params.id);
+      }, { admin: true });
+      return r ?? naoEncontrado(reply);
+    } catch (e) { return erroDoBanco(e, reply); }
+  });
+
+  // ------------------------------------------------- excecoes de permissao
+  // true concede, false nega (a negacao vence), null remove a excecao.
+  app.put('/usuarios/:id/permissoes', {
+    preHandler: app.exigir('acesso.perfil.gerenciar'),
+    schema: {
+      params: paramId,
+      body: {
+        type: 'object', required: ['permissoes'], additionalProperties: false,
+        properties: { permissoes: { type: 'object', additionalProperties: { type: ['boolean', 'null'] } } },
+      },
+    },
+  }, async (req, reply) => {
+    // Ninguem nega a si mesmo o acesso a administracao (evita se trancar para fora).
+    if (req.params.id === req.usuarioId) {
+      const trava = Object.entries(req.body.permissoes)
+        .find(([cod, v]) => v === false && /^(acesso|administracao)\./.test(cod));
+      if (trava) return reply.code(400).send({ erro: 'nao_pode_negar_a_si_mesmo', permissao: trava[0] });
+    }
+    try {
+      const r = await comUsuario(pool, req.usuarioId, async (c) => {
+        const existe = (await c.query(
+          'SELECT 1 FROM controle.usuario WHERE id = $1 AND excluido_em IS NULL', [req.params.id])).rowCount;
+        if (!existe) return null;
+        for (const [cod, valor] of Object.entries(req.body.permissoes)) {
+          await c.query('DELETE FROM controle.usuario_permissao WHERE usuario_id = $1 AND permissao_codigo = $2',
+            [req.params.id, cod]);
+          if (valor === true || valor === false) {
+            await c.query(
+              'INSERT INTO controle.usuario_permissao (usuario_id, permissao_codigo, concedida) VALUES ($1, $2, $3)',
+              [req.params.id, cod, valor]);
+          }
+        }
         return detalhe(c, req.params.id);
       }, { admin: true });
       return r ?? naoEncontrado(reply);
