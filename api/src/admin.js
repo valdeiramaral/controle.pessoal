@@ -37,6 +37,8 @@ export async function criarSuperusuario(pool, { email, senha, nome = 'Super UsuÃ
     { admin: true });
   }
   await promover(pool, email, 'administrador');
+  await comUsuario(pool, '', (c) => c.query('UPDATE controle.usuario SET superusuario = true WHERE id = $1', [id]),
+    { admin: true });
   const plano = await comUsuario(pool, '', async (c) => {
     const p = (await c.query("SELECT codigo FROM controle.plano WHERE codigo = 'vitalicio'")).rowCount
       ? 'vitalicio' : 'anual';

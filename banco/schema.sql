@@ -115,6 +115,8 @@ CREATE TABLE usuario (
   criado_em           timestamptz NOT NULL DEFAULT now(),
   atualizado_em       timestamptz NOT NULL DEFAULT now(),
   excluido_em         timestamptz,
+  superusuario        boolean NOT NULL DEFAULT false,  -- unico que enxerga os dados de todos
+  criado_por          uuid REFERENCES usuario (id) ON DELETE SET NULL,  -- quem cadastrou (NULL = auto-cadastro)
   CONSTRAINT ck_usuario_email CHECK (email = lower(email) AND email ~ '^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$'),
   CONSTRAINT ck_usuario_cpf CHECK (cpf IS NULL OR cpf_valido(cpf)),
   CONSTRAINT ck_usuario_telefone CHECK (telefone IS NULL OR telefone ~ '^[0-9]{10,13}$'),
@@ -384,7 +386,8 @@ CREATE TABLE modulo (
   ativo               boolean NOT NULL DEFAULT true,
   liberado_para_todos boolean NOT NULL DEFAULT false,
   icone               text    NOT NULL DEFAULT 'extension',  -- nome do icone no app
-  exibir_no_menu      boolean NOT NULL DEFAULT false         -- true = modulo cadastrado pelo administrador
+  exibir_no_menu      boolean NOT NULL DEFAULT false,        -- true = modulo cadastrado pelo SuperUsuario
+  dono_id             uuid    REFERENCES usuario (id) ON DELETE CASCADE  -- dono do modulo (NULL = de fabrica)
 );
 
 CREATE TABLE permissao (
@@ -672,6 +675,12 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = controle, public AS $$
    ORDER BY 1
 $$;
 
+-- true se o usuario e o SuperUsuario (unico com acesso aos dados de todos).
+CREATE FUNCTION e_superusuario(u uuid) RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = controle, public AS $$
+  SELECT coalesce((SELECT superusuario FROM usuario WHERE id = u AND excluido_em IS NULL AND ativo), false)
+$$;
+
 -- Login: a API ainda nao sabe o id, so o e-mail. Devolve o necessario
 -- para conferir a senha (a conferencia do hash e feita na API).
 CREATE FUNCTION buscar_login(p_email text)
@@ -744,7 +753,7 @@ END $$;
 -- Execucao so para quem a API usa (o script de papel concede ao app_api).
 REVOKE ALL ON FUNCTION tem_acesso(uuid), modulo_liberado(uuid, text),
   permissoes_do_usuario(uuid), modulos_do_usuario(uuid), buscar_login(text),
-  registrar_login(uuid, boolean),
+  registrar_login(uuid, boolean), e_superusuario(uuid),
   cadastrar_usuario(text, text, text, text, text, text, text, date, jsonb)
   FROM PUBLIC;
 

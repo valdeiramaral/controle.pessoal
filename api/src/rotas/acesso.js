@@ -66,7 +66,7 @@ export default async function rotasAcesso(app) {
   }
 
   app.post('/perfis', {
-    preHandler: app.exigir('acesso.perfil.gerenciar'),
+    preHandler: [app.exigir('acesso.perfil.gerenciar'), app.exigirSuper],
     schema: {
       body: {
         type: 'object', required: ['nome'], additionalProperties: false,
@@ -94,7 +94,7 @@ export default async function rotasAcesso(app) {
   });
 
   app.put('/perfis/:id', {
-    preHandler: app.exigir('acesso.perfil.gerenciar'),
+    preHandler: [app.exigir('acesso.perfil.gerenciar'), app.exigirSuper],
     schema: {
       params: paramId,
       body: {
@@ -128,7 +128,7 @@ export default async function rotasAcesso(app) {
   });
 
   app.delete('/perfis/:id', {
-    preHandler: app.exigir('acesso.perfil.gerenciar'), schema: { params: paramId },
+    preHandler: [app.exigir('acesso.perfil.gerenciar'), app.exigirSuper], schema: { params: paramId },
   }, async (req, reply) => {
     const r = await admin(req, async (c) => {
       const p = (await c.query('SELECT sistema FROM controle.perfil WHERE id = $1', [req.params.id])).rows[0];
@@ -207,7 +207,7 @@ export default async function rotasAcesso(app) {
   });
 
   app.post('/grupos', {
-    preHandler: app.exigir('acesso.grupo.gerenciar'), schema: { body: corpoGrupo(true) },
+    preHandler: [app.exigir('acesso.grupo.gerenciar'), app.exigirSuper], schema: { body: corpoGrupo(true) },
   }, async (req, reply) => {
     const { nome, descricao, perfis = [], membros = [] } = req.body;
     try {
@@ -224,7 +224,7 @@ export default async function rotasAcesso(app) {
   });
 
   app.put('/grupos/:id', {
-    preHandler: app.exigir('acesso.grupo.gerenciar'), schema: { params: paramId, body: corpoGrupo(false) },
+    preHandler: [app.exigir('acesso.grupo.gerenciar'), app.exigirSuper], schema: { params: paramId, body: corpoGrupo(false) },
   }, async (req, reply) => {
     try {
       const r = await admin(req, async (c) => {
@@ -243,7 +243,7 @@ export default async function rotasAcesso(app) {
   });
 
   app.delete('/grupos/:id', {
-    preHandler: app.exigir('acesso.grupo.gerenciar'), schema: { params: paramId },
+    preHandler: [app.exigir('acesso.grupo.gerenciar'), app.exigirSuper], schema: { params: paramId },
   }, async (req, reply) => {
     const r = await admin(req, (c) => c.query('DELETE FROM controle.grupo WHERE id = $1', [req.params.id]));
     return r.rowCount ? reply.code(204).send() : reply.code(404).send({ erro: 'grupo_nao_encontrado' });

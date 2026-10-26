@@ -14,6 +14,17 @@ export default async function rotasUsuarios(app) {
 
   const naoEncontrado = (reply) => reply.code(404).send({ erro: 'usuario_nao_encontrado' });
 
+  // Isolamento: quem nao e SuperUsuario so alcanca a si mesmo e os usuarios que ele mesmo cadastrou.
+  async function noEscopo(req, reply) {
+    const alvo = req.params.id;
+    if (!alvo || alvo === req.usuarioId) return;
+    if (await app.ehSuperusuario(req.usuarioId)) return;
+    const ok = (await comUsuario(pool, req.usuarioId, (c) => c.query(
+      'SELECT 1 FROM controle.usuario WHERE id = $1 AND criado_por = $2 AND excluido_em IS NULL', [alvo, req.usuarioId]),
+    { admin: true })).rowCount;
+    if (!ok) return naoEncontrado(reply);
+  }
+
   // Traduz erros de unicidade/validacao do banco em respostas claras.
   const erroDoBanco = (e, reply) => {
     if (e.code === '23505' && e.constraint === 'ux_usuario_cpf') return reply.code(409).send({ erro: 'cpf_ja_cadastrado' });
@@ -32,7 +43,7 @@ export default async function rotasUsuarios(app) {
         'SELECT codigo, nome, periodo FROM controle.plano WHERE ativo ORDER BY duracao_meses NULLS FIRST, codigo')).rows,
       modulos: (await c.query(
         `SELECT codigo, nome, descricao, liberado_para_todos
-           FROM controle.modulo WHERE ativo ORDER BY ordem`)).rows,
+           FROM controle.modulo WHERE ativo AND dono_id IS NULL ORDER BY ordem`)).rows,
       perfis: (await c.query('SELECT codigo, nome, descricao FROM controle.perfil ORDER BY nome')).rows,
     }));
   });
@@ -56,16 +67,21 @@ export default async function rotasUsuarios(app) {
       ? `AND (u.nome ILIKE $1 OR u.email ILIKE $1 OR u.cpf LIKE $2)` : '';
     const params = busca?.trim()
       ? [`%${busca.trim().replace(/[%_\\]/g, '\\$&')}%`, busca.replace(/\D/g, '') ? `${busca.replace(/\D/g, '')}%` : null] : [];
+    let escopo = '';
+    if (!(await app.ehSuperusuario(req.usuarioId))) {
+      params.push(req.usuarioId);
+      escopo = `AND (u.criado_por = $${params.length} OR u.id = $${params.length})`;
+    }
     return comUsuario(pool, req.usuarioId, async (c) => {
       const total = (await c.query(
-        `SELECT count(*)::int AS n FROM controle.usuario u WHERE u.excluido_em IS NULL ${filtro}`, params)).rows[0].n;
+        `SELECT count(*)::int AS n FROM controle.usuario u WHERE u.excluido_em IS NULL ${filtro} ${escopo}`, params)).rows[0].n;
       const itens = (await c.query(
         `SELECT u.id, u.nome, u.email, u.cpf, u.telefone, u.pais, u.idioma, u.ativo, u.criado_em, u.ultimo_login_em,
                 (SELECT l.plano_codigo FROM controle.licenca l
                   WHERE l.usuario_id = u.id AND l.status = 'ativa'
                     AND l.inicio <= now() AND (l.fim IS NULL OR l.fim > now())
                   ORDER BY l.inicio DESC LIMIT 1) AS plano
-           FROM controle.usuario u WHERE u.excluido_em IS NULL ${filtro}
+           FROM controle.usuario u WHERE u.excluido_em IS NULL ${filtro} ${escopo}
           ORDER BY u.nome, u.id LIMIT ${Number(limite)} OFFSET ${(Number(pagina) - 1) * Number(limite)}`,
         params)).rows;
       return { total, pagina, itens };
@@ -95,7 +111,7 @@ export default async function rotasUsuarios(app) {
                      ORDER BY l.criado_em DESC LIMIT 1)
                 WHEN true THEN 'liberado' WHEN false THEN 'bloqueado' ELSE 'padrao' END AS liberacao,
               controle.modulo_liberado($1, m.codigo) AS efetivo
-         FROM controle.modulo m WHERE m.ativo ORDER BY m.ordem`, [id])).rows;
+         FROM controle.modulo m WHERE m.ativo AND m.dono_id IS NULL ORDER BY m.ordem`, [id])).rows;
     const grupos = (await c.query(
       `SELECT g.id, g.nome FROM controle.usuario_grupo ug JOIN controle.grupo g ON g.id = ug.grupo_id
         WHERE ug.usuario_id = $1 ORDER BY g.nome`, [id])).rows;
@@ -109,7 +125,7 @@ export default async function rotasUsuarios(app) {
   }
 
   app.get('/usuarios/:id', {
-    preHandler: app.exigir('acesso.usuario.ver'),
+    preHandler: [app.exigir('acesso.usuario.ver'), noEscopo],
     schema: { params: paramId },
   }, async (req, reply) => {
     const r = await comUsuario(pool, req.usuarioId, (c) => detalhe(c, req.params.id), { admin: true });
@@ -130,6 +146,10 @@ export default async function rotasUsuarios(app) {
 
   async function definirModulos(c, id, mapa) {
     for (const [modulo, valor] of Object.entries(mapa)) {
+      // So os modulos de fabrica se liberam por aqui; os do SuperUsuario pertencem a um dono.
+      if (!(await c.query('SELECT 1 FROM controle.modulo WHERE codigo = $1 AND dono_id IS NULL', [modulo])).rowCount) {
+        const e = new Error('modulo invalido'); e.code = '23503'; e.detail = `modulo ${modulo}`; throw e;
+      }
       await c.query('DELETE FROM controle.liberacao_modulo WHERE usuario_id = $1 AND modulo_codigo = $2', [id, modulo]);
       if (valor === true || valor === false) {
         await c.query(
@@ -200,6 +220,7 @@ export default async function rotasUsuarios(app) {
           'SELECT controle.cadastrar_usuario($1, $2, $3, $4, $5, $6, $7, $8, $9) AS id',
           [d.nome, normalizarEmail(b.email), senhaHash, 'BR', null,
             d.cpf, d.telefone, d.data_nascimento ?? null, enderecoJson(d)])).rows[0].id;
+        await c.query('UPDATE controle.usuario SET criado_por = $2 WHERE id = $1', [id, req.usuarioId]);
         if (b.plano !== undefined) await trocarPlano(c, id, b.plano, null);
         if (b.perfis !== undefined) await definirPerfis(c, id, b.perfis);
         if (b.modulos !== undefined) await definirModulos(c, id, b.modulos);
@@ -211,7 +232,7 @@ export default async function rotasUsuarios(app) {
 
   // ------------------------------------------------- editar dados / ativo
   app.patch('/usuarios/:id', {
-    preHandler: app.exigir('acesso.usuario.editar'),
+    preHandler: [app.exigir('acesso.usuario.editar'), noEscopo],
     schema: {
       params: paramId,
       body: {
@@ -248,7 +269,7 @@ export default async function rotasUsuarios(app) {
 
   // ---------------------------------------------------------------- plano
   app.put('/usuarios/:id/plano', {
-    preHandler: app.exigir('licencas.licenca.conceder'),
+    preHandler: [app.exigir('licencas.licenca.conceder'), noEscopo],
     schema: {
       params: paramId,
       body: {
@@ -271,7 +292,7 @@ export default async function rotasUsuarios(app) {
 
   // -------------------------------------------------------------- modulos
   app.put('/usuarios/:id/modulos', {
-    preHandler: app.exigir('administracao.liberacao.gerenciar'),
+    preHandler: [app.exigir('administracao.liberacao.gerenciar'), noEscopo],
     schema: {
       params: paramId,
       body: { type: 'object', required: ['modulos'], additionalProperties: false, properties: { modulos: esquemaModulos } },
@@ -292,7 +313,7 @@ export default async function rotasUsuarios(app) {
   // ------------------------------------------------------------- excluir
   // Exclusao logica: a conta some das listas e nao entra mais; e-mail e CPF ficam livres.
   app.delete('/usuarios/:id', {
-    preHandler: app.exigir('acesso.usuario.editar'), schema: { params: paramId },
+    preHandler: [app.exigir('acesso.usuario.editar'), noEscopo], schema: { params: paramId },
   }, async (req, reply) => {
     if (req.params.id === req.usuarioId) return reply.code(400).send({ erro: 'nao_pode_excluir_a_si_mesmo' });
     const r = await comUsuario(pool, req.usuarioId, (c) => c.query(
@@ -303,7 +324,7 @@ export default async function rotasUsuarios(app) {
 
   // --------------------------------------------------------------- grupos
   app.put('/usuarios/:id/grupos', {
-    preHandler: app.exigir('acesso.grupo.gerenciar'),
+    preHandler: [app.exigir('acesso.grupo.gerenciar'), noEscopo],
     schema: {
       params: paramId,
       body: {
@@ -332,7 +353,7 @@ export default async function rotasUsuarios(app) {
   // ------------------------------------------------- excecoes de permissao
   // true concede, false nega (a negacao vence), null remove a excecao.
   app.put('/usuarios/:id/permissoes', {
-    preHandler: app.exigir('acesso.perfil.gerenciar'),
+    preHandler: [app.exigir('acesso.perfil.gerenciar'), noEscopo],
     schema: {
       params: paramId,
       body: {
@@ -369,7 +390,7 @@ export default async function rotasUsuarios(app) {
 
   // --------------------------------------------------------------- perfis
   app.put('/usuarios/:id/perfis', {
-    preHandler: app.exigir('acesso.perfil.gerenciar'),
+    preHandler: [app.exigir('acesso.perfil.gerenciar'), noEscopo],
     schema: {
       params: paramId,
       body: { type: 'object', required: ['perfis'], additionalProperties: false, properties: { perfis: esquemaPerfis } },

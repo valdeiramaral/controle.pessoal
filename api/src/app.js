@@ -85,6 +85,15 @@ export async function criarApp({ pool, config, logger = false }) {
     return r.rowCount > 0;
   });
 
+  // SuperUsuario: unico com acesso aos dados de todos os usuarios.
+  app.decorate('ehSuperusuario', async (usuarioId) =>
+    (await pool.query('SELECT controle.e_superusuario($1) AS s', [usuarioId])).rows[0].s);
+  app.decorate('exigirSuper', async (req, reply) => {
+    await app.autenticar(req, reply);
+    if (reply.sent) return reply;
+    if (!(await app.ehSuperusuario(req.usuarioId))) return reply.code(403).send({ erro: 'sem_permissao', permissao: 'superusuario' });
+  });
+
   app.get('/saude', async () => {
     await pool.query('SELECT 1');
     return { ok: true };

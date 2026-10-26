@@ -1,9 +1,9 @@
 import { comUsuario } from '../db.js';
 import { codigoDoNome } from './acesso.js';
 
-// Cadastro de modulos (modulo "administracao") e a lista de modulos do menu.
-// Modulos criados aqui tem exibir_no_menu = true; os de fabrica (financas, saude...) nao podem ser
-// excluidos nem desativados.
+// Cadastro de modulos: so o SuperUsuario cria e entrega modulos; cada modulo criado tem um DONO,
+// e so o dono (alem do SuperUsuario) o ve no menu. Os de fabrica (financas, saude...) valem para
+// todos, nao tem dono e nao podem ser excluidos nem desativados.
 export const ICONES = [
   'extension', 'folder', 'star', 'work', 'school', 'cart', 'home', 'fitness', 'pets',
   'flight', 'book', 'build', 'chart', 'people', 'wallet',
@@ -19,16 +19,18 @@ const propriedades = {
   ativo: { type: 'boolean' },
   liberado_para_todos: { type: 'boolean' },
   planos: listaPlanos,
+  dono_id: { type: 'string', format: 'uuid' },
 };
 
 export default async function rotasModulos(app) {
   const { pool } = app;
   const admin = (req, fn) => comUsuario(pool, req.usuarioId, fn, { admin: true });
-  const gerenciar = app.exigir('administracao.modulo.gerenciar');
+  const gerenciar = [app.exigir('administracao.modulo.gerenciar'), app.exigirSuper];
 
   const SELECT = `
     SELECT m.codigo, m.nome, m.descricao, m.ordem, m.ativo, m.liberado_para_todos, m.icone,
-           m.exibir_no_menu, NOT m.exibir_no_menu AS sistema,
+           m.exibir_no_menu, NOT m.exibir_no_menu AS sistema, m.dono_id,
+           (SELECT u.nome FROM controle.usuario u WHERE u.id = m.dono_id) AS dono_nome,
            coalesce((SELECT array_agg(l.plano_codigo ORDER BY l.plano_codigo) FROM liberacao_modulo l
                       WHERE l.modulo_codigo = m.codigo AND l.plano_codigo IS NOT NULL AND l.concedida), '{}') AS planos
       FROM controle.modulo m`;
@@ -58,7 +60,7 @@ export default async function rotasModulos(app) {
 
   app.post('/modulos', {
     preHandler: gerenciar,
-    schema: { body: { type: 'object', required: ['nome'], additionalProperties: false, properties: propriedades } },
+    schema: { body: { type: 'object', required: ['nome', 'dono_id'], additionalProperties: false, properties: propriedades } },
   }, async (req, reply) => {
     const b = req.body;
     const codigo = codigoDoNome(b.nome);
@@ -68,14 +70,16 @@ export default async function rotasModulos(app) {
     try {
       const m = await admin(req, async (c) => {
         const ordem = b.ordem ?? ((await c.query('SELECT coalesce(max(ordem), 0) + 1 AS n FROM controle.modulo')).rows[0].n);
+        if (!(await c.query('SELECT 1 FROM controle.usuario WHERE id = $1 AND excluido_em IS NULL', [b.dono_id])).rowCount) {
+          return null;
+        }
         await c.query(
-          `INSERT INTO controle.modulo (codigo, nome, descricao, ordem, ativo, liberado_para_todos, icone, exibir_no_menu)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, true)`,
-          [codigo, b.nome.trim(), b.descricao ?? null, ordem, b.ativo ?? true, b.liberado_para_todos ?? true,
-            b.icone ?? 'extension']);
-        await gravarPlanos(c, codigo, b.planos ?? []);
+          `INSERT INTO controle.modulo (codigo, nome, descricao, ordem, ativo, liberado_para_todos, icone, exibir_no_menu, dono_id)
+           VALUES ($1, $2, $3, $4, $5, false, $6, true, $7)`,
+          [codigo, b.nome.trim(), b.descricao ?? null, ordem, b.ativo ?? true, b.icone ?? 'extension', b.dono_id]);
         return (await c.query(`${SELECT} WHERE m.codigo = $1`, [codigo])).rows[0];
       });
+      if (!m) return reply.code(400).send({ erro: 'dados_invalidos', campo: 'dono_id', detalhe: 'Usuário dono não encontrado.' });
       return reply.code(201).send(m);
     } catch (e) { return erroDoBanco(e, reply); }
   });
@@ -90,17 +94,25 @@ export default async function rotasModulos(app) {
         const atual = (await c.query('SELECT exibir_no_menu FROM controle.modulo WHERE codigo = $1', [req.params.codigo])).rows[0];
         if (!atual) return { nao: 404 };
         if (!atual.exibir_no_menu && b.ativo === false) return { nao: 400 };
+        // Modulo do SuperUsuario: tem dono e nao se libera por plano; de fabrica: nao tem dono.
+        const chaves = atual.exibir_no_menu ? ['nome', 'descricao', 'ordem', 'ativo', 'icone', 'dono_id']
+          : ['nome', 'descricao', 'ordem', 'liberado_para_todos', 'icone'];
+        if (atual.exibir_no_menu && b.dono_id !== undefined
+          && !(await c.query('SELECT 1 FROM controle.usuario WHERE id = $1 AND excluido_em IS NULL', [b.dono_id])).rowCount) {
+          return { nao: 422 };
+        }
         const campos = [];
         const valores = [req.params.codigo];
-        for (const k of ['nome', 'descricao', 'ordem', 'ativo', 'liberado_para_todos', 'icone']) {
+        for (const k of chaves) {
           if (k in b) { valores.push(k === 'nome' ? b[k].trim() : b[k]); campos.push(`${k} = $${valores.length}`); }
         }
         if (campos.length) await c.query(`UPDATE controle.modulo SET ${campos.join(', ')} WHERE codigo = $1`, valores);
-        if (b.planos !== undefined) await gravarPlanos(c, req.params.codigo, b.planos);
+        if (b.planos !== undefined && !atual.exibir_no_menu) await gravarPlanos(c, req.params.codigo, b.planos);
         return { m: (await c.query(`${SELECT} WHERE m.codigo = $1`, [req.params.codigo])).rows[0] };
       });
       if (r.nao === 404) return reply.code(404).send({ erro: 'modulo_nao_encontrado' });
       if (r.nao === 400) return reply.code(400).send({ erro: 'modulo_de_sistema' });
+      if (r.nao === 422) return reply.code(400).send({ erro: 'dados_invalidos', campo: 'dono_id', detalhe: 'Usuário dono não encontrado.' });
       return r.m;
     } catch (e) { return erroDoBanco(e, reply); }
   });
@@ -123,12 +135,16 @@ export default async function rotasModulos(app) {
     }
   });
 
-  // Modulos criados pelo administrador que ESTE usuario pode usar: viram itens do menu.
-  app.get('/meus-modulos', { preHandler: app.autenticar }, async (req) => comUsuario(pool, req.usuarioId, async (c) => ({
-    itens: (await c.query(
-      `SELECT m.codigo, m.nome, m.descricao, m.icone
-         FROM controle.modulo m
-        WHERE m.ativo AND m.exibir_no_menu AND controle.modulo_liberado($1, m.codigo)
-        ORDER BY m.ordem, m.nome`, [req.usuarioId])).rows,
-  })));
+  // Modulos do menu do usuario logado: os que ele possui. O SuperUsuario ve os de todos (com o nome do dono).
+  app.get('/meus-modulos', { preHandler: app.autenticar }, async (req) => {
+    const todos = await app.ehSuperusuario(req.usuarioId);
+    return comUsuario(pool, req.usuarioId, async (c) => ({
+      itens: (await c.query(
+        `SELECT m.codigo, m.nome, m.descricao, m.icone, m.dono_id,
+                (SELECT u.nome FROM controle.usuario u WHERE u.id = m.dono_id) AS dono_nome
+           FROM controle.modulo m
+          WHERE m.ativo AND m.exibir_no_menu AND ($2 OR m.dono_id = $1)
+          ORDER BY m.ordem, m.nome`, [req.usuarioId, todos])).rows,
+    }), { admin: todos });
+  });
 }

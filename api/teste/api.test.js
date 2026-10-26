@@ -325,6 +325,7 @@ describe('administracao de usuarios', () => {
     await cadastrar('admin@exemplo.com');
     idComum = await cadastrar('comum@exemplo.com');
     await promover(pool, 'admin@exemplo.com');
+    await su.query("UPDATE controle.usuario SET superusuario = true WHERE email = 'admin@exemplo.com'");
     tokenAdmin = await entrar('admin@exemplo.com');
     tokenComum = await entrar('comum@exemplo.com');
   });
@@ -529,6 +530,7 @@ describe('perfis, grupos e permissoes individuais', () => {
     idAdmin = await cadastrar('adm-acesso@exemplo.com');
     idComum = await cadastrar('comum-acesso@exemplo.com');
     await promover(pool, 'adm-acesso@exemplo.com');
+    await su.query("UPDATE controle.usuario SET superusuario = true WHERE email = 'adm-acesso@exemplo.com'");
     tokenAdmin = await entrar('adm-acesso@exemplo.com');
     tokenComum = await entrar('comum-acesso@exemplo.com');
   });
@@ -748,29 +750,42 @@ describe('excluir usuario', () => {
 describe('cadastro de modulos', () => {
   const com = (method, url, token, payload) => app.inject({ method, url, payload, headers: { authorization: `Bearer ${token}` } });
 
-  it('modulo novo aparece no menu de quem tem acesso; liberacao por plano; excluir; sistema e protegido', async () => {
+  it('SuperUsuario cria e entrega o modulo ao dono; so o dono (e o SuperUsuario) o veem; excluir; sistema e protegido', async () => {
     await criarSuperusuario(pool, { email: 'mod@exemplo.com', senha: 'senha-mod-123' });
     const token = await entrar('mod@exemplo.com', 'senha-mod-123');
+    const donoId = await cadastrar('dono-mod@exemplo.com');
+    const tokenDono = await entrar('dono-mod@exemplo.com');
+    await cadastrar('outro-mod@exemplo.com');
+    const tokenOutro = await entrar('outro-mod@exemplo.com');
 
-    const r = await com('POST', '/modulos', token, { nome: 'Academia & Treino', icone: 'fitness', descricao: 'Treinos' });
+    assert.equal((await com('POST', '/modulos', token, { nome: 'Academia & Treino' })).statusCode, 400); // sem dono
+    const r = await com('POST', '/modulos', token, { nome: 'Academia & Treino', icone: 'fitness', descricao: 'Treinos', dono_id: donoId });
     assert.equal(r.statusCode, 201, r.body);
     assert.equal(r.json().codigo, 'academia_treino');
     assert.equal(r.json().sistema, false);
-    assert.equal((await com('POST', '/modulos', token, { nome: 'Academia & Treino' })).statusCode, 409);
+    assert.equal(r.json().dono_id, donoId);
+    assert.equal((await com('POST', '/modulos', token, { nome: 'Academia & Treino', dono_id: donoId })).statusCode, 409);
 
-    let menu = (await get('/meus-modulos', token)).json().itens;
-    assert.deepEqual(menu.map((m) => m.codigo), ['academia_treino']);
-    assert.equal(menu[0].icone, 'fitness');
+    const menuDono = (await get('/meus-modulos', tokenDono)).json().itens;
+    assert.deepEqual(menuDono.map((m) => m.codigo), ['academia_treino']);
+    assert.equal(menuDono[0].icone, 'fitness');
+    assert.equal((await get('/meus-modulos', tokenOutro)).json().itens.length, 0);
+    const menuSuper = (await get('/meus-modulos', token)).json().itens;
+    assert.equal(menuSuper.length, 1);
+    assert.ok(menuSuper[0].dono_nome);
 
-    // so para o plano gratuito: o superusuario (vitalicio) deixa de ver
-    assert.equal((await com('PUT', '/modulos/academia_treino', token, { liberado_para_todos: false, planos: ['gratuito'] })).statusCode, 200);
-    assert.equal((await get('/meus-modulos', token)).json().itens.length, 0);
-    await com('PUT', '/modulos/academia_treino', token, { planos: ['gratuito', 'vitalicio'] });
-    assert.equal((await get('/meus-modulos', token)).json().itens.length, 1);
+    // nao-super nao gerencia modulos
+    assert.equal((await com('PUT', '/modulos/academia_treino', tokenDono, { nome: 'X' })).statusCode, 403);
+
+    // passar para outro dono
+    const outroId = (await get('/me', tokenOutro)).json().usuario.id;
+    assert.equal((await com('PUT', '/modulos/academia_treino', token, { dono_id: outroId })).statusCode, 200);
+    assert.equal((await get('/meus-modulos', tokenDono)).json().itens.length, 0);
+    assert.equal((await get('/meus-modulos', tokenOutro)).json().itens.length, 1);
 
     // inativo some do menu
     await com('PUT', '/modulos/academia_treino', token, { ativo: false });
-    assert.equal((await get('/meus-modulos', token)).json().itens.length, 0);
+    assert.equal((await get('/meus-modulos', tokenOutro)).json().itens.length, 0);
 
     // modulos de fabrica nao se excluem nem se desativam, mas o nome pode mudar
     assert.equal((await com('DELETE', '/modulos/financas', token)).json().erro, 'modulo_de_sistema');
@@ -783,11 +798,54 @@ describe('cadastro de modulos', () => {
     assert.ok(lista.some((m) => m.codigo === 'financas' && m.sistema === true));
   });
 
-  it('so quem tem a permissao cadastra; usuario comum ve apenas o proprio menu', async () => {
+  it('usuario comum nao cadastra modulos e ve apenas o proprio menu', async () => {
     await cadastrar('semperm@exemplo.com');
     const token = await entrar('semperm@exemplo.com');
-    assert.equal((await com('POST', '/modulos', token, { nome: 'Teste' })).statusCode, 403);
+    assert.equal((await com('POST', '/modulos', token, { nome: 'Teste', dono_id: '00000000-0000-0000-0000-000000000000' })).statusCode, 403);
     assert.equal((await com('GET', '/modulos', token)).statusCode, 403);
     assert.equal((await get('/meus-modulos', token)).statusCode, 200);
+  });
+});
+
+describe('isolamento por usuario', () => {
+  const com = (method, url, token, payload) => app.inject({ method, url, payload, headers: { authorization: `Bearer ${token}` } });
+
+  it('administrador comum so alcanca quem ele cadastrou; SuperUsuario ve todos', async () => {
+    const adminA = await cadastrar('adm-a@exemplo.com');
+    await promover(pool, 'adm-a@exemplo.com');
+    await cadastrar('adm-b@exemplo.com');
+    await promover(pool, 'adm-b@exemplo.com');
+    const tokenA = await entrar('adm-a@exemplo.com');
+    const tokenB = await entrar('adm-b@exemplo.com');
+    const sup = await criarSuperusuario(pool, { email: 'super-iso@exemplo.com', senha: 'senha-iso-1234' });
+    const tokenS = await entrar('super-iso@exemplo.com', 'senha-iso-1234');
+    assert.equal((await get('/me', tokenS)).json().superusuario, true);
+    assert.equal((await get('/me', tokenA)).json().superusuario, false);
+
+    const novo = await com('POST', '/usuarios', tokenA, { nome: 'Filho de A', email: 'filho-a@exemplo.com', senha: SENHA, ...pessoa() });
+    assert.equal(novo.statusCode, 201, novo.body);
+    const filho = novo.json().id ?? novo.json().usuario?.id;
+
+    const listaA = (await com('GET', '/usuarios?limite=100', tokenA)).json();
+    const emailsA = listaA.itens.map((u) => u.email);
+    assert.ok(emailsA.includes('filho-a@exemplo.com') && emailsA.includes('adm-a@exemplo.com'));
+    assert.ok(!emailsA.includes('adm-b@exemplo.com') && !emailsA.includes('super-iso@exemplo.com'));
+    assert.equal(listaA.total, listaA.itens.length);
+
+    assert.equal((await com('GET', `/usuarios/${filho}`, tokenB)).statusCode, 404);
+    assert.equal((await com('PATCH', `/usuarios/${filho}`, tokenB, { nome: 'X' })).statusCode, 404);
+    assert.equal((await com('DELETE', `/usuarios/${filho}`, tokenB)).statusCode, 404);
+    assert.equal((await com('GET', `/usuarios/${filho}`, tokenA)).statusCode, 200);
+    assert.equal((await com('GET', `/usuarios/${adminA}`, tokenA)).statusCode, 200);
+    assert.equal((await com('GET', `/usuarios/${adminA}`, tokenB)).statusCode, 404);
+
+    const emailsS = (await com('GET', '/usuarios?limite=100', tokenS)).json().itens.map((u) => u.email);
+    assert.ok(emailsS.includes('filho-a@exemplo.com') && emailsS.includes('adm-b@exemplo.com'));
+    assert.equal((await com('GET', `/usuarios/${filho}`, tokenS)).statusCode, 200);
+    assert.ok(sup.id);
+
+    // catalogo e ficha mostram so modulos de fabrica; perfis/grupos so o SuperUsuario altera
+    assert.equal((await com('POST', '/perfis', tokenA, { nome: 'Meu perfil', permissoes: [] })).statusCode, 403);
+    assert.equal((await com('GET', '/modulos', tokenA)).statusCode, 403);
   });
 });
