@@ -52,5 +52,6 @@ void main() {
     await tester.tap(find.byKey(const Key('aba_3')));
     await tester.pumpAndSettle();
     expect(find.text('Resumo do período'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 }

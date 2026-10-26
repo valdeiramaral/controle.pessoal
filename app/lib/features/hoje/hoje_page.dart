@@ -382,13 +382,14 @@ class _HojePageState extends ConsumerState<HojePage> {
   Widget _abaResumo(BuildContext context, _Dados d) {
     final rec = d.somaPeriodo('receita');
     final desp = d.somaPeriodo('despesa');
-    final maior = (rec > desp ? rec : desp).clamp(1, 1 << 40);
+    // Sem clamp(1, 1 << 40): na web `1 << 40` vira 0 e clamp lancava "Invalid argument: 1".
+    final maior = rec > desp ? rec : desp;
     Widget barra(String rotulo, int v, Color cor) => Padding(
           padding: const EdgeInsets.only(bottom: 14),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(rotulo), Text(formatarCentavos(v))]),
             const SizedBox(height: 6),
-            LinearProgressIndicator(value: v / maior, minHeight: 10, color: cor, backgroundColor: Theme.of(context).colorScheme.onSurface.withValues(alpha: .12),
+            LinearProgressIndicator(value: maior <= 0 ? 0 : v / maior, minHeight: 10, color: cor, backgroundColor: Theme.of(context).colorScheme.onSurface.withValues(alpha: .12),
                 borderRadius: BorderRadius.circular(6)),
           ]),
         );
