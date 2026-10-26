@@ -165,7 +165,7 @@ Menu lateral → **Administração → Módulos** (permissão `administracao.mod
 
 API: `GET|POST /modulos`, `GET|PUT|DELETE /modulos/:codigo` e `GET /meus-modulos` (os módulos do menu do usuário logado).
 
-Banco já criado (sem apagar dados): `docker compose exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < banco/migracoes/2026-10-26_modulo_menu.sql`
+Banco já criado (sem apagar dados), no PowerShell: `Get-Content banco/migracoes/2026-10-26_modulo_menu.sql -Raw | docker compose exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"'`
 
 ## Testar no navegador (sem emulador)
 
