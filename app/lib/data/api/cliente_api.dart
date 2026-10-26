@@ -214,12 +214,29 @@ class ModuloUsuario {
 }
 
 class DetalheUsuario {
-  const DetalheUsuario({required this.usuario, this.plano, this.perfis = const [], this.modulos = const []});
+  const DetalheUsuario({
+    required this.usuario,
+    this.plano,
+    this.perfis = const [],
+    this.modulos = const [],
+    this.grupos = const [],
+    this.excecoes = const {},
+    this.permissoes = const [],
+  });
 
   final UsuarioApi usuario;
   final String? plano;
   final List<String> perfis;
   final List<ModuloUsuario> modulos;
+
+  /// Grupos do usuario (id + nome).
+  final List<GrupoResumo> grupos;
+
+  /// Excecoes individuais: codigo -> true (concede) ou false (nega).
+  final Map<String, bool> excecoes;
+
+  /// Permissoes efetivas (perfis + grupos + excecoes).
+  final List<String> permissoes;
 
   factory DetalheUsuario.deJson(Map<String, dynamic> j) => DetalheUsuario(
         usuario: UsuarioApi.deJson(j['usuario'] as Map<String, dynamic>),
@@ -228,7 +245,122 @@ class DetalheUsuario {
         modulos: (j['modulos'] as List? ?? const [])
             .map((e) => ModuloUsuario.deJson(e as Map<String, dynamic>))
             .toList(),
+        grupos: (j['grupos'] as List? ?? const [])
+            .map((e) => GrupoResumo.deJson(e as Map<String, dynamic>))
+            .toList(),
+        excecoes: {
+          for (final e in (j['excecoes'] as Map? ?? const {}).entries) e.key as String: e.value as bool,
+        },
+        permissoes: (j['permissoes'] as List? ?? const []).cast<String>(),
       );
+}
+
+class GrupoResumo {
+  const GrupoResumo(this.id, this.nome);
+
+  final String id;
+  final String nome;
+
+  factory GrupoResumo.deJson(Map<String, dynamic> j) => GrupoResumo(j['id'] as String, j['nome'] as String);
+}
+
+/// Uma permissao do catalogo, com o modulo a que pertence.
+class PermissaoApi {
+  const PermissaoApi({required this.codigo, required this.nome, required this.moduloCodigo, required this.moduloNome});
+
+  final String codigo;
+  final String nome;
+  final String moduloCodigo;
+  final String moduloNome;
+
+  factory PermissaoApi.deJson(Map<String, dynamic> j) => PermissaoApi(
+        codigo: j['codigo'] as String,
+        nome: j['nome'] as String,
+        moduloCodigo: j['modulo_codigo'] as String,
+        moduloNome: j['modulo_nome'] as String,
+      );
+}
+
+class PerfilItem {
+  const PerfilItem({
+    required this.id,
+    required this.codigo,
+    required this.nome,
+    this.descricao,
+    this.sistema = false,
+    this.totalPermissoes = 0,
+    this.totalUsuarios = 0,
+    this.permissoes = const [],
+  });
+
+  final String id;
+  final String codigo;
+  final String nome;
+  final String? descricao;
+  final bool sistema;
+  final int totalPermissoes;
+  final int totalUsuarios;
+
+  /// So vem no detalhe (GET /perfis/:id).
+  final List<String> permissoes;
+
+  factory PerfilItem.deJson(Map<String, dynamic> j) => PerfilItem(
+        id: j['id'] as String,
+        codigo: j['codigo'] as String,
+        nome: j['nome'] as String,
+        descricao: j['descricao'] as String?,
+        sistema: j['sistema'] == true,
+        totalPermissoes: (j['total_permissoes'] as num?)?.toInt() ?? (j['permissoes'] as List?)?.length ?? 0,
+        totalUsuarios: (j['total_usuarios'] as num?)?.toInt() ?? 0,
+        permissoes: (j['permissoes'] as List? ?? const []).cast<String>(),
+      );
+}
+
+class MembroGrupo {
+  const MembroGrupo(this.id, this.nome, this.email);
+
+  final String id;
+  final String nome;
+  final String? email;
+
+  factory MembroGrupo.deJson(Map<String, dynamic> j) =>
+      MembroGrupo(j['id'] as String, j['nome'] as String, j['email'] as String?);
+}
+
+class GrupoItem {
+  const GrupoItem({
+    required this.id,
+    required this.nome,
+    this.descricao,
+    this.totalMembros = 0,
+    this.perfis = const [],
+    this.membros = const [],
+  });
+
+  final String id;
+  final String nome;
+  final String? descricao;
+  final int totalMembros;
+
+  /// Codigos dos perfis do grupo.
+  final List<String> perfis;
+
+  /// So vem no detalhe (GET /grupos/:id).
+  final List<MembroGrupo> membros;
+
+  factory GrupoItem.deJson(Map<String, dynamic> j) {
+    final membros = (j['membros'] as List? ?? const [])
+        .map((e) => MembroGrupo.deJson(e as Map<String, dynamic>))
+        .toList();
+    return GrupoItem(
+      id: j['id'] as String,
+      nome: j['nome'] as String,
+      descricao: j['descricao'] as String?,
+      totalMembros: (j['total_membros'] as num?)?.toInt() ?? membros.length,
+      perfis: (j['perfis'] as List? ?? const []).cast<String>(),
+      membros: membros,
+    );
+  }
 }
 
 class ClienteApi {
@@ -326,6 +458,73 @@ class ClienteApi {
   Future<DetalheUsuario> definirPerfis(String token, String id, List<String> perfis) async =>
       DetalheUsuario.deJson(await _chamar('PUT', '/usuarios/$id/perfis', corpo: {'perfis': perfis}, token: token));
 
+  // ------------------------------------------- perfis, grupos e permissoes
+
+  Future<List<PermissaoApi>> listarPermissoes(String token) async {
+    final j = await _chamar('GET', '/permissoes', token: token);
+    return (j['permissoes'] as List).map((e) => PermissaoApi.deJson(e as Map<String, dynamic>)).toList();
+  }
+
+  Future<List<PerfilItem>> listarPerfis(String token) async {
+    final j = await _chamar('GET', '/perfis', token: token);
+    return (j['itens'] as List).map((e) => PerfilItem.deJson(e as Map<String, dynamic>)).toList();
+  }
+
+  Future<PerfilItem> detalhePerfil(String token, String id) async =>
+      PerfilItem.deJson(await _chamar('GET', '/perfis/$id', token: token));
+
+  Future<PerfilItem> criarPerfil(String token,
+          {required String nome, String? descricao, required List<String> permissoes}) async =>
+      PerfilItem.deJson(await _chamar('POST', '/perfis',
+          corpo: {'nome': nome.trim(), 'descricao': descricao, 'permissoes': permissoes}, token: token));
+
+  /// [permissoes] nulo = nao mexe nas permissoes (o perfil administrador e fixo).
+  Future<PerfilItem> atualizarPerfil(String token, String id,
+          {String? nome, String? descricao, List<String>? permissoes}) async =>
+      PerfilItem.deJson(await _chamar('PUT', '/perfis/$id',
+          corpo: {
+            if (nome != null) 'nome': nome.trim(),
+            'descricao': descricao,
+            if (permissoes != null) 'permissoes': permissoes,
+          },
+          token: token));
+
+  Future<void> excluirPerfil(String token, String id) async {
+    await _chamar('DELETE', '/perfis/$id', token: token);
+  }
+
+  Future<List<GrupoItem>> listarGrupos(String token) async {
+    final j = await _chamar('GET', '/grupos', token: token);
+    return (j['itens'] as List).map((e) => GrupoItem.deJson(e as Map<String, dynamic>)).toList();
+  }
+
+  Future<GrupoItem> detalheGrupo(String token, String id) async =>
+      GrupoItem.deJson(await _chamar('GET', '/grupos/$id', token: token));
+
+  Future<GrupoItem> criarGrupo(String token,
+          {required String nome, String? descricao, required List<String> perfis, required List<String> membros}) async =>
+      GrupoItem.deJson(await _chamar('POST', '/grupos',
+          corpo: {'nome': nome.trim(), 'descricao': descricao, 'perfis': perfis, 'membros': membros},
+          token: token));
+
+  Future<GrupoItem> atualizarGrupo(String token, String id,
+          {required String nome, String? descricao, required List<String> perfis, required List<String> membros}) async =>
+      GrupoItem.deJson(await _chamar('PUT', '/grupos/$id',
+          corpo: {'nome': nome.trim(), 'descricao': descricao, 'perfis': perfis, 'membros': membros},
+          token: token));
+
+  Future<void> excluirGrupo(String token, String id) async {
+    await _chamar('DELETE', '/grupos/$id', token: token);
+  }
+
+  Future<DetalheUsuario> definirGrupos(String token, String id, List<String> grupos) async =>
+      DetalheUsuario.deJson(await _chamar('PUT', '/usuarios/$id/grupos', corpo: {'grupos': grupos}, token: token));
+
+  /// true concede, false nega (a negacao vence), null remove a excecao.
+  Future<DetalheUsuario> definirExcecoes(String token, String id, Map<String, bool?> permissoes) async =>
+      DetalheUsuario.deJson(
+          await _chamar('PUT', '/usuarios/$id/permissoes', corpo: {'permissoes': permissoes}, token: token));
+
   Future<Map<String, dynamic>> _chamar(String metodo, String caminho,
       {Map<String, dynamic>? corpo, String? token}) async {
     final req = http.Request(metodo, Uri.parse('$baseUrl$caminho'))
@@ -380,6 +579,22 @@ class ClienteApi {
         return 'Você não pode desativar a própria conta.';
       case 'nao_pode_remover_o_proprio_perfil_administrador':
         return 'Você não pode tirar o seu próprio perfil de administrador.';
+      case 'perfil_ja_existe':
+        return 'Já existe um perfil com este nome.';
+      case 'grupo_ja_existe':
+        return 'Já existe um grupo com este nome.';
+      case 'perfil_administrador_fixo':
+        return 'O perfil Administrador é fixo: não dá para mudar suas permissões.';
+      case 'perfil_de_sistema':
+        return 'Perfis do sistema não podem ser excluídos.';
+      case 'perfil_em_uso':
+        return 'Este perfil está em uso por usuários ou grupos. Tire-o deles antes de excluir.';
+      case 'perfil_nao_encontrado':
+        return 'Perfil não encontrado.';
+      case 'grupo_nao_encontrado':
+        return 'Grupo não encontrado.';
+      case 'nao_pode_negar_a_si_mesmo':
+        return 'Você não pode negar a si mesmo permissões de administração.';
       case 'referencia_invalida':
         return 'Plano, perfil ou módulo inexistente.';
     }

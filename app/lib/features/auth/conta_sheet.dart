@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../admin/perfis_grupos_page.dart';
 import '../admin/usuarios_page.dart';
 import 'meus_dados_page.dart';
 import 'sessao.dart';
@@ -62,6 +63,22 @@ class _ContaSheet extends ConsumerWidget {
                   final nav = Navigator.of(context);
                   nav.pop();
                   nav.push(MaterialPageRoute<void>(builder: (_) => const UsuariosPage()));
+                },
+              ),
+            if (logado &&
+                s.pode('acesso.usuario.ver') &&
+                (s.pode('acesso.perfil.gerenciar') || s.pode('acesso.grupo.gerenciar')))
+              ListTile(
+                key: const Key('menu_perfis_grupos'),
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.admin_panel_settings_outlined),
+                title: const Text('Perfis e grupos'),
+                subtitle: const Text('Permissões detalhadas por perfil e grupo'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {
+                  final nav = Navigator.of(context);
+                  nav.pop();
+                  nav.push(MaterialPageRoute<void>(builder: (_) => const PerfisGruposPage()));
                 },
               ),
             const SizedBox(height: 8),

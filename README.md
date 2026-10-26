@@ -144,6 +144,15 @@ Siga também o guia do pacote `flutter_local_notifications` para os receivers de
 - **Banco:** o `schema.sql` mudou (colunas em `usuario` e `cadastrar_usuario` com novos parâmetros). Para um banco já criado, rode `.\parar.ps1 -ApagarDados` e depois o `preparar.bat` (apaga os dados de teste).
 - **Rotas novas da API:** `GET /catalogo`, `GET|POST /usuarios`, `GET|PATCH /usuarios/:id`, `PUT /usuarios/:id/plano|modulos|perfis`, `PATCH /me`.
 
+### Perfis, grupos e permissões detalhadas
+
+Menu da conta → **Perfis e grupos** (aparece para quem tem `acesso.perfil.gerenciar` ou `acesso.grupo.gerenciar`).
+
+- **Perfil** = conjunto de permissões, marcadas por módulo. O perfil *Administrador* é fixo (todas as permissões, não pode ser mudado nem excluído); perfis do sistema não podem ser excluídos e perfil em uso não pode ser excluído.
+- **Grupo** = perfis + membros. Quem está no grupo recebe as permissões dos perfis dele.
+- **Exceções por usuário** (tela Editar usuário): para cada permissão, *Herdar* (vale o que vem dos perfis e grupos), *Permitir* ou *Negar*. Negar sempre vence. Ninguém consegue negar a si mesmo permissões de `acesso.*` ou `administracao.*`.
+- API: `GET /permissoes`, `/perfis`, `/grupos` (CRUD), `PUT /usuarios/:id/grupos` e `PUT /usuarios/:id/permissoes`.
+
 ## Testar no navegador (sem emulador)
 
 Dê dois cliques em `web.bat`. Ele sobe o banco e a API e abre o app no Chrome (porta 8081 ou a próxima livre; o endereço aparece na janela). Na web não há lembretes (notificações); o resto funciona. A API libera o navegador só para `localhost` (outras origens: `API_CORS_ORIGENS` no `.env`).

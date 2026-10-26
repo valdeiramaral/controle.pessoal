@@ -7,6 +7,7 @@ import '../auth/campos_pessoa.dart';
 import '../auth/sessao.dart';
 import '../auth/validacoes.dart';
 import '../auth/widgets_auth.dart';
+import 'widgets_acesso.dart';
 
 /// Cadastro e edicao de usuario pelo administrador: dados da pessoa, plano,
 /// perfis e modulos liberados.
@@ -32,6 +33,10 @@ class _UsuarioFormPageState extends ConsumerState<UsuarioFormPage> {
   Map<String, String> _modulos = {}; // codigo -> padrao | liberado | bloqueado
   bool _ativo = true;
   bool _ver = false;
+  List<GrupoItem> _gruposDisponiveis = const [];
+  Set<String> _grupos = {};
+  List<PermissaoApi> _catalogoPermissoes = const [];
+  Map<String, String> _excecoes = {}; // codigo -> herdar | permitir | negar
 
   bool _carregando = true;
   bool _salvando = false;
@@ -64,11 +69,21 @@ class _UsuarioFormPageState extends ConsumerState<UsuarioFormPage> {
       final cat = await api.catalogo(token);
       DetalheUsuario? det;
       if (!_novo) det = await api.detalheUsuario(token, widget.usuarioId!);
+      var grupos = const <GrupoItem>[];
+      var permissoes = const <PermissaoApi>[];
+      if (!_novo) {
+        grupos = await api.listarGrupos(token);
+        if (ref.read(sessaoProvider).pode('acesso.perfil.gerenciar')) permissoes = await api.listarPermissoes(token);
+      }
       if (!mounted) return;
       setState(() {
         _catalogo = cat;
         _original = det;
+        _gruposDisponiveis = grupos;
+        _catalogoPermissoes = permissoes;
         if (det != null) {
+          _grupos = det.grupos.map((g) => g.id).toSet();
+          _excecoes = {for (final e in det.excecoes.entries) e.key: e.value ? 'permitir' : 'negar'};
           _d.dispose();
           _d = DadosPessoaisControladores(det.usuario);
           _plano = det.plano ?? 'gratuito';
@@ -104,6 +119,7 @@ class _UsuarioFormPageState extends ConsumerState<UsuarioFormPage> {
     final podePlano = sessao.pode('licencas.licenca.conceder');
     final podePerfis = sessao.pode('acesso.perfil.gerenciar');
     final podeModulos = sessao.pode('administracao.liberacao.gerenciar');
+    final podeGrupos = sessao.pode('acesso.grupo.gerenciar');
     setState(() {
       _salvando = true;
       _erro = null;
@@ -132,6 +148,19 @@ class _UsuarioFormPageState extends ConsumerState<UsuarioFormPage> {
         if (podePlano && _plano != (original.plano ?? 'gratuito')) await api.definirPlano(token, id, _plano);
         if (podePerfis && !_mesmos(_perfis, original.perfis.toSet())) {
           await api.definirPerfis(token, id, _perfis.toList());
+        }
+        if (podeGrupos && !_mesmos(_grupos, original.grupos.map((g) => g.id).toSet())) {
+          await api.definirGrupos(token, id, _grupos.toList());
+        }
+        if (podePerfis) {
+          final antesEx = {for (final e in original.excecoes.entries) e.key: e.value ? 'permitir' : 'negar'};
+          final mud = <String, bool?>{};
+          for (final cod in {...antesEx.keys, ..._excecoes.keys}) {
+            final antes = antesEx[cod] ?? 'herdar';
+            final agora = _excecoes[cod] ?? 'herdar';
+            if (antes != agora) mud[cod] = switch (agora) { 'permitir' => true, 'negar' => false, _ => null };
+          }
+          if (mud.isNotEmpty) await api.definirExcecoes(token, id, mud);
         }
         if (podeModulos) {
           final antes = {for (final m in original.modulos) m.codigo: m.liberacao};
@@ -285,6 +314,38 @@ class _UsuarioFormPageState extends ConsumerState<UsuarioFormPage> {
                     ),
                   ],
                 ]),
+                if (!_novo) ...[
+                  _cartao('Grupos', Icons.groups_outlined, [
+                    Text('O usuário recebe também as permissões dos perfis de cada grupo.', style: tema.textTheme.bodySmall),
+                    const SizedBox(height: 8),
+                    if (_gruposDisponiveis.isEmpty)
+                      const Text('Nenhum grupo criado ainda.', key: Key('sem_grupos'))
+                    else
+                      Wrap(spacing: 8, runSpacing: 4, children: [
+                        for (final g in _gruposDisponiveis)
+                          FilterChip(
+                            key: Key('grupo_${g.id}'),
+                            label: Text(g.nome),
+                            selected: _grupos.contains(g.id),
+                            onSelected: sessao.pode('acesso.grupo.gerenciar')
+                                ? (v) => setState(() => v ? _grupos.add(g.id) : _grupos.remove(g.id))
+                                : null,
+                          ),
+                      ]),
+                  ]),
+                  if (podePerfis && _catalogoPermissoes.isNotEmpty)
+                    _cartao('Exceções de permissão', Icons.tune_outlined, [
+                      Text('Herdar = vale o que vem dos perfis e grupos. Negar sempre vence.',
+                          style: tema.textTheme.bodySmall),
+                      const SizedBox(height: 8),
+                      ExcecoesPermissoes(
+                        catalogo: _catalogoPermissoes,
+                        valores: _excecoes,
+                        efetivas: (_original?.permissoes ?? const <String>[]).toSet(),
+                        aoMudar: (cod, v) => setState(() => _excecoes[cod] = v),
+                      ),
+                    ]),
+                ],
                 _cartao('Módulos liberados', Icons.apps_outlined, [
                   Text('Padrão = vale o que o plano libera. Libere ou bloqueie para este usuário.',
                       style: tema.textTheme.bodySmall),
