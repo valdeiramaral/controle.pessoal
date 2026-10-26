@@ -159,6 +159,14 @@ Menu da conta → **Perfis e grupos** (aparece para quem tem `acesso.perfil.gere
 - **Exceções por usuário** (tela Editar usuário): para cada permissão, *Herdar* (vale o que vem dos perfis e grupos), *Permitir* ou *Negar*. Negar sempre vence. Ninguém consegue negar a si mesmo permissões de `acesso.*` ou `administracao.*`.
 - API: `GET /permissoes`, `/perfis`, `/grupos` (CRUD), `PUT /usuarios/:id/grupos` e `PUT /usuarios/:id/permissoes`.
 
+### Cadastro de módulos
+
+Menu lateral → **Administração → Módulos** (permissão `administracao.modulo.gerenciar`). O administrador cria um módulo com nome, descrição, ícone, posição e liberação (para todos, ou só pelos planos escolhidos). Ao salvar, o módulo **aparece no menu** de quem tem acesso e abre uma tela própria (os recursos dele chegam nas próximas versões). Módulos de fábrica (Finanças, Saúde, Agenda...) podem ser renomeados, mas não excluídos nem desativados. Liberar ou bloquear para um usuário específico continua em *Usuários e acessos*.
+
+API: `GET|POST /modulos`, `GET|PUT|DELETE /modulos/:codigo` e `GET /meus-modulos` (os módulos do menu do usuário logado).
+
+Banco já criado (sem apagar dados): `docker compose exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < banco/migracoes/2026-10-26_modulo_menu.sql`
+
 ## Testar no navegador (sem emulador)
 
 Dê dois cliques em `web.bat`. Ele sobe o banco e a API e abre o app no Chrome (porta 8081 ou a próxima livre; o endereço aparece na janela). Na web não há lembretes (notificações); o resto funciona. A API libera o navegador só para `localhost` (outras origens: `API_CORS_ORIGENS` no `.env`).

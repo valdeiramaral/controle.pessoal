@@ -382,7 +382,9 @@ CREATE TABLE modulo (
   descricao           text,
   ordem               integer NOT NULL,
   ativo               boolean NOT NULL DEFAULT true,
-  liberado_para_todos boolean NOT NULL DEFAULT false
+  liberado_para_todos boolean NOT NULL DEFAULT false,
+  icone               text    NOT NULL DEFAULT 'extension',  -- nome do icone no app
+  exibir_no_menu      boolean NOT NULL DEFAULT false         -- true = modulo cadastrado pelo administrador
 );
 
 CREATE TABLE permissao (

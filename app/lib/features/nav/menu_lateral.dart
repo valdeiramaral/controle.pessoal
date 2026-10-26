@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/icones_modulo.dart';
+import '../admin/modulos_page.dart';
 import '../admin/perfis_grupos_page.dart';
 import '../admin/usuarios_page.dart';
 import '../auth/meus_dados_page.dart';
 import '../auth/sessao.dart';
 import '../auth/widgets_auth.dart';
+import 'modulos_menu.dart';
 
 /// Abaixo desta largura o menu fica sempre suspenso (some e abre por cima).
 const larguraMinimaMenuFixo = 760.0;
@@ -84,11 +87,14 @@ class MenuLateral extends ConsumerWidget {
       destino.push(MaterialPageRoute<void>(builder: (_) => pagina));
     }
 
+    // Modulos de fabrica + os cadastrados pelo administrador (aparecem aqui assim que criados).
+    final extras = ref.watch(modulosMenuProvider).valueOrNull ?? const [];
     final modulos = <(IconData, String)>[
       (Icons.today_outlined, 'Hoje'),
       (Icons.account_balance_wallet_outlined, 'Finanças'),
       (Icons.favorite_border, 'Saúde'),
       (Icons.event_outlined, 'Agenda'),
+      for (final m in extras) (iconeDoModulo(m.icone), m.nome),
     ];
     final admin = <(IconData, String, Widget)>[
       if (logado && s.pode('acesso.usuario.ver'))
@@ -97,6 +103,8 @@ class MenuLateral extends ConsumerWidget {
           s.pode('acesso.usuario.ver') &&
           (s.pode('acesso.perfil.gerenciar') || s.pode('acesso.grupo.gerenciar')))
         (Icons.admin_panel_settings_outlined, 'Perfis e grupos', const PerfisGruposPage()),
+      if (logado && s.pode('administracao.modulo.gerenciar'))
+        (Icons.extension_outlined, 'Módulos', const ModulosPage()),
     ];
 
     return ClipRRect(

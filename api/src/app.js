@@ -5,6 +5,7 @@ import { lerToken } from './seguranca.js';
 import rotasAuth from './rotas/auth.js';
 import rotasUsuarios from './rotas/usuarios.js';
 import rotasAcesso from './rotas/acesso.js';
+import rotasModulos from './rotas/modulos.js';
 import { ErroDado } from './pessoa.js';
 
 export async function criarApp({ pool, config, logger = false }) {
@@ -92,5 +93,6 @@ export async function criarApp({ pool, config, logger = false }) {
   await app.register(rotasAuth);
   await app.register(rotasUsuarios);
   await app.register(rotasAcesso);
+  await app.register(rotasModulos);
   return app;
 }

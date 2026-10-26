@@ -255,6 +255,64 @@ class DetalheUsuario {
       );
 }
 
+/// Modulo no cadastro do administrador.
+class ModuloAdmin {
+  const ModuloAdmin({
+    required this.codigo,
+    required this.nome,
+    this.descricao,
+    this.ordem = 0,
+    this.ativo = true,
+    this.liberadoParaTodos = true,
+    this.icone = 'extension',
+    this.sistema = false,
+    this.planos = const [],
+  });
+
+  final String codigo;
+  final String nome;
+  final String? descricao;
+  final int ordem;
+  final bool ativo;
+  final bool liberadoParaTodos;
+  final String icone;
+
+  /// De fabrica (Financas, Saude...): nao pode ser excluido nem desativado.
+  final bool sistema;
+
+  /// Planos que liberam o modulo (usado quando nao e liberado para todos).
+  final List<String> planos;
+
+  factory ModuloAdmin.deJson(Map<String, dynamic> j) => ModuloAdmin(
+        codigo: j['codigo'] as String,
+        nome: j['nome'] as String,
+        descricao: j['descricao'] as String?,
+        ordem: (j['ordem'] as num?)?.toInt() ?? 0,
+        ativo: j['ativo'] as bool? ?? true,
+        liberadoParaTodos: j['liberado_para_todos'] as bool? ?? false,
+        icone: j['icone'] as String? ?? 'extension',
+        sistema: j['sistema'] as bool? ?? false,
+        planos: (j['planos'] as List? ?? const []).cast<String>(),
+      );
+}
+
+/// Modulo que aparece no menu do usuario logado.
+class ModuloMenu {
+  const ModuloMenu({required this.codigo, required this.nome, this.descricao, this.icone = 'extension'});
+
+  final String codigo;
+  final String nome;
+  final String? descricao;
+  final String icone;
+
+  factory ModuloMenu.deJson(Map<String, dynamic> j) => ModuloMenu(
+        codigo: j['codigo'] as String,
+        nome: j['nome'] as String,
+        descricao: j['descricao'] as String?,
+        icone: j['icone'] as String? ?? 'extension',
+      );
+}
+
 class GrupoResumo {
   const GrupoResumo(this.id, this.nome);
 
@@ -462,6 +520,29 @@ class ClienteApi {
   Future<DetalheUsuario> definirPerfis(String token, String id, List<String> perfis) async =>
       DetalheUsuario.deJson(await _chamar('PUT', '/usuarios/$id/perfis', corpo: {'perfis': perfis}, token: token));
 
+  // ------------------------------------------------- cadastro de modulos
+
+  Future<List<ModuloAdmin>> listarModulos(String token) async {
+    final j = await _chamar('GET', '/modulos', token: token);
+    return (j['itens'] as List).map((e) => ModuloAdmin.deJson(e as Map<String, dynamic>)).toList();
+  }
+
+  Future<ModuloAdmin> criarModulo(String token, Map<String, dynamic> corpo) async =>
+      ModuloAdmin.deJson(await _chamar('POST', '/modulos', corpo: corpo, token: token));
+
+  Future<ModuloAdmin> atualizarModulo(String token, String codigo, Map<String, dynamic> corpo) async =>
+      ModuloAdmin.deJson(await _chamar('PUT', '/modulos/$codigo', corpo: corpo, token: token));
+
+  Future<void> excluirModulo(String token, String codigo) async {
+    await _chamar('DELETE', '/modulos/$codigo', token: token);
+  }
+
+  /// Modulos cadastrados pelo administrador que o usuario logado pode usar (itens do menu).
+  Future<List<ModuloMenu>> meusModulos(String token) async {
+    final j = await _chamar('GET', '/meus-modulos', token: token);
+    return (j['itens'] as List).map((e) => ModuloMenu.deJson(e as Map<String, dynamic>)).toList();
+  }
+
   // ------------------------------------------- perfis, grupos e permissoes
 
   Future<List<PermissaoApi>> listarPermissoes(String token) async {
@@ -585,6 +666,14 @@ class ClienteApi {
         return 'Você não pode tirar o seu próprio perfil de administrador.';
       case 'nao_pode_excluir_a_si_mesmo':
         return 'Você não pode excluir a própria conta.';
+      case 'modulo_ja_existe':
+        return 'Já existe um módulo com este nome.';
+      case 'modulo_de_sistema':
+        return 'Este módulo é de fábrica: não pode ser excluído nem desativado.';
+      case 'modulo_em_uso':
+        return 'Este módulo está em uso e não pode ser excluído. Desative-o.';
+      case 'modulo_nao_encontrado':
+        return 'Módulo não encontrado.';
       case 'perfil_ja_existe':
         return 'Já existe um perfil com este nome.';
       case 'grupo_ja_existe':

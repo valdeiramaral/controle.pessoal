@@ -744,3 +744,50 @@ describe('excluir usuario', () => {
     assert.equal(r.statusCode, 403);
   });
 });
+
+describe('cadastro de modulos', () => {
+  const com = (method, url, token, payload) => app.inject({ method, url, payload, headers: { authorization: `Bearer ${token}` } });
+
+  it('modulo novo aparece no menu de quem tem acesso; liberacao por plano; excluir; sistema e protegido', async () => {
+    await criarSuperusuario(pool, { email: 'mod@exemplo.com', senha: 'senha-mod-123' });
+    const token = await entrar('mod@exemplo.com', 'senha-mod-123');
+
+    const r = await com('POST', '/modulos', token, { nome: 'Academia & Treino', icone: 'fitness', descricao: 'Treinos' });
+    assert.equal(r.statusCode, 201, r.body);
+    assert.equal(r.json().codigo, 'academia_treino');
+    assert.equal(r.json().sistema, false);
+    assert.equal((await com('POST', '/modulos', token, { nome: 'Academia & Treino' })).statusCode, 409);
+
+    let menu = (await get('/meus-modulos', token)).json().itens;
+    assert.deepEqual(menu.map((m) => m.codigo), ['academia_treino']);
+    assert.equal(menu[0].icone, 'fitness');
+
+    // so para o plano gratuito: o superusuario (vitalicio) deixa de ver
+    assert.equal((await com('PUT', '/modulos/academia_treino', token, { liberado_para_todos: false, planos: ['gratuito'] })).statusCode, 200);
+    assert.equal((await get('/meus-modulos', token)).json().itens.length, 0);
+    await com('PUT', '/modulos/academia_treino', token, { planos: ['gratuito', 'vitalicio'] });
+    assert.equal((await get('/meus-modulos', token)).json().itens.length, 1);
+
+    // inativo some do menu
+    await com('PUT', '/modulos/academia_treino', token, { ativo: false });
+    assert.equal((await get('/meus-modulos', token)).json().itens.length, 0);
+
+    // modulos de fabrica nao se excluem nem se desativam, mas o nome pode mudar
+    assert.equal((await com('DELETE', '/modulos/financas', token)).json().erro, 'modulo_de_sistema');
+    assert.equal((await com('PUT', '/modulos/financas', token, { ativo: false })).json().erro, 'modulo_de_sistema');
+    assert.equal((await com('PUT', '/modulos/financas', token, { descricao: 'Dinheiro' })).statusCode, 200);
+
+    assert.equal((await com('DELETE', '/modulos/academia_treino', token)).statusCode, 204);
+    assert.equal((await com('GET', '/modulos/academia_treino', token)).statusCode, 404);
+    const lista = (await com('GET', '/modulos', token)).json().itens;
+    assert.ok(lista.some((m) => m.codigo === 'financas' && m.sistema === true));
+  });
+
+  it('so quem tem a permissao cadastra; usuario comum ve apenas o proprio menu', async () => {
+    await cadastrar('semperm@exemplo.com');
+    const token = await entrar('semperm@exemplo.com');
+    assert.equal((await com('POST', '/modulos', token, { nome: 'Teste' })).statusCode, 403);
+    assert.equal((await com('GET', '/modulos', token)).statusCode, 403);
+    assert.equal((await get('/meus-modulos', token)).statusCode, 200);
+  });
+});

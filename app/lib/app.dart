@@ -7,7 +7,9 @@ import 'features/auth/login_page.dart';
 import 'core/tema.dart';
 import 'features/auth/sessao.dart';
 import 'features/auth/widgets_auth.dart';
+import 'features/modulos/modulo_generico_page.dart';
 import 'features/nav/menu_lateral.dart';
+import 'features/nav/modulos_menu.dart';
 import 'features/financas/financas_page.dart';
 import 'features/hoje/hoje_page.dart';
 import 'features/saude/saude_page.dart';
@@ -123,10 +125,17 @@ class _CascaState extends ConsumerState<Casca> {
               child: Navigator(
                 key: chaveConteudo,
                 onGenerateRoute: (_) => MaterialPageRoute<void>(
-                  builder: (_) => ValueListenableBuilder<int>(
-                    valueListenable: _indice,
-                    builder: (_, i, __) => IndexedStack(index: i, children: _paginas),
-                  ),
+                  builder: (_) => Consumer(builder: (context, ref, _) {
+                    final extras = ref.watch(modulosMenuProvider).valueOrNull ?? const [];
+                    final paginas = <Widget>[
+                      ..._paginas,
+                      for (final m in extras) ModuloGenericoPage(key: ValueKey(m.codigo), modulo: m),
+                    ];
+                    return ValueListenableBuilder<int>(
+                      valueListenable: _indice,
+                      builder: (_, i, __) => IndexedStack(index: i < paginas.length ? i : 0, children: paginas),
+                    );
+                  }),
                 ),
               ),
             ),
