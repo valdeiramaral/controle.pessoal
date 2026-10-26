@@ -38,6 +38,8 @@ class _ContaSheet extends ConsumerWidget {
                 child: Text('Seus dados ficam só neste aparelho.'),
               ),
             const SizedBox(height: 16),
+            if (logado && s.perfil == null)
+              const _AvisoPermissoes(),
             if (logado)
               ListTile(
                 key: const Key('menu_meus_dados'),
@@ -91,6 +93,54 @@ class _ContaSheet extends ConsumerWidget {
               },
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Aparece quando o login deu certo mas as permissoes nao foram carregadas.
+class _AvisoPermissoes extends ConsumerStatefulWidget {
+  const _AvisoPermissoes();
+
+  @override
+  ConsumerState<_AvisoPermissoes> createState() => _AvisoPermissoesState();
+}
+
+class _AvisoPermissoesState extends ConsumerState<_AvisoPermissoes> {
+  String? _erro;
+  bool _carregando = false;
+
+  Future<void> _tentar() async {
+    setState(() => _carregando = true);
+    final e = await ref.read(sessaoProvider.notifier).recarregarPerfil();
+    if (mounted) {
+      setState(() {
+        _erro = e;
+        _carregando = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Card(
+        key: const Key('aviso_permissoes'),
+        color: Theme.of(context).colorScheme.errorContainer,
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('Não foi possível carregar suas permissões.'),
+            if (_erro != null) Padding(padding: const EdgeInsets.only(top: 4), child: Text(_erro!)),
+            const SizedBox(height: 8),
+            OutlinedButton(
+              key: const Key('botao_recarregar_permissoes'),
+              onPressed: _carregando ? null : _tentar,
+              child: Text(_carregando ? 'Carregando...' : 'Tentar de novo'),
+            ),
+          ]),
         ),
       ),
     );

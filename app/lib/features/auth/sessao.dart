@@ -172,6 +172,22 @@ class SessaoNotifier extends Notifier<EstadoSessao> {
     state = const EstadoSessao(FaseSessao.local);
   }
 
+  /// Busca de novo os dados e permissoes da conta (GET /me). Devolve a mensagem de erro, ou null se deu certo.
+  Future<String?> recarregarPerfil() async {
+    final token = state.token;
+    if (token == null) return 'Sem sessão.';
+    try {
+      final p = await _api.eu(token);
+      state = EstadoSessao(FaseSessao.logado,
+          usuario: p.usuario, token: token, emailLembrado: state.emailLembrado, perfil: p);
+      return null;
+    } on ErroApi catch (e) {
+      return e.mensagem;
+    } catch (e) {
+      return 'Resposta inesperada do servidor: $e';
+    }
+  }
+
   /// Sair apaga o token e a senha guardada; so o e-mail lembrado continua.
   Future<void> sair() async {
     final email = (await _guarda.ler())?.emailLembrado;

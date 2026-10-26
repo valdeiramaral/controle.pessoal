@@ -27,7 +27,7 @@ export async function criarApp({ pool, config, logger = false }) {
     reply.header('access-control-allow-origin', origem);
     reply.header('vary', 'Origin');
     if (req.method === 'OPTIONS') {
-      reply.header('access-control-allow-methods', 'GET, POST, PATCH, OPTIONS');
+      reply.header('access-control-allow-methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
       reply.header('access-control-allow-headers', 'authorization, content-type');
       reply.header('access-control-max-age', '600');
       return reply.code(204).send();
