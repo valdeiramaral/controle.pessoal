@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/formatos.dart';
 import '../../data/local/banco.dart';
+import '../auth/conta_sheet.dart';
 
 /// Painel unificado: compromissos do dia, contas a vencer e remedios.
 class HojePage extends ConsumerWidget {
@@ -15,7 +16,16 @@ class HojePage extends ConsumerWidget {
     final em7dias = hoje.add(const Duration(days: 7));
 
     return Scaffold(
-      appBar: AppBar(title: Text('Hoje · ${formatarData(hoje)}')),
+      appBar: AppBar(
+        title: Text('Hoje · ${formatarData(hoje)}'),
+        actions: [
+          IconButton(
+            tooltip: 'Conta',
+            icon: const Icon(Icons.account_circle_outlined),
+            onPressed: () => mostrarConta(context),
+          ),
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [

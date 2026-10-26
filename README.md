@@ -21,7 +21,7 @@ App para controlar finanças, saúde e compromissos no Android e no iOS.
 
 **Banco: testado.** O `schema.sql` foi carregado em um PostgreSQL 16 real e passa nos 108 testes de `banco/testes/test_schema.py` (rodado de novo em 20/10/2026, depois das correções da revisão: cursor de sincronização com hora real, e-mail reaproveitável após exclusão, referências entre usuários e lembretes validadas, fuso e moeda validados). Os testes acharam e corrigiram dois defeitos na segurança por linha (erro em conexão reaproveitada e tabela `usuario` sem isolamento).
 
-**App Flutter: compila e roda os testes no seu PC.** Os testes de `app/test/` (banco local, saldo, valores digitados e id de notificação) foram escritos na revisão de 20/10/2026 e ainda precisam ser rodados com `.\testar.ps1`. Falta abrir o app no emulador.
+**App Flutter: 35 testes passando no seu PC (26/10/2026).** Cobrem banco local, saldo, valores digitados, id de notificação, cliente da API, sessão e telas de login/cadastro. Falta abrir o app no emulador.
 
 O que o esqueleto já faz:
 
@@ -32,7 +32,7 @@ O que o esqueleto já faz:
 - Banco local com as 14 entidades (valores em centavos, UUID, exclusão lógica).
 - Dois testes do banco em `app/test/`.
 
-**API (fase 1, semana 1): testada.** 22 testes em `api/teste/`, contra um PostgreSQL 16 real, cobrindo cadastro, login, bloqueio após 5 erros, `/me`, permissões e o modo administrador. Os arquivos do Docker (`Dockerfile`, serviço `api` no `docker-compose.yml`) e as mudanças em `iniciar.ps1` e `testar.ps1` ainda não rodaram no Windows com Docker.
+**API (fase 1, semana 1): testada.** 22 testes em `api/teste/`, contra um PostgreSQL 16 real, cobrindo cadastro, login, bloqueio após 5 erros, `/me`, permissões e o modo administrador. Os testes da API já rodam no Docker do seu PC (22 passando em 26/10/2026). Neste PC a porta 5432 é bloqueada pelo Windows; a porta do banco é `POSTGRES_PORT` no `.env` (está em 5440).
 
 O que falta (fases seguintes do roadmap):
 

@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'features/agenda/agenda_page.dart';
+import 'features/auth/login_page.dart';
+import 'features/auth/sessao.dart';
 import 'features/financas/financas_page.dart';
 import 'features/hoje/hoje_page.dart';
 import 'features/saude/saude_page.dart';
@@ -30,8 +33,27 @@ class App extends StatelessWidget {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      home: const _Casca(),
+      home: const _Portao(),
     );
+  }
+}
+
+/// Decide a tela inicial: carregando, login ou o app.
+class _Portao extends ConsumerWidget {
+  const _Portao();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final fase = ref.watch(sessaoProvider).fase;
+    switch (fase) {
+      case FaseSessao.iniciando:
+        return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      case FaseSessao.deslogado:
+        return const LoginPage();
+      case FaseSessao.logado:
+      case FaseSessao.local:
+        return const _Casca();
+    }
   }
 }
 
