@@ -386,7 +386,8 @@ CREATE TABLE modulo (
   ativo               boolean NOT NULL DEFAULT true,
   liberado_para_todos boolean NOT NULL DEFAULT false,
   icone               text    NOT NULL DEFAULT 'extension',  -- nome do icone no app
-  exibir_no_menu      boolean NOT NULL DEFAULT false         -- true = modulo cadastrado pelo SuperUsuario
+  exibir_no_menu      boolean NOT NULL DEFAULT false,        -- true = modulo cadastrado pelo SuperUsuario
+  no_pacote           boolean NOT NULL DEFAULT false         -- true = faz parte do pacote: vale para todos, sem liberacao
 );
 
 CREATE TABLE permissao (
@@ -566,6 +567,8 @@ INSERT INTO liberacao_modulo (modulo_codigo, plano_codigo)
   SELECT m.codigo, p.codigo
     FROM modulo m, plano p
    WHERE m.codigo IN ('financas', 'saude', 'agenda', 'painel', 'sincronizacao');
+-- ...e fazem parte do pacote (o SuperUsuario pode mudar isso no cadastro de modulos).
+UPDATE modulo SET no_pacote = true WHERE codigo IN ('financas', 'saude', 'agenda', 'painel', 'sincronizacao');
 
 CREATE TABLE licenca (
   id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -643,7 +646,8 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = controle, public AS $$
   SELECT EXISTS (SELECT 1 FROM modulo WHERE codigo = m AND ativo)
      AND ( coalesce((SELECT liberado_para_todos FROM modulo WHERE codigo = m), false)
            OR ( NOT EXISTS (SELECT 1 FROM alvo WHERE NOT concedida)
-                AND EXISTS (SELECT 1 FROM alvo WHERE concedida) ) )
+                AND ( coalesce((SELECT no_pacote FROM modulo WHERE codigo = m), false)
+                      OR EXISTS (SELECT 1 FROM alvo WHERE concedida) ) ) )
 $$;
 
 -- Permissoes efetivas: perfis individuais + perfis dos grupos + concessoes

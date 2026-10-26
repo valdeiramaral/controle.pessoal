@@ -3,6 +3,10 @@
 --   Get-Content banco/migracoes/2026-10-28_liberacao_modulo_validade.sql -Raw | docker compose exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
 SET search_path TO controle, public;
 
+-- Modulo do pacote: o SuperUsuario define quais modulos valem para todos, sem liberacao.
+ALTER TABLE modulo ADD COLUMN IF NOT EXISTS no_pacote boolean NOT NULL DEFAULT false;
+UPDATE modulo SET no_pacote = true WHERE codigo IN ('financas', 'saude', 'agenda', 'painel', 'sincronizacao') AND NOT exibir_no_menu;
+
 ALTER TABLE liberacao_modulo ADD COLUMN IF NOT EXISTS ativa boolean NOT NULL DEFAULT true;
 ALTER TABLE liberacao_modulo ADD COLUMN IF NOT EXISTS vitalicio boolean NOT NULL DEFAULT true;
 -- Liberacoes antigas com as duas datas passam a ter validade; com so uma data, viram vitalicias.
@@ -43,5 +47,6 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = controle, public AS $$
   SELECT EXISTS (SELECT 1 FROM modulo WHERE codigo = m AND ativo)
      AND ( coalesce((SELECT liberado_para_todos FROM modulo WHERE codigo = m), false)
            OR ( NOT EXISTS (SELECT 1 FROM alvo WHERE NOT concedida)
-                AND EXISTS (SELECT 1 FROM alvo WHERE concedida) ) )
+                AND ( coalesce((SELECT no_pacote FROM modulo WHERE codigo = m), false)
+                      OR EXISTS (SELECT 1 FROM alvo WHERE concedida) ) ) )
 $$;

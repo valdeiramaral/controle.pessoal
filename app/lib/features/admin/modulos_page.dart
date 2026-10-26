@@ -52,6 +52,39 @@ class _ModulosPageState extends ConsumerState<ModulosPage> {
     if (mudou == true) _carregar();
   }
 
+  Widget _titulo(BuildContext context, String titulo, String ajuda) => Padding(
+        padding: const EdgeInsets.fromLTRB(4, 16, 4, 6),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(titulo, style: Theme.of(context).textTheme.titleMedium),
+          Text(ajuda, style: Theme.of(context).textTheme.bodySmall),
+        ]),
+      );
+
+  Widget _cartao(BuildContext context, ModuloAdmin m) {
+    final tema = Theme.of(context);
+    final vigentes = m.liberacoes.where((l) => l.vigente).length;
+    return Card(
+      child: ListTile(
+        key: Key('modulo_item_${m.codigo}'),
+        leading: Icon(iconeDoModulo(m.icone), color: corIcone(context, corBaseDoModulo(m.icone))),
+        title: Text(m.nome),
+        subtitle: Text([
+          if (m.sistema) 'de fábrica',
+          if (m.noPacote)
+            'incluído no pacote'
+          else ...[
+            '${m.liberacoes.length} usuário(s) liberado(s) · $vigentes vigente(s)',
+            if (m.planos.isNotEmpty) 'planos: ${m.planos.join(', ')}',
+          ],
+        ].join(' · ')),
+        trailing: m.ativo
+            ? const Icon(Icons.chevron_right)
+            : Text('Inativo', style: TextStyle(color: tema.colorScheme.error)),
+        onTap: () => _abrir(m),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final pode = ref.watch(sessaoProvider).pode('administracao.modulo.gerenciar');
@@ -81,22 +114,14 @@ class _ModulosPageState extends ConsumerState<ModulosPage> {
                   child: ListView(
                     padding: const EdgeInsets.fromLTRB(12, 8, 12, 96),
                     children: [
-                      for (final m in _itens)
-                        Card(
-                          child: ListTile(
-                            key: Key('modulo_item_${m.codigo}'),
-                            leading: Icon(iconeDoModulo(m.icone), color: corIcone(context, corBaseDoModulo(m.icone))),
-                            title: Text(m.nome),
-                            subtitle: Text([
-                              m.codigo,
-                              if (m.sistema) 'de fábrica' else 'dono: ${m.donoNome ?? '—'}',
-                            ].join(' · ')),
-                            trailing: m.ativo
-                                ? const Icon(Icons.chevron_right)
-                                : Text('Inativo', style: TextStyle(color: tema.colorScheme.error)),
-                            onTap: () => _abrir(m),
-                          ),
-                        ),
+                      _titulo(context, 'Incluídos no pacote',
+                          'Fazem parte do app e valem para todos os usuários: não precisam de liberação.'),
+                      for (final m in _itens.where((m) => m.noPacote)) _cartao(context, m),
+                      _titulo(context, 'Com liberação',
+                          'Só quem você liberar (por usuário, com validade ou vitalício) ou pelo plano.'),
+                      if (_itens.where((m) => !m.noPacote).isEmpty)
+                        const Padding(padding: EdgeInsets.all(12), child: Text('Nenhum módulo com liberação.')),
+                      for (final m in _itens.where((m) => !m.noPacote)) _cartao(context, m),
                     ],
                   ),
                 ),

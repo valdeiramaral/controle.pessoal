@@ -98,7 +98,7 @@ class MenuLateral extends ConsumerWidget {
       (Icons.favorite_border, 'Saúde', Colors.pink.shade200),
       (Icons.event_outlined, 'Agenda', Colors.lightBlue.shade300),
       for (final m in extras)
-        (iconeDoModulo(m.icone), m.donoNome == null ? m.nome : '${m.nome} · ${m.donoNome}', corBaseDoModulo(m.icone).shade300),
+        (iconeDoModulo(m.icone), m.nome, corBaseDoModulo(m.icone).shade300),
     ];
     final admin = <(IconData, String, Widget, Color)>[
       if (logado && s.pode('acesso.usuario.ver'))

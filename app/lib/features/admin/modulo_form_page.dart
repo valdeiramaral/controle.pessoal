@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/aparencia.dart';
+import '../../core/formatos.dart';
 import '../../core/icones_modulo.dart';
 import '../../data/api/cliente_api.dart';
 import '../auth/sessao.dart';
@@ -27,11 +28,10 @@ class _ModuloFormPageState extends ConsumerState<ModuloFormPage> {
   late final _ordem = TextEditingController(text: widget.modulo == null ? '' : '${widget.modulo!.ordem}');
   late String _icone = widget.modulo?.icone ?? 'extension';
   late bool _ativo = widget.modulo?.ativo ?? true;
-  late bool _paraTodos = widget.modulo?.liberadoParaTodos ?? true;
+  late bool _noPacote = widget.modulo?.noPacote ?? false;
   late Set<String> _planos = {...?widget.modulo?.planos};
   List<OpcaoCatalogo> _planosDisponiveis = const [];
-  List<ItemUsuario> _usuarios = const [];
-  String? _donoId;
+  late List<_Lib> _libs = [for (final l in widget.modulo?.liberacoes ?? const <LiberacaoModulo>[]) _Lib.de(l)];
   bool _salvando = false;
   String? _erro;
 
@@ -41,7 +41,6 @@ class _ModuloFormPageState extends ConsumerState<ModuloFormPage> {
   @override
   void initState() {
     super.initState();
-    _donoId = widget.modulo?.donoId;
     _carregarPlanos();
   }
 
@@ -58,13 +57,7 @@ class _ModuloFormPageState extends ConsumerState<ModuloFormPage> {
     if (token == null) return;
     try {
       final c = await ref.read(clienteApiProvider).catalogo(token);
-      final u = _sistema ? null : await ref.read(clienteApiProvider).listarUsuarios(token);
-      if (mounted) {
-        setState(() {
-          _planosDisponiveis = c.planos;
-          if (u != null) _usuarios = u.itens;
-        });
-      }
+      if (mounted) setState(() => _planosDisponiveis = c.planos);
     } on ErroApi {
       // sem permissao para ver o catalogo: segue sem a escolha de planos
     }
@@ -72,9 +65,15 @@ class _ModuloFormPageState extends ConsumerState<ModuloFormPage> {
 
   Future<void> _salvar() async {
     if (!_form.currentState!.validate()) return;
-    if (!_sistema && _donoId == null) {
-      setState(() => _erro = 'Escolha o usuário dono do módulo.');
-      return;
+    for (final l in _noPacote ? const <_Lib>[] : _libs) {
+      if (!l.vitalicio && (l.inicio == null || l.fim == null)) {
+        setState(() => _erro = 'Informe o início e o fim da validade de ${l.nome}, ou marque como vitalício.');
+        return;
+      }
+      if (!l.vitalicio && l.fim!.isBefore(l.inicio!)) {
+        setState(() => _erro = 'A data final de ${l.nome} não pode ser antes da inicial.');
+        return;
+      }
     }
     final token = ref.read(sessaoProvider).token;
     if (token == null) return;
@@ -90,8 +89,11 @@ class _ModuloFormPageState extends ConsumerState<ModuloFormPage> {
         'nome': _nome.text.trim(),
         'descricao': desc,
         'icone': _icone,
-        if (_sistema) ...{'liberado_para_todos': _paraTodos, 'planos': (_planos.toList()..sort())},
-        if (!_sistema) 'dono_id': _donoId,
+        'no_pacote': _noPacote,
+        if (!_noPacote) ...{
+          'planos': (_planos.toList()..sort()),
+          'liberacoes': [for (final l in _libs) l.paraJson()],
+        },
         if (ordem != null) 'ordem': ordem,
         if (!_sistema) 'ativo': _ativo,
       };
@@ -117,7 +119,7 @@ class _ModuloFormPageState extends ConsumerState<ModuloFormPage> {
       context: context,
       builder: (c) => AlertDialog(
         title: const Text('Excluir módulo?'),
-        content: Text('O módulo "${widget.modulo!.nome}" sai do menu do dono.'),
+        content: Text('O módulo "${widget.modulo!.nome}" sai do menu de todos os usuários liberados.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancelar')),
           FilledButton(key: const Key('confirmar_exclusao'), onPressed: () => Navigator.pop(c, true), child: const Text('Excluir')),
@@ -134,6 +136,83 @@ class _ModuloFormPageState extends ConsumerState<ModuloFormPage> {
     } on ErroApi catch (e) {
       if (mounted) setState(() => _erro = e.mensagem);
     }
+  }
+
+  Future<void> _adicionarUsuario() async {
+    final token = ref.read(sessaoProvider).token;
+    if (token == null) return;
+    final escolhido = await showDialog<ItemUsuario>(
+      context: context,
+      builder: (_) => _EscolherUsuario(
+        buscar: (t) => ref.read(clienteApiProvider).listarUsuarios(token, busca: t),
+        jaLiberados: {for (final l in _libs) l.usuarioId},
+      ),
+    );
+    if (escolhido != null) {
+      setState(() => _libs.add(_Lib(usuarioId: escolhido.id, nome: escolhido.nome, email: escolhido.email)));
+    }
+  }
+
+  Future<void> _escolherData(_Lib l, bool inicio) async {
+    final base = (inicio ? l.inicio : l.fim) ?? DateTime.now();
+    final d = await showDatePicker(
+        context: context, initialDate: base, firstDate: DateTime(2000), lastDate: DateTime(2100));
+    if (d != null) setState(() => inicio ? l.inicio = d : l.fim = d);
+  }
+
+  Widget _cartaoLiberacao(BuildContext context, _Lib l, bool pode) {
+    final tema = Theme.of(context);
+    final vencida = !l.vitalicio && l.fim != null && DateTime.now().isAfter(DateTime(l.fim!.year, l.fim!.month, l.fim!.day, 23, 59, 59));
+    final situacao = !l.ativa ? 'Desativada' : (vencida ? 'Vencida' : 'Vigente');
+    final cor = !l.ativa ? Colors.grey : (vencida ? Colors.red : Colors.green);
+    Widget data(String rotulo, DateTime? v, bool inicio) => OutlinedButton.icon(
+          key: Key('${inicio ? 'inicio' : 'fim'}_${l.usuarioId}'),
+          onPressed: pode ? () => _escolherData(l, inicio) : null,
+          icon: const Icon(Icons.calendar_today_outlined, size: 16),
+          label: Text('$rotulo: ${v == null ? 'escolher' : formatarData(v)}'),
+        );
+    return Card(
+      key: Key('liberacao_${l.usuarioId}'),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(l.nome, style: tema.textTheme.titleSmall),
+                if (l.email != null) Text(l.email!, style: tema.textTheme.bodySmall),
+              ]),
+            ),
+            Text(situacao, style: TextStyle(color: corIcone(context, cor), fontWeight: FontWeight.w700)),
+            if (pode)
+              IconButton(
+                key: Key('remover_${l.usuarioId}'),
+                tooltip: 'Remover liberação',
+                icon: const Icon(Icons.close),
+                onPressed: () => setState(() => _libs.remove(l)),
+              ),
+          ]),
+          SwitchListTile(
+            key: Key('ativa_${l.usuarioId}'),
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Liberação ativa'),
+            value: l.ativa,
+            onChanged: pode ? (v) => setState(() => l.ativa = v) : null,
+          ),
+          SwitchListTile(
+            key: Key('vitalicio_${l.usuarioId}'),
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Vitalício (sem data de validade)'),
+            value: l.vitalicio,
+            onChanged: pode ? (v) => setState(() => l.vitalicio = v) : null,
+          ),
+          if (!l.vitalicio)
+            Wrap(spacing: 8, runSpacing: 8, children: [data('Início', l.inicio, true), data('Fim', l.fim, false)]),
+        ]),
+      ),
+    );
   }
 
   @override
@@ -199,44 +278,61 @@ class _ModuloFormPageState extends ConsumerState<ModuloFormPage> {
                       ),
                   ]),
                   const SizedBox(height: 12),
-                  if (!_sistema) ...[
-                    DropdownButtonFormField<String>(
-                      key: const Key('campo_dono_modulo'),
-                      value: _usuarios.any((u) => u.id == _donoId) ? _donoId : null,
-                      isExpanded: true,
-                      decoration: decoracaoCampo(context, 'Dono do módulo', Icons.person_outline),
-                      items: [
-                        for (final u in _usuarios)
-                          DropdownMenuItem(value: u.id, child: Text('${u.nome} (${u.email})', overflow: TextOverflow.ellipsis)),
-                      ],
-                      onChanged: pode ? (v) => setState(() => _donoId = v) : null,
-                    ),
-                    const SizedBox(height: 8),
-                    Text('Só o dono (e você, SuperUsuário) vê este módulo no menu.', style: tema.textTheme.bodySmall),
-                  ],
-                  if (_sistema) SwitchListTile(
-                    key: const Key('campo_para_todos'),
+                  const SizedBox(height: 8),
+                  Text('Liberação', style: tema.textTheme.titleMedium),
+                  SwitchListTile(
+                    key: const Key('campo_no_pacote'),
                     contentPadding: EdgeInsets.zero,
-                    title: const Text('Liberado para todos os usuários'),
-                    subtitle: const Text('Desligue para liberar só por plano ou por usuário.'),
-                    value: _paraTodos,
-                    onChanged: pode ? (v) => setState(() => _paraTodos = v) : null,
+                    title: const Text('Incluído no pacote'),
+                    subtitle: const Text('Vale para todos os usuários, sem liberação e sem data de validade.'),
+                    value: _noPacote,
+                    onChanged: pode ? (v) => setState(() => _noPacote = v) : null,
                   ),
-                  if (_sistema && !_paraTodos && _planosDisponiveis.isNotEmpty) ...[
-                    Text('Planos que liberam este módulo', style: tema.textTheme.titleSmall),
-                    const SizedBox(height: 8),
-                    Wrap(spacing: 8, runSpacing: 4, children: [
-                      for (final p in _planosDisponiveis)
-                        FilterChip(
-                          key: Key('plano_${p.codigo}'),
-                          label: Text(p.nome),
-                          selected: _planos.contains(p.codigo),
-                          onSelected: pode
-                              ? (v) => setState(() => v ? _planos.add(p.codigo) : _planos.remove(p.codigo))
-                              : null,
+                  if (_noPacote)
+                    Card(
+                      key: const Key('aviso_pacote'),
+                      child: Padding(
+                        padding: const EdgeInsets.all(14),
+                        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Icon(Icons.inventory_2_outlined, color: corIcone(context, Colors.teal)),
+                          const SizedBox(width: 12),
+                          const Expanded(
+                            child: Text('Este módulo faz parte do pacote do app: todos os usuários já têm acesso. '
+                                'Desligue "Incluído no pacote" para liberar só por plano ou para usuários escolhidos.'),
+                          ),
+                        ]),
+                      ),
+                    )
+                  else ...[
+                    if (_planosDisponiveis.isNotEmpty) ...[
+                      Text('Planos que liberam este módulo', style: tema.textTheme.titleSmall),
+                      const SizedBox(height: 8),
+                      Wrap(spacing: 8, runSpacing: 4, children: [
+                        for (final p in _planosDisponiveis)
+                          FilterChip(
+                            key: Key('plano_${p.codigo}'),
+                            label: Text(p.nome),
+                            selected: _planos.contains(p.codigo),
+                            onSelected: pode
+                                ? (v) => setState(() => v ? _planos.add(p.codigo) : _planos.remove(p.codigo))
+                                : null,
+                          ),
+                      ]),
+                      const SizedBox(height: 12),
+                    ],
+                    Row(children: [
+                      Expanded(child: Text('Usuários liberados (${_libs.length})', style: tema.textTheme.titleSmall)),
+                      if (pode)
+                        TextButton.icon(
+                          key: const Key('botao_add_usuario'),
+                          onPressed: _adicionarUsuario,
+                          icon: const Icon(Icons.person_add_alt_1_outlined),
+                          label: const Text('Adicionar usuário'),
                         ),
                     ]),
-                    const SizedBox(height: 8),
+                    if (_libs.isEmpty)
+                      const Padding(padding: EdgeInsets.symmetric(vertical: 8), child: Text('Nenhum usuário liberado ainda.')),
+                    for (final l in _libs) _cartaoLiberacao(context, l, pode),
                   ],
                   SwitchListTile(
                     key: const Key('campo_ativo_modulo'),
@@ -266,6 +362,122 @@ class _ModuloFormPageState extends ConsumerState<ModuloFormPage> {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Liberacao em edicao na tela.
+class _Lib {
+  _Lib({
+    required this.usuarioId,
+    required this.nome,
+    this.email,
+    this.ativa = true,
+    this.vitalicio = true,
+    this.inicio,
+    this.fim,
+  });
+
+  factory _Lib.de(LiberacaoModulo l) => _Lib(
+      usuarioId: l.usuarioId, nome: l.nome, email: l.email, ativa: l.ativa, vitalicio: l.vitalicio, inicio: l.inicio, fim: l.fim);
+
+  final String usuarioId;
+  final String nome;
+  final String? email;
+  bool ativa;
+  bool vitalicio;
+  DateTime? inicio;
+  DateTime? fim;
+
+  /// Inicio vale desde o comeco do dia e o fim ate o ultimo segundo do dia escolhido.
+  Map<String, dynamic> paraJson() => {
+        'usuario_id': usuarioId,
+        'ativa': ativa,
+        'vitalicio': vitalicio,
+        if (!vitalicio && inicio != null) 'inicio': DateTime(inicio!.year, inicio!.month, inicio!.day).toUtc().toIso8601String(),
+        if (!vitalicio && fim != null) 'fim': DateTime(fim!.year, fim!.month, fim!.day, 23, 59, 59).toUtc().toIso8601String(),
+      };
+}
+
+/// Escolha de um usuario (com busca) para liberar o modulo.
+class _EscolherUsuario extends StatefulWidget {
+  const _EscolherUsuario({required this.buscar, required this.jaLiberados});
+
+  final Future<ListaUsuarios> Function(String) buscar;
+  final Set<String> jaLiberados;
+
+  @override
+  State<_EscolherUsuario> createState() => _EscolherUsuarioState();
+}
+
+class _EscolherUsuarioState extends State<_EscolherUsuario> {
+  final _busca = TextEditingController();
+  List<ItemUsuario> _itens = const [];
+  bool _carregando = true;
+  String? _erro;
+
+  @override
+  void initState() {
+    super.initState();
+    _carregar();
+  }
+
+  @override
+  void dispose() {
+    _busca.dispose();
+    super.dispose();
+  }
+
+  Future<void> _carregar() async {
+    setState(() {
+      _carregando = true;
+      _erro = null;
+    });
+    try {
+      final r = await widget.buscar(_busca.text);
+      if (mounted) setState(() => _itens = r.itens.where((u) => !widget.jaLiberados.contains(u.id)).toList());
+    } on ErroApi catch (e) {
+      if (mounted) setState(() => _erro = e.mensagem);
+    } finally {
+      if (mounted) setState(() => _carregando = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Liberar para'),
+      content: SizedBox(
+        width: 420,
+        height: 380,
+        child: Column(children: [
+          TextField(
+            key: const Key('busca_usuario'),
+            controller: _busca,
+            decoration: const InputDecoration(labelText: 'Buscar por nome, e-mail ou CPF', prefixIcon: Icon(Icons.search)),
+            onSubmitted: (_) => _carregar(),
+          ),
+          const SizedBox(height: 8),
+          Expanded(
+            child: _carregando
+                ? const Center(child: CircularProgressIndicator())
+                : _erro != null
+                    ? Center(child: Text(_erro!))
+                    : _itens.isEmpty
+                        ? const Center(child: Text('Nenhum usuário disponível.'))
+                        : ListView(children: [
+                            for (final u in _itens)
+                              ListTile(
+                                key: Key('usuario_op_${u.id}'),
+                                title: Text(u.nome),
+                                subtitle: Text(u.email),
+                                onTap: () => Navigator.of(context).pop(u),
+                              ),
+                          ]),
+          ),
+        ]),
+      ),
+      actions: [TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancelar'))],
     );
   }
 }

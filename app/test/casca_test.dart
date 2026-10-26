@@ -121,16 +121,20 @@ void main() {
     await tester.enterText(find.byKey(const Key('campo_nome_modulo')), 'Academia');
     await tester.tap(find.byKey(const Key('icone_fitness')));
     await tester.pump();
-    await tester.tap(find.byKey(const Key('campo_dono_modulo')));
+    await tester.tap(find.byKey(const Key('botao_add_usuario')));
     await tester.pumpAndSettle();
-    await tester.tap(find.textContaining('Maria').last);
+    await tester.tap(find.byKey(const Key('usuario_op_u1')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('botao_salvar')));
     await tester.pumpAndSettle();
 
     expect(postado!['nome'], 'Academia');
     expect(postado!['icone'], 'fitness');
-    expect(postado!['dono_id'], 'u1');
+    expect(postado!['no_pacote'], false);
+    final lib = (postado!['liberacoes'] as List).single as Map<String, dynamic>;
+    expect(lib['usuario_id'], 'u1');
+    expect(lib['vitalicio'], true);
+    expect(lib['ativa'], true);
     expect(noMenu, findsOneWidget); // apareceu no menu
 
     await tester.tap(noMenu);

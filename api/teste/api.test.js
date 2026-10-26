@@ -807,6 +807,20 @@ describe('cadastro de modulos', () => {
     assert.deepEqual(await menu(tc), ['academia_treino']);
     assert.equal((await com('GET', '/modulos/academia_treino', token)).json().liberacoes.length, 2);
 
+    // o SuperUsuario decide quais modulos fazem parte do pacote: valem para todos, sem liberacao
+    assert.equal((await com('PUT', '/modulos/academia_treino', token, { no_pacote: true })).json().no_pacote, true);
+    assert.deepEqual(await menu(tc), ['academia_treino']);
+    const idD = await cadastrar('lib-d@exemplo.com');
+    assert.deepEqual(await menu(await entrar('lib-d@exemplo.com')), ['academia_treino']);
+    assert.ok(idD);
+    assert.equal((await com('PUT', '/modulos/academia_treino', token, { no_pacote: false })).json().no_pacote, false);
+    assert.deepEqual(await menu(await entrar('lib-d@exemplo.com')), []);
+    // modulos de fabrica: o pacote tambem e configuravel
+    const lista0 = (await com('GET', '/modulos', token)).json().itens;
+    assert.equal(lista0.find((m) => m.codigo === 'financas').no_pacote, true);
+    assert.equal((await com('PUT', '/modulos/saude', token, { no_pacote: false })).json().no_pacote, false);
+    await com('PUT', '/modulos/saude', token, { no_pacote: true });
+
     // modulo inativo some do menu de todos
     await com('PUT', '/modulos/academia_treino', token, { ativo: false });
     assert.deepEqual(await menu(tc), []);
@@ -816,9 +830,6 @@ describe('cadastro de modulos', () => {
     assert.equal((await com('DELETE', '/modulos/financas', token)).json().erro, 'modulo_de_sistema');
     assert.equal((await com('PUT', '/modulos/financas', token, { ativo: false })).json().erro, 'modulo_de_sistema');
     assert.equal((await com('PUT', '/modulos/financas', token, { descricao: 'Dinheiro' })).statusCode, 200);
-    // modulo do pacote nao precisa de liberacao: nao aceita liberacoes nem planos
-    assert.equal((await com('PUT', '/modulos/financas', token, { liberacoes: [] })).json().erro, 'modulo_de_pacote');
-    assert.equal((await com('PUT', '/modulos/financas', token, { planos: [] })).json().erro, 'modulo_de_pacote');
 
     assert.equal((await com('DELETE', '/modulos/academia_treino', token)).statusCode, 204);
     assert.equal((await com('GET', '/modulos/academia_treino', token)).statusCode, 404);

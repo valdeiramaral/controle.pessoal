@@ -282,11 +282,11 @@ class ModuloAdmin {
     this.ordem = 0,
     this.ativo = true,
     this.liberadoParaTodos = true,
+    this.noPacote = false,
     this.icone = 'extension',
     this.sistema = false,
     this.planos = const [],
-    this.donoId,
-    this.donoNome,
+    this.liberacoes = const [],
   });
 
   final String codigo;
@@ -295,6 +295,9 @@ class ModuloAdmin {
   final int ordem;
   final bool ativo;
   final bool liberadoParaTodos;
+
+  /// Incluido no pacote do app: vale para todos, sem liberacao nem validade (o SuperUsuario decide).
+  final bool noPacote;
   final String icone;
 
   /// De fabrica (Financas, Saude...): nao pode ser excluido nem desativado.
@@ -303,9 +306,8 @@ class ModuloAdmin {
   /// Planos que liberam o modulo (usado quando nao e liberado para todos).
   final List<String> planos;
 
-  /// Dono do modulo (so ele e o SuperUsuario o veem); nulo nos modulos de fabrica.
-  final String? donoId;
-  final String? donoNome;
+  /// Usuarios a quem o modulo foi liberado (cada um com sua validade ou vitalicio).
+  final List<LiberacaoModulo> liberacoes;
 
   factory ModuloAdmin.deJson(Map<String, dynamic> j) => ModuloAdmin(
         codigo: j['codigo'] as String,
@@ -314,32 +316,66 @@ class ModuloAdmin {
         ordem: (j['ordem'] as num?)?.toInt() ?? 0,
         ativo: j['ativo'] as bool? ?? true,
         liberadoParaTodos: j['liberado_para_todos'] as bool? ?? false,
+        noPacote: j['no_pacote'] as bool? ?? false,
         icone: j['icone'] as String? ?? 'extension',
         sistema: j['sistema'] as bool? ?? false,
         planos: (j['planos'] as List? ?? const []).cast<String>(),
-        donoId: j['dono_id'] as String?,
-        donoNome: j['dono_nome'] as String?,
+        liberacoes: (j['liberacoes'] as List? ?? const [])
+            .map((e) => LiberacaoModulo.deJson(e as Map<String, dynamic>))
+            .toList(),
+      );
+}
+
+/// Liberacao de um modulo para um usuario: vitalicia ou valida entre duas datas; pode ser desativada.
+class LiberacaoModulo {
+  const LiberacaoModulo({
+    required this.usuarioId,
+    required this.nome,
+    this.email,
+    this.ativa = true,
+    this.vitalicio = true,
+    this.inicio,
+    this.fim,
+    this.vigente = true,
+  });
+
+  final String usuarioId;
+  final String nome;
+  final String? email;
+  final bool ativa;
+  final bool vitalicio;
+  final DateTime? inicio;
+  final DateTime? fim;
+
+  /// Vale agora: ativa e dentro da validade (calculado pela API).
+  final bool vigente;
+
+  factory LiberacaoModulo.deJson(Map<String, dynamic> j) => LiberacaoModulo(
+        usuarioId: j['usuario_id'] as String,
+        nome: j['usuario_nome'] as String? ?? '',
+        email: j['usuario_email'] as String?,
+        ativa: j['ativa'] as bool? ?? true,
+        vitalicio: j['vitalicio'] as bool? ?? true,
+        inicio: DateTime.tryParse((j['inicio'] as String?) ?? '')?.toLocal(),
+        fim: DateTime.tryParse((j['fim'] as String?) ?? '')?.toLocal(),
+        vigente: j['vigente'] as bool? ?? true,
       );
 }
 
 /// Modulo que aparece no menu do usuario logado.
 class ModuloMenu {
-  const ModuloMenu({required this.codigo, required this.nome, this.descricao, this.icone = 'extension', this.donoNome});
+  const ModuloMenu({required this.codigo, required this.nome, this.descricao, this.icone = 'extension'});
 
   final String codigo;
   final String nome;
   final String? descricao;
   final String icone;
 
-  /// So vem preenchido para o SuperUsuario, que ve os modulos de todos.
-  final String? donoNome;
-
   factory ModuloMenu.deJson(Map<String, dynamic> j) => ModuloMenu(
         codigo: j['codigo'] as String,
         nome: j['nome'] as String,
         descricao: j['descricao'] as String?,
         icone: j['icone'] as String? ?? 'extension',
-        donoNome: j['dono_nome'] as String?,
       );
 }
 
@@ -704,6 +740,8 @@ class ClienteApi {
         return 'Você não pode excluir a própria conta.';
       case 'modulo_ja_existe':
         return 'Já existe um módulo com este nome.';
+      case 'modulo_de_pacote':
+        return 'Este módulo faz parte do pacote do app e não precisa de liberação.';
       case 'modulo_de_sistema':
         return 'Este módulo é de fábrica: não pode ser excluído nem desativado.';
       case 'modulo_em_uso':

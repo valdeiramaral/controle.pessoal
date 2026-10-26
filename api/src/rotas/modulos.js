@@ -4,7 +4,8 @@ import { codigoDoNome } from './acesso.js';
 // Cadastro de modulos: so o SuperUsuario cria, libera e desativa. Cada modulo pode ser liberado para
 // varios usuarios (e/ou por plano); a liberacao de cada usuario pode ser vitalicia ou valer entre duas
 // datas. Passada a data final (ou desativada a liberacao), o usuario deixa de ter acesso ao modulo.
-// Os de fabrica (financas, saude...) nao podem ser excluidos nem desativados.
+// Cada modulo pode ser marcado como "incluido no pacote" (vale para todos, sem liberacao): quem decide
+// e o SuperUsuario. Os de fabrica (financas, saude...) nao podem ser excluidos nem desativados.
 export const ICONES = [
   'extension', 'folder', 'star', 'work', 'school', 'cart', 'home', 'fitness', 'pets',
   'flight', 'book', 'build', 'chart', 'people', 'wallet',
@@ -19,6 +20,7 @@ const propriedades = {
   ordem: { type: 'integer', minimum: 1, maximum: 9999 },
   ativo: { type: 'boolean' },
   liberado_para_todos: { type: 'boolean' },
+  no_pacote: { type: 'boolean' },
   planos: listaPlanos,
   liberacoes: {
     type: 'array',
@@ -44,7 +46,7 @@ export default async function rotasModulos(app) {
   const gerenciar = [app.exigir('administracao.modulo.gerenciar'), app.exigirSuper];
 
   const SELECT = `
-    SELECT m.codigo, m.nome, m.descricao, m.ordem, m.ativo, m.liberado_para_todos, m.icone,
+    SELECT m.codigo, m.nome, m.descricao, m.ordem, m.ativo, m.liberado_para_todos, m.no_pacote, m.icone,
            m.exibir_no_menu, NOT m.exibir_no_menu AS sistema,
            coalesce((SELECT array_agg(l.plano_codigo ORDER BY l.plano_codigo) FROM controle.liberacao_modulo l
                       WHERE l.modulo_codigo = m.codigo AND l.plano_codigo IS NOT NULL AND l.concedida), '{}') AS planos,
@@ -130,10 +132,10 @@ export default async function rotasModulos(app) {
       const m = await admin(req, async (c) => {
         const ordem = b.ordem ?? ((await c.query('SELECT coalesce(max(ordem), 0) + 1 AS n FROM controle.modulo')).rows[0].n);
         await c.query(
-          `INSERT INTO controle.modulo (codigo, nome, descricao, ordem, ativo, liberado_para_todos, icone, exibir_no_menu)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, true)`,
+          `INSERT INTO controle.modulo (codigo, nome, descricao, ordem, ativo, liberado_para_todos, icone, exibir_no_menu, no_pacote)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, true, $8)`,
           [codigo, b.nome.trim(), b.descricao ?? null, ordem, b.ativo ?? true, b.liberado_para_todos ?? false,
-            b.icone ?? 'extension']);
+            b.icone ?? 'extension', b.no_pacote ?? false]);
         await gravarPlanos(c, codigo, b.planos ?? []);
         await gravarLiberacoes(c, codigo, b.liberacoes ?? []);
         return (await c.query(`${SELECT} WHERE m.codigo = $1`, [codigo])).rows[0];
@@ -154,11 +156,7 @@ export default async function rotasModulos(app) {
         const atual = (await c.query('SELECT exibir_no_menu FROM controle.modulo WHERE codigo = $1', [req.params.codigo])).rows[0];
         if (!atual) return { nao: 404 };
         if (!atual.exibir_no_menu && b.ativo === false) return { nao: 400 };
-        // Modulos do pacote (de fabrica) fazem parte do app e nao precisam de liberacao.
-        if (!atual.exibir_no_menu && (b.liberacoes !== undefined || b.planos !== undefined || b.liberado_para_todos !== undefined)) {
-          return { nao: 422 };
-        }
-        const chaves = ['nome', 'descricao', 'ordem', 'icone', ...(atual.exibir_no_menu ? ['liberado_para_todos', 'ativo'] : [])];
+        const chaves = ['nome', 'descricao', 'ordem', 'icone', 'no_pacote', 'liberado_para_todos', ...(atual.exibir_no_menu ? ['ativo'] : [])];
         const campos = [];
         const valores = [req.params.codigo];
         for (const k of chaves) {
@@ -171,7 +169,6 @@ export default async function rotasModulos(app) {
       });
       if (r.nao === 404) return reply.code(404).send({ erro: 'modulo_nao_encontrado' });
       if (r.nao === 400) return reply.code(400).send({ erro: 'modulo_de_sistema' });
-      if (r.nao === 422) return reply.code(400).send({ erro: 'modulo_de_pacote' });
       return r.m;
     } catch (e) { return erroDoBanco(e, reply); }
   });
