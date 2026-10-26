@@ -1,0 +1,5 @@
+.env
+*.log
+app/build/
+app/.dart_tool/
+~$*
