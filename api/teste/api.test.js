@@ -844,6 +844,17 @@ describe('isolamento por usuario', () => {
     assert.equal((await com('GET', `/usuarios/${filho}`, tokenS)).statusCode, 200);
     assert.ok(sup.id);
 
+    // grupos: quem nao e SuperUsuario so enxerga os membros do proprio escopo
+    const idB = (await get('/me', tokenB)).json().usuario.id;
+    const g = await com('POST', '/grupos', tokenS, { nome: 'Grupo isolamento', perfis: [], membros: [filho, idB, adminA] });
+    assert.equal(g.statusCode, 201, g.body);
+    const gid = g.json().id;
+    const visto = (await com('GET', `/grupos/${gid}`, tokenA)).json();
+    assert.deepEqual(visto.membros.map((m) => m.email).sort(), ['adm-a@exemplo.com', 'filho-a@exemplo.com']);
+    const lista = (await com('GET', '/grupos', tokenA)).json().itens.find((x) => x.id === gid);
+    assert.equal(lista.total_membros, 2);
+    assert.equal((await com('GET', `/grupos/${gid}`, tokenS)).json().membros.length, 3);
+
     // catalogo e ficha mostram so modulos de fabrica; perfis/grupos so o SuperUsuario altera
     assert.equal((await com('POST', '/perfis', tokenA, { nome: 'Meu perfil', permissoes: [] })).statusCode, 403);
     assert.equal((await com('GET', '/modulos', tokenA)).statusCode, 403);

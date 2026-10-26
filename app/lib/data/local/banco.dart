@@ -1,3 +1,4 @@
+import '../../features/auth/sessao.dart';
 import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -29,8 +30,10 @@ const contaPadraoId = 'conta-padrao';
 class Banco extends _$Banco {
   // TODO (requisito de seguranca): trocar por SQLCipher para criptografar o
   // arquivo do banco no aparelho, com a chave guardada no Keychain/Keystore.
-  Banco() : super(driftDatabase(
-          name: 'controle_pessoal',
+  /// Cada usuario tem o proprio arquivo de banco no aparelho: [usuarioId] entra no nome,
+  /// entao quem entra depois nunca enxerga lancamentos, agenda ou remedios de outra pessoa.
+  Banco({String? usuarioId}) : super(driftDatabase(
+          name: 'controle_pessoal_${nomeSeguro(usuarioId)}',
           // Na web o SQLite roda em WebAssembly (arquivos em app/web/).
           web: DriftWebOptions(
             sqlite3Wasm: Uri.parse('sqlite3.wasm'),
@@ -204,8 +207,14 @@ class Banco extends _$Banco {
       );
 }
 
+/// Nome de arquivo seguro para o id do usuario (so letras, numeros e _).
+String nomeSeguro(String? usuarioId) =>
+    (usuarioId == null || usuarioId.isEmpty) ? 'sem_login' : usuarioId.replaceAll(RegExp(r'[^A-Za-z0-9]'), '_');
+
+/// Banco local do usuario logado; troca sozinho (e fecha o anterior) quando outro usuario entra.
 final bancoProvider = Provider<Banco>((ref) {
-  final banco = Banco();
+  final id = ref.watch(sessaoProvider.select((s) => s.usuario?.id));
+  final banco = Banco(usuarioId: id);
   ref.onDispose(banco.close);
   return banco;
 });

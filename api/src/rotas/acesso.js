@@ -149,17 +149,24 @@ export default async function rotasAcesso(app) {
   });
 
   // ---------------------------------------------------------------- grupos
-  app.get('/grupos', { preHandler: app.exigir('acesso.usuario.ver') }, async (req) => admin(req, async (c) => ({
+  // Quem nao e SuperUsuario so enxerga, nos grupos, a si mesmo e os usuarios que cadastrou.
+  const escopoMembro = (alias) => `($2::boolean OR ${alias}.usuario_id = $1
+      OR EXISTS (SELECT 1 FROM controle.usuario v WHERE v.id = ${alias}.usuario_id AND v.criado_por = $1))`;
+
+  app.get('/grupos', { preHandler: app.exigir('acesso.usuario.ver') }, async (req) => {
+    const todos = await app.ehSuperusuario(req.usuarioId);
+    return admin(req, async (c) => ({
     itens: (await c.query(
       `SELECT g.id, g.nome, g.descricao,
-              (SELECT count(*)::int FROM controle.usuario_grupo x WHERE x.grupo_id = g.id) AS total_membros,
+              (SELECT count(*)::int FROM controle.usuario_grupo x WHERE x.grupo_id = g.id AND ${escopoMembro('x')}) AS total_membros,
               coalesce((SELECT array_agg(p.codigo ORDER BY p.codigo)
                           FROM controle.grupo_perfil gp JOIN controle.perfil p ON p.id = gp.perfil_id
                          WHERE gp.grupo_id = g.id), '{}') AS perfis
-         FROM controle.grupo g ORDER BY g.nome`)).rows,
-  })));
+         FROM controle.grupo g ORDER BY g.nome`, [req.usuarioId, todos])).rows,
+    }));
+  });
 
-  async function detalheGrupo(c, id) {
+  async function detalheGrupo(c, id, usuarioId, todos = true) {
     const g = (await c.query('SELECT id, nome, descricao FROM controle.grupo WHERE id = $1', [id])).rows[0];
     if (!g) return null;
     g.perfis = (await c.query(
@@ -167,14 +174,18 @@ export default async function rotasAcesso(app) {
         WHERE gp.grupo_id = $1 ORDER BY 1`, [id])).rows.map((r) => r.codigo);
     g.membros = (await c.query(
       `SELECT u.id, u.nome, u.email FROM controle.usuario_grupo ug JOIN controle.usuario u ON u.id = ug.usuario_id
-        WHERE ug.grupo_id = $1 AND u.excluido_em IS NULL ORDER BY u.nome`, [id])).rows;
+        WHERE ug.grupo_id = $1 AND u.excluido_em IS NULL
+          AND ($3::boolean OR u.id = $2 OR u.criado_por = $2) ORDER BY u.nome`, [id, usuarioId ?? null, todos])).rows;
     return g;
   }
 
   app.get('/grupos/:id', {
     preHandler: app.exigir('acesso.usuario.ver'), schema: { params: paramId },
-  }, async (req, reply) => (await admin(req, (c) => detalheGrupo(c, req.params.id)))
-    ?? reply.code(404).send({ erro: 'grupo_nao_encontrado' }));
+  }, async (req, reply) => {
+    const todos = await app.ehSuperusuario(req.usuarioId);
+    return (await admin(req, (c) => detalheGrupo(c, req.params.id, req.usuarioId, todos)))
+      ?? reply.code(404).send({ erro: 'grupo_nao_encontrado' });
+  });
 
   async function gravarPerfisDoGrupo(c, grupoId, codigos) {
     const achados = (await c.query('SELECT id FROM controle.perfil WHERE codigo = ANY($1)', [codigos])).rows;
