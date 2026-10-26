@@ -19,6 +19,13 @@ Widget _app(MockClientHandler h) => ProviderScope(
       child: const MaterialApp(home: LoginPage()),
     );
 
+/// Tela alta o bastante para a pagina de login inteira caber sem rolar.
+void _telaAlta(WidgetTester tester) {
+  tester.view.physicalSize = const Size(800, 1600);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.reset);
+}
+
 void main() {
   group('validacoes', () {
     test('e-mail', () {
@@ -40,6 +47,7 @@ void main() {
   });
 
   testWidgets('campos vazios mostram os erros e nao chamam a API', (tester) async {
+    _telaAlta(tester);
     var chamadas = 0;
     await tester.pumpWidget(_app((r) async {
       chamadas++;
@@ -53,6 +61,7 @@ void main() {
   });
 
   testWidgets('senha errada mostra a mensagem da API', (tester) async {
+    _telaAlta(tester);
     await tester.pumpWidget(_app((r) async => http.Response.bytes(
         utf8.encode(jsonEncode({'erro': 'credenciais_invalidas'})), 401,
         headers: {'content-type': 'application/json'})));
@@ -64,6 +73,7 @@ void main() {
   });
 
   testWidgets('o botao Criar conta abre o cadastro', (tester) async {
+    _telaAlta(tester);
     await tester.pumpWidget(_app((r) async => http.Response('{}', 200)));
     await tester.tap(find.text('Criar conta'));
     await tester.pumpAndSettle();
