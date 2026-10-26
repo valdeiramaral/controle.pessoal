@@ -138,7 +138,7 @@ Siga também o guia do pacote `flutter_local_notifications` para os receivers de
 
 ## Testar no navegador (sem emulador)
 
-Dê dois cliques em `web.bat`. Ele sobe o banco e a API e abre o app no Chrome no Chrome (porta 8081 ou a próxima livre; o endereço aparece na janela). Na web não há lembretes (notificações); o resto funciona. A API libera o navegador só para `localhost` (outras origens: `API_CORS_ORIGENS` no `.env`).
+Dê dois cliques em `web.bat`. Ele sobe o banco e a API e abre o app no Chrome (porta 8081 ou a próxima livre; o endereço aparece na janela). Na web não há lembretes (notificações); o resto funciona. A API libera o navegador só para `localhost` (outras origens: `API_CORS_ORIGENS` no `.env`).
 
 ## Como rodar os testes
 
