@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
@@ -20,7 +21,9 @@ class ServicoNotificacoes {
     iOS: DarwinNotificationDetails(),
   );
 
+  // Na web nao ha lembretes locais: todos os metodos abaixo nao fazem nada.
   Future<void> iniciar() async {
+    if (kIsWeb) return;
     tzdata.initializeTimeZones();
     // TODO: ler o fuso do aparelho (pacote flutter_timezone) em vez de fixar.
     tz.setLocalLocation(tz.getLocation('America/Sao_Paulo'));
@@ -62,6 +65,7 @@ class ServicoNotificacoes {
     required String corpo,
     required DateTime quando,
   }) async {
+    if (kIsWeb) return;
     if (!quando.isAfter(DateTime.now())) return;
     await _plugin.zonedSchedule(
       id,
@@ -83,6 +87,7 @@ class ServicoNotificacoes {
     required int hora,
     required int minuto,
   }) async {
+    if (kIsWeb) return;
     final agora = tz.TZDateTime.now(tz.local);
     var proxima =
         tz.TZDateTime(tz.local, agora.year, agora.month, agora.day, hora, minuto);
@@ -100,5 +105,8 @@ class ServicoNotificacoes {
     );
   }
 
-  Future<void> cancelar(int id) => _plugin.cancel(id);
+  Future<void> cancelar(int id) async {
+    if (kIsWeb) return;
+    await _plugin.cancel(id);
+  }
 }

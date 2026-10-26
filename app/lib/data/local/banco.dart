@@ -29,7 +29,14 @@ const contaPadraoId = 'conta-padrao';
 class Banco extends _$Banco {
   // TODO (requisito de seguranca): trocar por SQLCipher para criptografar o
   // arquivo do banco no aparelho, com a chave guardada no Keychain/Keystore.
-  Banco() : super(driftDatabase(name: 'controle_pessoal'));
+  Banco() : super(driftDatabase(
+          name: 'controle_pessoal',
+          // Na web o SQLite roda em WebAssembly (arquivos em app/web/).
+          web: DriftWebOptions(
+            sqlite3Wasm: Uri.parse('sqlite3.wasm'),
+            driftWorker: Uri.parse('drift_worker.js'),
+          ),
+        ));
 
   /// Para testes (banco em memoria).
   Banco.paraTeste(super.e);

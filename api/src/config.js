@@ -24,5 +24,7 @@ export function lerConfig(env = process.env) {
     tokenExpiraSegundos: Number(env.API_TOKEN_EXPIRA_SEG || 3600),
     // Tentativas por minuto e por IP em /login e /cadastro.
     limiteAuth: Number(env.API_LIMITE_AUTH || 20),
+    // Origens extras permitidas no navegador (separadas por virgula). localhost ja e permitido.
+    corsOrigens: (env.API_CORS_ORIGENS || '').split(',').map((s) => s.trim()).filter(Boolean),
   };
 }

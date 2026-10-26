@@ -136,6 +136,10 @@ Siga também o guia do pacote `flutter_local_notifications` para os receivers de
 
 **iOS:** a permissão de notificação é pedida ao abrir o app; não precisa de ajuste no `Info.plist`.
 
+## Testar no navegador (sem emulador)
+
+Dê dois cliques em `web.bat`. Ele sobe o banco e a API e abre o app no Chrome em http://localhost:8081. Na web não há lembretes (notificações); o resto funciona. A API libera o navegador só para `localhost` (outras origens: `API_CORS_ORIGENS` no `.env`).
+
 ## Como rodar os testes
 
 **Banco** (precisa do cliente `psql` e de um servidor PostgreSQL 13+ acessível; o teste cria e recria o banco `ctrl_teste`):

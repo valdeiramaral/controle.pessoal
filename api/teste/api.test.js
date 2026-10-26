@@ -56,6 +56,28 @@ describe('saude', () => {
   });
 });
 
+describe('CORS (app web)', () => {
+  it('libera localhost em qualquer porta, inclusive o preflight', async () => {
+    const r = await app.inject({
+      method: 'OPTIONS', url: '/login',
+      headers: { origin: 'http://localhost:8081', 'access-control-request-method': 'POST' },
+    });
+    assert.equal(r.statusCode, 204);
+    assert.equal(r.headers['access-control-allow-origin'], 'http://localhost:8081');
+    assert.match(r.headers['access-control-allow-headers'], /authorization/);
+    const g = await app.inject({ method: 'GET', url: '/saude', headers: { origin: 'http://127.0.0.1:5000' } });
+    assert.equal(g.headers['access-control-allow-origin'], 'http://127.0.0.1:5000');
+  });
+
+  it('nao libera outros sites', async () => {
+    const r = await app.inject({ method: 'GET', url: '/saude', headers: { origin: 'https://site-mal-intencionado.com' } });
+    assert.equal(r.statusCode, 200);
+    assert.equal(r.headers['access-control-allow-origin'], undefined);
+    const p = await app.inject({ method: 'OPTIONS', url: '/login', headers: { origin: 'http://localhost.evil.com' } });
+    assert.equal(p.headers['access-control-allow-origin'], undefined);
+  });
+});
+
 describe('cadastro', () => {
   it('cria o usuario e guarda so o hash argon2id da senha', async () => {
     const id = await cadastrar('ana@exemplo.com');

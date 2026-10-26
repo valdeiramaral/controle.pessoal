@@ -15,6 +15,23 @@ export async function criarApp({ pool, config, logger = false }) {
 
   await app.register(rateLimit, { global: false });
 
+  // CORS: deixa o app web (navegador) chamar a API. Libera so localhost/127.0.0.1
+  // (qualquer porta) e as origens listadas em API_CORS_ORIGENS.
+  const origemLocal = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
+  const extras = new Set(config.corsOrigens ?? []);
+  app.addHook('onRequest', async (req, reply) => {
+    const origem = req.headers.origin;
+    if (!origem || !(origemLocal.test(origem) || extras.has(origem))) return;
+    reply.header('access-control-allow-origin', origem);
+    reply.header('vary', 'Origin');
+    if (req.method === 'OPTIONS') {
+      reply.header('access-control-allow-methods', 'GET, POST, PATCH, OPTIONS');
+      reply.header('access-control-allow-headers', 'authorization, content-type');
+      reply.header('access-control-max-age', '600');
+      return reply.code(204).send();
+    }
+  });
+
   app.setErrorHandler((erro, req, reply) => {
     if (erro.validation) {
       return reply.code(400).send({ erro: 'dados_invalidos', detalhe: erro.message });
