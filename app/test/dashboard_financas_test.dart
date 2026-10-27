@@ -8,6 +8,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'util_testes.dart';
+
 final hoje = DateTime(2026, 10, 15);
 
 /// Cenario: duas contas (Itau e um cartao), duas categorias, setembro e outubro.
@@ -171,6 +173,7 @@ void main() {
     expect(tester.widget<Text>(find.byKey(const Key('ind_gasto'))).data, formatarCentavos(10000));
     expect(find.text('Hoje'), findsNothing); // marcador so no mes atual
     expect(tester.takeException(), isNull);
+    await encerrar(tester);
   });
 
   testWidgets('dashboard vazio nao quebra e orienta o usuario', (tester) async {
@@ -186,5 +189,6 @@ void main() {
     expect(find.textContaining('Nenhum orçamento neste mês'), findsOneWidget);
     expect(tester.widget<Text>(find.byKey(const Key('saldo_atual'))).data, formatarCentavos(0));
     expect(tester.takeException(), isNull);
+    await encerrar(tester);
   });
 }

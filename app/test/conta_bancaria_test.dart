@@ -12,6 +12,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'util_testes.dart';
+
 Widget app(Banco banco, Widget corpo) => ProviderScope(
       overrides: [bancoProvider.overrideWithValue(banco)],
       child: MaterialApp(theme: temaApp(), home: Scaffold(body: corpo)),
@@ -142,6 +144,7 @@ void main() {
       expect(tester.widget<Text>(find.byKey(Key('saldo_$minha'))).data, formatarCentavos(97844));
       expect(find.byKey(Key('saldo_$externa')), findsNothing);
       expect(tester.takeException(), isNull);
+      await encerrar(tester);
     });
 
     testWidgets('formulario cria conta (valida campos e impede duplicada)', (tester) async {
@@ -197,6 +200,7 @@ void main() {
       expect(find.byKey(const Key('erro_conta')), findsOneWidget);
       expect((await banco.select(banco.contas).get()).where((x) => x.banco == '341').length, 1);
       expect(tester.takeException(), isNull);
+      await encerrar(tester);
     });
 
     testWidgets('gerenciar conta: mostra dados, edita e exclui', (tester) async {
@@ -240,6 +244,7 @@ void main() {
       await tester.pumpAndSettle();
       expect((await banco.select(banco.contas).get()).firstWhere((c) => c.id == id).excluidoEm, isNotNull);
       expect(tester.takeException(), isNull);
+      await encerrar(tester);
     });
   });
 }
