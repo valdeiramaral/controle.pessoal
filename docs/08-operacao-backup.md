@@ -28,3 +28,7 @@ Get-Content backups\<pasta>\banco.sql -Raw | docker compose exec -T db sh -c 'ps
 git clone backups\<pasta>\codigo.bundle projeto-restaurado
 ```
 Guarde uma cópia da pasta `backups/` fora do computador (nuvem/HD externo). O arquivo `.env` **não** entra no backup de código por conter segredos; guarde-o à parte.
+
+## Acesso por outro computador da mesma rede
+`rede.bat` (como Administrador): descobre o IP, define `API_BIND=0.0.0.0` e `API_CORS_ORIGENS` no `.env`, libera as portas da API e do app no Firewall (rede Privada), compila o app web apontando para a API e o serve na porta 8090 (`servir-web.js`). No outro computador: abrir `http://<IP>:8090`. Só em rede de confiança (HTTP sem criptografia). Para voltar ao modo só-local: remover `API_BIND` e `API_CORS_ORIGENS` do `.env` e `docker compose up -d api`.
+Observação: na web os dados de finanças ficam no navegador de cada computador; o servidor guarda contas de acesso, perfis e módulos.

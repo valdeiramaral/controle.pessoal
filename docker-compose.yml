@@ -15,6 +15,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no arquivo .env}
       APP_API_SENHA: ${APP_API_SENHA:?defina APP_API_SENHA no arquivo .env}
       TZ: America/Sao_Paulo
+      API_CORS_ORIGENS: ${API_CORS_ORIGENS:-}
     ports:
       - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     volumes:
@@ -46,7 +47,7 @@ services:
       JWT_SECRET: ${JWT_SECRET:-}
       TZ: America/Sao_Paulo
     ports:
-      - "127.0.0.1:${API_PORTA:-3000}:3000"
+      - "${API_BIND:-127.0.0.1}:${API_PORTA:-3000}:3000"
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://localhost:3000/saude').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 5s
