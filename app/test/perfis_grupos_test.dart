@@ -97,7 +97,7 @@ Widget _app(Widget home, List<_Pedido> pedidos, {Map<String, http.Response> fixa
         ],
       });
     }
-    if (p == '/usuarios/u1' && r.method == 'GET') return _json(200, _detalheUsuario());
+    if (p == '/usuarios/u1') return _json(200, _detalheUsuario());
     if (p.startsWith('/usuarios/u1/')) return _json(200, _detalheUsuario());
     if (p == '/catalogo') {
       return _json(200, {

@@ -123,11 +123,11 @@ void main() {
     await tester.enterText(find.byKey(const Key('campo_nome_modulo')), 'Academia');
     await tester.tap(find.byKey(const Key('icone_fitness')));
     await tester.pump();
-    await tester.tap(find.byKey(const Key('botao_add_usuario')));
+    await tocarRolando(tester, find.byKey(const Key('botao_add_usuario')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('usuario_op_u1')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('botao_salvar')));
+    await tocarRolando(tester, find.byKey(const Key('botao_salvar')));
     await tester.pumpAndSettle();
 
     expect(postado!['nome'], 'Academia');

@@ -52,7 +52,7 @@ Future<List<Map<String, dynamic>>> _abrir(WidgetTester tester, ModuloAdmin m) as
 
 void main() {
   testWidgets('modulo do pacote: sem liberacao; o SuperUsuario pode tirar do pacote', (tester) async {
-    const m = ModuloAdmin(codigo: 'financas', nome: 'Finanças', sistema: true, noPacote: true);
+    const m = ModuloAdmin(codigo: 'financas', nome: 'Finanças', ordem: 1, sistema: true, noPacote: true);
     final enviados = await _abrir(tester, m);
     expect(find.byKey(const Key('aviso_pacote')), findsOneWidget);
     expect(find.byKey(const Key('botao_add_usuario')), findsNothing);
@@ -72,6 +72,7 @@ void main() {
     final m = ModuloAdmin(
       codigo: 'academia',
       nome: 'Academia',
+      ordem: 10,
       liberacoes: [
         LiberacaoModulo(usuarioId: 'u1', nome: 'Maria', email: 'maria@x.com'),
         LiberacaoModulo(
