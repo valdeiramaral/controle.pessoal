@@ -9,7 +9,10 @@ Future<void> encerrar(WidgetTester tester) async {
 }
 
 /// Rola a lista ate o widget aparecer (listas lazy so constroem o que esta perto da tela) e toca nele.
-Future<void> tocarRolando(WidgetTester tester, Finder alvo) async {
-  await tester.scrollUntilVisible(alvo, 300, scrollable: find.byType(Scrollable).first);
+Future<void> tocarRolando(WidgetTester tester, Finder alvo, {Finder? dentroDe}) async {
+  final rolavel = dentroDe == null
+      ? find.byType(Scrollable).first
+      : find.descendant(of: dentroDe, matching: find.byType(Scrollable)).first;
+  await tester.scrollUntilVisible(alvo, 300, scrollable: rolavel);
   await tester.tap(alvo);
 }

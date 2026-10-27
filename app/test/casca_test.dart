@@ -5,6 +5,7 @@ import 'package:controle_pessoal/core/tema.dart';
 import 'package:controle_pessoal/data/api/cliente_api.dart';
 import 'package:controle_pessoal/data/auth/armazenamento_sessao.dart';
 import 'package:controle_pessoal/data/local/banco.dart';
+import 'package:controle_pessoal/features/admin/modulo_form_page.dart';
 import 'package:controle_pessoal/features/auth/sessao.dart';
 import 'package:controle_pessoal/features/nav/menu_lateral.dart';
 import 'package:drift/native.dart';
@@ -123,11 +124,11 @@ void main() {
     await tester.enterText(find.byKey(const Key('campo_nome_modulo')), 'Academia');
     await tester.tap(find.byKey(const Key('icone_fitness')));
     await tester.pump();
-    await tocarRolando(tester, find.byKey(const Key('botao_add_usuario')));
+    await tocarRolando(tester, find.byKey(const Key('botao_add_usuario')), dentroDe: find.byType(ModuloFormPage));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('usuario_op_u1')));
     await tester.pumpAndSettle();
-    await tocarRolando(tester, find.byKey(const Key('botao_salvar')));
+    await tocarRolando(tester, find.byKey(const Key('botao_salvar')), dentroDe: find.byType(ModuloFormPage));
     await tester.pumpAndSettle();
 
     expect(postado!['nome'], 'Academia');
