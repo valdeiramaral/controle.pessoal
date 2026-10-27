@@ -1,15 +1,29 @@
 import '../../features/auth/sessao.dart';
+import 'dart:typed_data';
+
 import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../core/lancamento_calculo.dart';
 import 'tabelas.dart';
 
 part 'banco.g.dart';
 
 /// Conta criada automaticamente na primeira abertura do app.
 const contaPadraoId = 'conta-padrao';
+
+/// Arquivo a anexar ao lancar (sem depender do seletor de arquivos).
+class ArquivoParaAnexar {
+  const ArquivoParaAnexar({required this.nome, required this.bytes, this.tipoMime});
+  final String nome;
+  final Uint8List bytes;
+  final String? tipoMime;
+}
+
+List<int> _dividir(int total, int n) => dividirParcelas(total, n);
+DateTime _somarMeses(DateTime d, int m) => adicionarMeses(d, m);
 
 @DriftDatabase(tables: [
   Usuarios,
@@ -18,6 +32,7 @@ const contaPadraoId = 'conta-padrao';
   Eventos,
   Tarefas,
   Lancamentos,
+  Anexos,
   Orcamentos,
   Metas,
   Consultas,
@@ -45,7 +60,7 @@ class Banco extends _$Banco {
   Banco.paraTeste(super.e);
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -67,6 +82,10 @@ class Banco extends _$Banco {
             await m.addColumn(contas, contas.documento);
             await m.addColumn(contas, contas.chavePix);
             await m.addColumn(contas, contas.apelido);
+          }
+          if (de < 3) {
+            // v3: anexos dos lancamentos.
+            await m.createTable(anexos);
           }
         },
       );
@@ -94,7 +113,7 @@ class Banco extends _$Banco {
             ..orderBy([(l) => OrderingTerm.asc(l.dia)]))
           .watch();
 
-  Future<void> inserirLancamento({
+  Future<String> inserirLancamento({
     required String descricao,
     required int valorCentavos,
     required String tipo,
@@ -106,20 +125,137 @@ class Banco extends _$Banco {
     int? parcelaNumero,
     int? parcelaTotal,
     String? grupoParcelas,
-  }) =>
-      into(lancamentos).insert(LancamentosCompanion.insert(
-        contaId: contaId ?? contaPadraoId,
-        categoriaId: Value(categoriaId),
-        descricao: descricao,
-        valorCentavos: valorCentavos,
-        dia: dia ?? DateTime.now(),
-        tipo: tipo,
-        status: Value(pago ? 'pago' : 'pendente'),
-        recorrencia: Value(recorrencia),
-        parcelaNumero: Value(parcelaNumero),
-        parcelaTotal: Value(parcelaTotal),
-        grupoParcelas: Value(grupoParcelas),
-      ));
+    String tags = '',
+    String? observacao,
+  }) async {
+    final id = _uuid.v4();
+    await into(lancamentos).insert(LancamentosCompanion.insert(
+      id: Value(id),
+      contaId: contaId ?? contaPadraoId,
+      categoriaId: Value(categoriaId),
+      descricao: descricao,
+      valorCentavos: valorCentavos,
+      dia: dia ?? DateTime.now(),
+      tipo: tipo,
+      status: Value(pago ? 'pago' : 'pendente'),
+      recorrencia: Value(recorrencia),
+      parcelaNumero: Value(parcelaNumero),
+      parcelaTotal: Value(parcelaTotal),
+      grupoParcelas: Value(grupoParcelas),
+      tags: Value(tags),
+      observacao: Value(observacao),
+    ));
+    return id;
+  }
+
+  /// Lanca uma despesa/receita completa, como o formulario envia.
+  /// [repeticao]: 'unica' | 'fixa' | 'parcelada'.
+  /// - unica: um lancamento ([pago] vale).
+  /// - fixa: [vezes] lancamentos mensais (recorrencia mensal), todos pendentes.
+  /// - parcelada: [valorCentavos] e o TOTAL, dividido em [vezes] parcelas que somam o total.
+  /// Os anexos ficam no primeiro lancamento da serie. Devolve os ids criados.
+  Future<List<String>> lancar({
+    required String descricao,
+    required int valorCentavos,
+    required String tipo,
+    required DateTime vencimento,
+    required String contaId,
+    String? categoriaId,
+    String repeticao = 'unica',
+    int vezes = 1,
+    bool pago = false,
+    String tags = '',
+    String? observacao,
+    List<ArquivoParaAnexar> anexos = const [],
+  }) async {
+    final ids = <String>[];
+    await transaction(() async {
+      if (repeticao == 'parcelada') {
+        final valores = _dividir(valorCentavos, vezes);
+        final grupo = _uuid.v4();
+        for (var i = 0; i < vezes; i++) {
+          ids.add(await inserirLancamento(
+            descricao: '$descricao (${i + 1}/$vezes)',
+            valorCentavos: valores[i],
+            tipo: tipo,
+            dia: _somarMeses(vencimento, i),
+            contaId: contaId,
+            categoriaId: categoriaId,
+            parcelaNumero: i + 1,
+            parcelaTotal: vezes,
+            grupoParcelas: grupo,
+            tags: tags,
+            observacao: observacao,
+          ));
+        }
+      } else if (repeticao == 'fixa') {
+        final grupo = _uuid.v4();
+        for (var i = 0; i < vezes; i++) {
+          ids.add(await inserirLancamento(
+            descricao: descricao,
+            valorCentavos: valorCentavos,
+            tipo: tipo,
+            dia: _somarMeses(vencimento, i),
+            contaId: contaId,
+            categoriaId: categoriaId,
+            recorrencia: 'FREQ=MONTHLY',
+            grupoParcelas: grupo,
+            tags: tags,
+            observacao: observacao,
+          ));
+        }
+      } else {
+        ids.add(await inserirLancamento(
+          descricao: descricao,
+          valorCentavos: valorCentavos,
+          tipo: tipo,
+          pago: pago,
+          dia: vencimento,
+          contaId: contaId,
+          categoriaId: categoriaId,
+          tags: tags,
+          observacao: observacao,
+        ));
+      }
+      for (final a in anexos) {
+        await inserirAnexo(lancamentoId: ids.first, nome: a.nome, bytes: a.bytes, tipoMime: a.tipoMime);
+      }
+    });
+    return ids;
+  }
+
+  Future<String> inserirAnexo({
+    required String lancamentoId,
+    required String nome,
+    required Uint8List bytes,
+    String? tipoMime,
+  }) async {
+    final id = _uuid.v4();
+    await into(anexos).insert(AnexosCompanion.insert(
+      id: Value(id),
+      lancamentoId: lancamentoId,
+      nomeArquivo: nome,
+      tipoMime: Value(tipoMime),
+      tamanhoBytes: bytes.length,
+      dados: bytes,
+    ));
+    return id;
+  }
+
+  /// Anexos ativos de um lancamento (sem o conteudo, so a lista).
+  Stream<List<Anexo>> observarAnexos(String lancamentoId) => (select(anexos)
+        ..where((a) => a.lancamentoId.equals(lancamentoId) & a.excluidoEm.isNull())
+        ..orderBy([(a) => OrderingTerm.asc(a.criadoEm)]))
+      .watch();
+
+  /// Quantos anexos ativos cada lancamento tem (para o clipe na listagem).
+  Stream<Map<String, int>> observarContagemAnexos() => (select(anexos)..where((a) => a.excluidoEm.isNull())).watch().map((l) {
+        final m = <String, int>{};
+        for (final a in l) {
+          m[a.lancamentoId] = (m[a.lancamentoId] ?? 0) + 1;
+        }
+        return m;
+      });
 
   /// Cria [parcelas] lancamentos mensais (a primeira em [primeiroDia]); [valorParcelaCentavos] e o valor de cada uma.
   Future<void> inserirParcelado({
@@ -138,7 +274,7 @@ class Banco extends _$Banco {
         valorCentavos: valorParcelaCentavos,
         tipo: tipo,
         pago: false,
-        dia: DateTime(primeiroDia.year, primeiroDia.month + i, primeiroDia.day),
+        dia: adicionarMeses(primeiroDia, i),
         contaId: contaId,
         categoriaId: categoriaId,
         parcelaNumero: i + 1,

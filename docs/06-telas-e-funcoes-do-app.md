@@ -41,3 +41,17 @@ Regras:
 - Exclusão é lógica; é **recusada** para a conta padrão (Carteira) e para contas com lançamentos.
 - Banco local: `schemaVersion 2` (migração adiciona `titularidade, banco, agencia, numero_conta, documento, chave_pix, apelido`); servidor: `banco/migracoes/2026-10-27_conta_bancaria.sql`.
 - "Novo banco" (primeiro da lista) permite cadastrar um banco fora da lista Febraban e exige o nome do banco.
+
+## Lançamento de despesas e receitas (`features/financas/lancamento_form_page.dart`)
+Botão **+** da aba Lançamentos abre o formulário (Despesa ou Receita). Cálculos em `core/lancamento_calculo.dart`; gravação em `Banco.lancar`.
+1. **Descrição** (obrigatória) — texto que facilita achar a despesa na listagem (Aluguel da casa, Telefone, Energia).
+2. **Valor** — maior que zero. Em despesa parcelada é o **valor total**, dividido nas parcelas (a sobra de centavos vai para as primeiras; a soma fecha exatamente o total). Mostra prévia ("3x de ...").
+3. **Data** — vencimento (recebimento, para receita), por seletor de data.
+4. **Conta/cartão** — contas próprias (corrente, poupança, cartão, dinheiro); contas externas não aparecem.
+5. **Categoria** — da lista do tipo (despesa/receita), "Sem categoria" ou **+ Nova categoria** sem sair da tela.
+6. **Repetir** — *Não repetir* (opção "Já foi paga"), *Fixa (todo mês)* por N meses (2 a 60; um lançamento por mês, recorrência mensal) ou *Parcelada* em N vezes (2 a 120). Vencimentos mensais mantêm o dia, sem estourar o fim do mês (31/01 + 1 mês = 28/02).
+7. **Observação** — texto livre até 500 caracteres (método de pagamento, juros...).
+8. **Anexos** — vários arquivos (PDF, foto, texto), até 10, 5 MB cada, escolhidos pelo seletor do aparelho; ficam no banco local (tabela `anexo`, schema v3) e, em séries, no primeiro lançamento.
+9. **Tags** — palavras livres em minúsculas, sem repetição, até 10 de 30 letras; gravadas separadas por vírgula.
+Na listagem, cada lançamento mostra data, tags e o clipe com a quantidade de anexos.
+Limitação: ainda não há tela para abrir/baixar os anexos nem editar um lançamento já salvo; a tabela `anexo` é só local (ainda sem equivalente no PostgreSQL, pois a sincronização de lançamentos não está ativa).

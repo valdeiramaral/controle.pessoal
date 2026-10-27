@@ -106,6 +106,18 @@ class Lancamentos extends Table with ColunasSync {
   Set<Column> get primaryKey => {id};
 }
 
+/// Arquivo anexado a um lancamento (comprovante, cupom...). O conteudo fica no proprio banco local.
+@DataClassName('Anexo')
+class Anexos extends Table with ColunasSync {
+  TextColumn get lancamentoId => text()();
+  TextColumn get nomeArquivo => text()();
+  TextColumn get tipoMime => text().nullable()();
+  IntColumn get tamanhoBytes => integer()();
+  BlobColumn get dados => blob()();
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
 @DataClassName('Orcamento')
 class Orcamentos extends Table with ColunasSync {
   TextColumn get categoriaId => text()();
