@@ -1,4 +1,5 @@
 import '../data/local/banco.dart';
+import 'pagamento.dart';
 
 /// Variacao percentual (arredondada) de [atual] sobre [anterior]; null quando nao ha base de comparacao.
 int? variacaoPercentual(int atual, int anterior) {
@@ -122,7 +123,7 @@ DadosDashboard calcularDashboard({
   final fim = DateTime(mes.year, mes.month + 1, 1);
   final iniAnt = DateTime(mes.year, mes.month - 1, 1);
 
-  int sinal(Lancamento l) => l.tipo == 'receita' ? l.valorCentavos : -l.valorCentavos;
+  int sinal(Lancamento l) => l.tipo == 'receita' ? valorEfetivo(l) : -valorEfetivo(l);
   bool noMes(Lancamento l, DateTime de, DateTime ate) => !l.dia.isBefore(de) && l.dia.isBefore(ate);
 
   final base = cs.fold<int>(0, (s, c) => s + c.saldoInicialCentavos);
@@ -163,7 +164,7 @@ DadosDashboard calcularDashboard({
 
   // Contas.
   final linhas = cs.map((c) {
-    final dela = ls.where((l) => l.contaId == c.id).toList();
+    final dela = ls.where((l) => contaEfetiva(l) == c.id).toList();
     int soma(Iterable<Lancamento> xs) => xs.fold<int>(0, (s, l) => s + sinal(l));
     return LinhaConta(
       nome: c.nome,

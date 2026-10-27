@@ -2,7 +2,9 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:controle_pessoal/core/arquivos.dart';
+import 'package:controle_pessoal/core/calculos.dart';
 import 'package:controle_pessoal/core/lancamento_calculo.dart';
+import 'package:controle_pessoal/core/pagamento.dart';
 import 'package:controle_pessoal/core/tema.dart';
 import 'package:controle_pessoal/data/local/banco.dart';
 import 'package:controle_pessoal/features/financas/lancamento_detalhe_page.dart';
@@ -161,6 +163,70 @@ void main() {
     });
   });
 
+
+  group('pagamento/recebimento', () {
+    late Banco banco;
+    setUp(() => banco = Banco.paraTeste(NativeDatabase.memory()));
+    tearDown(() => banco.close());
+
+    test('pagamento total com desconto: status pago, valor pago e conta do banco no saldo', () async {
+      final outra = await banco.inserirConta(nome: 'Itaú', banco: '341', agencia: '1', numeroConta: '2', saldoInicialCentavos: 100000);
+      final ids = await banco.lancar(
+        descricao: 'Luz',
+        valorCentavos: 20000,
+        tipo: 'despesa',
+        vencimento: DateTime(2026, 11, 10),
+        contaId: contaPadraoId,
+        pagamento: DadosPagamento(
+            data: DateTime(2026, 11, 8), forma: 'pix', contaId: outra, tipo: 'total', valorPagoCentavos: 19000, descontoCentavos: 1000),
+      );
+      final l = (await banco.lancamentoPorId(ids.first))!;
+      expect([l.status, l.dataPagamento, l.formaPagamento, l.contaPagamentoId, l.tipoPagamento, l.valorPagoCentavos, l.descontoCentavos],
+          ['pago', DateTime(2026, 11, 8), 'pix', outra, 'total', 19000, 1000]);
+      expect(valorEfetivo(l), 19000);
+      expect(contaEfetiva(l), outra);
+      final contas = await banco.select(banco.contas).get();
+      final ls = await banco.select(banco.lancamentos).get();
+      expect(calcularSaldoDaContaCentavos(contas.firstWhere((c) => c.id == outra), ls), 100000 - 19000); // saiu do Itau
+      expect(calcularSaldoDaContaCentavos(contas.firstWhere((c) => c.id == contaPadraoId), ls), 0); // nao da carteira
+      expect(calcularSaldoCentavos(contas, ls), 100000 - 19000);
+    });
+
+    test('pagamento parcial: continua pendente, com restante, e nao mexe no saldo', () async {
+      final ids = await banco.lancar(
+        descricao: 'Cartao',
+        valorCentavos: 50000,
+        tipo: 'despesa',
+        vencimento: DateTime(2026, 11, 10),
+        contaId: contaPadraoId,
+        pagamento: DadosPagamento(data: DateTime(2026, 11, 9), forma: 'boleto', contaId: contaPadraoId, tipo: 'parcial', valorPagoCentavos: 20000),
+      );
+      final l = (await banco.lancamentoPorId(ids.first))!;
+      expect([l.status, l.tipoPagamento, restanteCentavos(l)], ['pendente', 'parcial', 30000]);
+      final contas = await banco.select(banco.contas).get();
+      expect(calcularSaldoCentavos(contas, [l]), 0);
+    });
+
+    test('desfazer pagamento limpa os dados; alternarPagamento marca total hoje', () async {
+      final ids = await banco.lancar(
+        descricao: 'Agua',
+        valorCentavos: 8000,
+        tipo: 'receita',
+        vencimento: DateTime(2026, 11, 10),
+        contaId: contaPadraoId,
+        pagamento: DadosPagamento(data: DateTime(2026, 11, 9), forma: 'dinheiro', contaId: contaPadraoId, tipo: 'total', valorPagoCentavos: 8000),
+      );
+      await banco.desfazerPagamento((await banco.lancamentoPorId(ids.first))!);
+      var l = (await banco.lancamentoPorId(ids.first))!;
+      expect([l.status, l.dataPagamento, l.formaPagamento, l.valorPagoCentavos], ['pendente', null, null, null]);
+      await banco.alternarPagamento(l);
+      l = (await banco.lancamentoPorId(ids.first))!;
+      expect([l.status, l.tipoPagamento], ['pago', 'total']);
+      expect(l.dataPagamento, isNotNull);
+      expect(valorEfetivo(l), 8000);
+    });
+  });
+
   group('tela', () {
     testWidgets('lanca despesa parcelada com categoria nova, observacao, tags e anexo', (tester) async {
       tester.view.physicalSize = const Size(900, 2600);
@@ -304,13 +370,25 @@ void main() {
       await tester.enterText(find.byKey(const Key('campo_valor')), '250,00');
       await tester.tap(find.byKey(Key('remover_anexo_existente_${pdf.id}')));
       await tester.pump();
-      await tocarRolando(tester, find.byKey(const Key('campo_pago'))); // marca como paga
+      await tocarRolando(tester, find.byKey(const Key('campo_pago'))); // registra o pagamento
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('secao_pagamento')), findsOneWidget);
+      await tocarRolando(tester, find.byKey(const Key('campo_forma_pagamento')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('PIX').last);
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(const Key('campo_desconto')), '10,00');
       await tester.pump();
+      expect(tester.widget<TextFormField>(find.byKey(const Key('campo_valor_pago'))).controller!.text, '240,00'); // 250 - 10
       await tocarRolando(tester, find.byKey(const Key('botao_salvar_lancamento')));
       await tester.pumpAndSettle();
 
       final l = (await banco.lancamentoPorId(ids.first))!;
-      expect([l.valorCentavos, l.status], [25000, 'pago']);
+      expect([l.valorCentavos, l.status, l.formaPagamento, l.valorPagoCentavos, l.descontoCentavos, l.tipoPagamento, l.contaPagamentoId],
+          [25000, 'pago', 'pix', 24000, 1000, 'total', contaPadraoId]);
+      expect(l.dataPagamento, isNotNull);
+      expect(find.byKey(const Key('detalhe_pagamento')), findsOneWidget);
+      expect(tester.widget<Text>(find.byKey(const Key('detalhe_forma'))).data, 'PIX');
       expect((await banco.observarAnexos(ids.first).first).map((a) => a.nomeArquivo), ['foto.png']);
       expect(tester.widget<Text>(find.byKey(const Key('detalhe_valor'))).data!.contains('250,00'), isTrue);
 

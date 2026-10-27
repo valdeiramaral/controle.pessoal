@@ -5,21 +5,24 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/arquivos.dart';
 import '../../core/formatos.dart';
 import '../../core/lancamento_calculo.dart';
+import '../../core/pagamento.dart';
 import '../../data/local/banco.dart';
 import '../auth/widgets_auth.dart';
 import 'contas_page.dart';
 
 /// Abre o formulario de lancamento (despesa ou receita). Devolve true se salvou.
-Future<bool?> abrirFormularioLancamento(BuildContext context, {String tipo = 'despesa', DateTime? hoje, Lancamento? lancamento}) =>
-    Navigator.of(context).push<bool>(
-        MaterialPageRoute(builder: (_) => LancamentoFormPage(tipo: tipo, hoje: hoje, lancamento: lancamento)));
+Future<bool?> abrirFormularioLancamento(BuildContext context,
+        {String tipo = 'despesa', DateTime? hoje, Lancamento? lancamento, bool registrarPagamento = false}) =>
+    Navigator.of(context).push<bool>(MaterialPageRoute(
+        builder: (_) => LancamentoFormPage(tipo: tipo, hoje: hoje, lancamento: lancamento, registrarPagamento: registrarPagamento)));
 
 /// Lancamento de despesa/receita: descricao, valor (total, se parcelado), vencimento,
 /// conta/cartao, categoria, repeticao (fixa ou parcelada), observacao, anexos e tags.
 class LancamentoFormPage extends ConsumerStatefulWidget {
-  const LancamentoFormPage({super.key, this.tipo = 'despesa', this.hoje, this.lancamento});
+  const LancamentoFormPage({super.key, this.tipo = 'despesa', this.hoje, this.lancamento, this.registrarPagamento = false});
   final String tipo;
   final Lancamento? lancamento; // != null: edita este lancamento
+  final bool registrarPagamento; // abre ja com a secao de pagamento/recebimento
   final DateTime? hoje; // para testes
 
   @override
@@ -33,6 +36,13 @@ class _LancamentoFormPageState extends ConsumerState<LancamentoFormPage> {
   final _vezes = TextEditingController(text: '2');
   final _observacao = TextEditingController();
   final _tagTexto = TextEditingController();
+  final _valorPago = TextEditingController();
+  final _desconto = TextEditingController();
+  late DateTime _dataPag;
+  String? _formaPag;
+  String? _contaPagId;
+  String _tipoPag = 'total';
+  bool _valorPagoEditado = false;
   late String _tipo;
   late DateTime _data;
   String _repeticao = 'unica'; // unica | fixa | parcelada
@@ -59,14 +69,29 @@ class _LancamentoFormPageState extends ConsumerState<LancamentoFormPage> {
     _tipo = l?.tipo ?? widget.tipo;
     final h = widget.hoje ?? DateTime.now();
     _data = l == null ? DateTime(h.year, h.month, h.day) : DateTime(l.dia.year, l.dia.month, l.dia.day);
+    _dataPag = DateTime(h.year, h.month, h.day);
     if (l != null) {
       _descricao.text = l.descricao;
       _valor.text = (l.valorCentavos / 100).toStringAsFixed(2).replaceAll('.', ',');
       _observacao.text = l.observacao ?? '';
-      _pago = l.status == 'pago';
+      _pago = l.status == 'pago' || l.dataPagamento != null;
+      if (l.dataPagamento != null) {
+        final d = l.dataPagamento!;
+        _dataPag = DateTime(d.year, d.month, d.day);
+      }
+      _formaPag = l.formaPagamento;
+      _contaPagId = l.contaPagamentoId;
+      _tipoPag = l.tipoPagamento ?? 'total';
+      if (l.valorPagoCentavos != null) {
+        _valorPago.text = _textoDeCentavos(l.valorPagoCentavos!);
+        _valorPagoEditado = true;
+      }
+      if ((l.descontoCentavos ?? 0) > 0) _desconto.text = _textoDeCentavos(l.descontoCentavos!);
       _categoriaId = l.categoriaId;
       _tags.addAll(tagsDoTexto(l.tags));
     }
+    if (widget.registrarPagamento) _pago = true;
+    if (_pago) _sincronizarValorPago();
     _carregar();
   }
 
@@ -84,6 +109,7 @@ class _LancamentoFormPageState extends ConsumerState<LancamentoFormPage> {
       _contas = contas;
       _categorias = categorias;
       _contaId = l != null && contas.any((c) => c.id == l.contaId) ? l.contaId : (l != null || contas.isEmpty ? null : contas.first.id);
+      _contaPagId = _contaPagId != null && contas.any((c) => c.id == _contaPagId) ? _contaPagId : _contaId;
       _existentes.addAll(existentes);
       _seguintes = seguintes;
       _carregado = true;
@@ -92,15 +118,36 @@ class _LancamentoFormPageState extends ConsumerState<LancamentoFormPage> {
 
   @override
   void dispose() {
-    for (final c in [_descricao, _valor, _vezes, _observacao, _tagTexto]) {
+    for (final c in [_descricao, _valor, _vezes, _observacao, _tagTexto, _valorPago, _desconto]) {
       c.dispose();
     }
     super.dispose();
   }
 
+  static String _textoDeCentavos(int c) => (c / 100).toStringAsFixed(2).replaceAll('.', ',');
+
+  /// No tipo Total, o valor pago acompanha valor - desconto enquanto o usuario nao digitar outro.
+  void _sincronizarValorPago() {
+    if (_valorPagoEditado || _tipoPag != 'total') return;
+    final v = centavosDeTexto(_valor.text);
+    final d = _desconto.text.trim().isEmpty ? 0 : centavosDeTexto(_desconto.text);
+    _valorPago.text = (v == null || d == null || v - d < 0) ? '' : _textoDeCentavos(v - d);
+  }
+
   bool get _despesa => _tipo == 'despesa';
   bool get _editando => widget.lancamento != null;
   bool get _daSerie => widget.lancamento?.grupoParcelas != null;
+
+  Future<void> _escolherDataPagamento() async {
+    final d = await showDatePicker(
+      context: context,
+      initialDate: _dataPag,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+      helpText: _despesa ? 'Data do pagamento' : 'Data do recebimento',
+    );
+    if (d != null) setState(() => _dataPag = d);
+  }
 
   Future<void> _escolherData() async {
     final d = await showDatePicker(
@@ -108,7 +155,7 @@ class _LancamentoFormPageState extends ConsumerState<LancamentoFormPage> {
       initialDate: _data,
       firstDate: DateTime(2000),
       lastDate: DateTime(2100),
-      helpText: 'Vencimento',
+      helpText: 'Data de vencimento',
     );
     if (d != null) setState(() => _data = d);
   }
@@ -170,6 +217,18 @@ class _LancamentoFormPageState extends ConsumerState<LancamentoFormPage> {
     });
   }
 
+  DadosPagamento? _dadosPagamento() {
+    if (!_pago || _repeticao != 'unica') return null;
+    return DadosPagamento(
+      data: _dataPag,
+      forma: _formaPag!,
+      contaId: _contaPagId!,
+      tipo: _tipoPag,
+      valorPagoCentavos: centavosDeTexto(_valorPago.text)!,
+      descontoCentavos: _desconto.text.trim().isEmpty ? 0 : centavosDeTexto(_desconto.text)!,
+    );
+  }
+
   Future<void> _salvar() async {
     setState(() => _erro = null);
     if (_tagTexto.text.trim().isNotEmpty) _adicionarTag();
@@ -188,7 +247,8 @@ class _LancamentoFormPageState extends ConsumerState<LancamentoFormPage> {
               categoriaId: _categoriaId,
               tags: tagsParaTexto(_tags),
               observacao: _observacao.text.trim().isEmpty ? null : _observacao.text.trim(),
-              pago: _pago,
+              pago: false,
+              pagamento: _dadosPagamento(),
               aplicarNosSeguintes: _aplicarSeguintes,
               novosAnexos: List.of(_anexos),
               anexosRemovidos: _removidos.toList(),
@@ -207,7 +267,8 @@ class _LancamentoFormPageState extends ConsumerState<LancamentoFormPage> {
             categoriaId: _categoriaId,
             repeticao: _repeticao,
             vezes: vezes,
-            pago: _pago,
+            pago: false,
+            pagamento: _dadosPagamento(),
             tags: tagsParaTexto(_tags),
             observacao: _observacao.text.trim().isEmpty ? null : _observacao.text.trim(),
             anexos: List.of(_anexos),
@@ -297,7 +358,7 @@ class _LancamentoFormPageState extends ConsumerState<LancamentoFormPage> {
                           helperText: !_editando && _repeticao == 'parcelada' ? 'Informe o valor total; ele será dividido nas parcelas' : null,
                         ),
                         validator: _validarValor,
-                        onChanged: (_) => setState(() {}),
+                        onChanged: (_) => setState(_sincronizarValorPago),
                       ),
                       const SizedBox(height: 12),
                       InkWell(
@@ -306,7 +367,7 @@ class _LancamentoFormPageState extends ConsumerState<LancamentoFormPage> {
                         borderRadius: BorderRadius.circular(12),
                         child: InputDecorator(
                           decoration: InputDecoration(
-                              labelText: _despesa ? 'Data de vencimento' : 'Data de recebimento',
+                              labelText: 'Data de vencimento',
                               suffixIcon: const Icon(Icons.calendar_today_outlined)),
                           child: Text(formatarData(_data), key: const Key('texto_data')),
                         ),
@@ -411,10 +472,14 @@ class _LancamentoFormPageState extends ConsumerState<LancamentoFormPage> {
                           key: const Key('campo_pago'),
                           contentPadding: EdgeInsets.zero,
                           controlAffinity: ListTileControlAffinity.leading,
-                          title: Text(_despesa ? 'Já foi paga' : 'Já foi recebida'),
+                          title: Text(_despesa ? 'Registrar pagamento' : 'Registrar recebimento'),
                           value: _pago,
-                          onChanged: (v) => setState(() => _pago = v ?? false),
+                          onChanged: (v) => setState(() {
+                            _pago = v ?? false;
+                            _sincronizarValorPago();
+                          }),
                         ),
+                      if (_repeticao == 'unica' && _pago) _secaoPagamento(context),
                       const SizedBox(height: 12),
                       TextFormField(
                         key: const Key('campo_observacao'),
@@ -449,6 +514,123 @@ class _LancamentoFormPageState extends ConsumerState<LancamentoFormPage> {
                 ),
               ),
             ),
+    );
+  }
+
+  String? _validarMoeda(String? v, {required bool obrigatorio, bool aceitaZero = true}) {
+    final t = (v ?? '').trim();
+    if (t.isEmpty) return obrigatorio ? 'Informe o valor' : null;
+    final c = centavosDeTexto(t);
+    if (c == null) return 'Valor inválido';
+    if (c < 0 || (!aceitaZero && c == 0)) return aceitaZero ? 'Não pode ser negativo' : 'Deve ser maior que zero';
+    return null;
+  }
+
+  Widget _secaoPagamento(BuildContext context) {
+    final verbo = _despesa ? 'pagamento' : 'recebimento';
+    return Container(
+      key: const Key('secao_pagamento'),
+      margin: const EdgeInsets.only(top: 4, bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(_despesa ? 'Dados do pagamento' : 'Dados do recebimento', style: Theme.of(context).textTheme.titleSmall),
+        const SizedBox(height: 12),
+        InkWell(
+          key: const Key('campo_data_pagamento'),
+          onTap: _escolherDataPagamento,
+          borderRadius: BorderRadius.circular(12),
+          child: InputDecorator(
+            decoration: InputDecoration(labelText: 'Data do $verbo', suffixIcon: const Icon(Icons.calendar_today_outlined)),
+            child: Text(formatarData(_dataPag), key: const Key('texto_data_pagamento')),
+          ),
+        ),
+        const SizedBox(height: 12),
+        DropdownButtonFormField<String>(
+          key: const Key('campo_forma_pagamento'),
+          value: _formaPag,
+          isExpanded: true,
+          decoration: InputDecoration(labelText: 'Forma de $verbo'),
+          items: [for (final e in formasPagamento.entries) DropdownMenuItem(value: e.key, child: Text(e.value))],
+          validator: (v) => v == null ? 'Escolha a forma de $verbo' : null,
+          onChanged: (v) => setState(() => _formaPag = v),
+        ),
+        const SizedBox(height: 12),
+        DropdownButtonFormField<String>(
+          key: const Key('campo_conta_pagamento'),
+          value: _contaPagId,
+          isExpanded: true,
+          decoration: InputDecoration(labelText: 'Banco/conta do $verbo'),
+          items: [
+            for (final c in _contas)
+              DropdownMenuItem(
+                value: c.id,
+                child: Text(tituloDaConta(c) == c.nome ? c.nome : '${tituloDaConta(c)} · ${c.nome}', overflow: TextOverflow.ellipsis),
+              ),
+          ],
+          validator: (v) => v == null ? 'Escolha o banco/conta' : null,
+          onChanged: (v) => setState(() => _contaPagId = v),
+        ),
+        const SizedBox(height: 12),
+        InputDecorator(
+          decoration: InputDecoration(labelText: 'Tipo de $verbo', helperText: _tipoPag == 'parcial' ? 'Parcial: registra uma parte; o lançamento continua em aberto' : 'Total: quita o lançamento', helperMaxLines: 2),
+          child: SegmentedButton<String>(
+            key: const Key('campo_tipo_pagamento'),
+            segments: [for (final e in tiposPagamento.entries) ButtonSegment(value: e.key, label: Text(e.value))],
+            selected: {_tipoPag},
+            onSelectionChanged: (s) => setState(() {
+              _tipoPag = s.first;
+              if (_tipoPag == 'total') {
+                _valorPagoEditado = false;
+                _sincronizarValorPago();
+              }
+            }),
+          ),
+        ),
+        const SizedBox(height: 12),
+        TextFormField(
+          key: const Key('campo_desconto'),
+          controller: _desconto,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,R\$ ]'))],
+          decoration: InputDecoration(labelText: 'Valor de desconto (R\$, opcional)'),
+          validator: (v) {
+            final e = _validarMoeda(v, obrigatorio: false);
+            if (e != null) return e;
+            final d = (v ?? '').trim().isEmpty ? 0 : centavosDeTexto(v!)!;
+            final total = centavosDeTexto(_valor.text);
+            return total != null && d > total ? 'O desconto não pode passar do valor' : null;
+          },
+          onChanged: (_) => setState(_sincronizarValorPago),
+        ),
+        const SizedBox(height: 12),
+        TextFormField(
+          key: const Key('campo_valor_pago'),
+          controller: _valorPago,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,R\$ ]'))],
+          decoration: InputDecoration(
+            labelText: 'Valor ${_despesa ? 'pago' : 'recebido'} (R\$)',
+            helperText: 'Pode ser maior que o valor, se houve juros ou multa',
+            helperMaxLines: 2,
+          ),
+          validator: (v) {
+            final e = _validarMoeda(v, obrigatorio: true, aceitaZero: _tipoPag == 'total');
+            if (e != null) return e;
+            if (_tipoPag == 'parcial') {
+              final pago = centavosDeTexto(v!)!;
+              final desc = _desconto.text.trim().isEmpty ? 0 : (centavosDeTexto(_desconto.text) ?? 0);
+              final total = centavosDeTexto(_valor.text);
+              if (total != null && pago + desc >= total) return 'Pagamento parcial deve ficar abaixo do valor; use Total para quitar';
+            }
+            return null;
+          },
+          onChanged: (_) => setState(() => _valorPagoEditado = true),
+        ),
+      ]),
     );
   }
 

@@ -61,3 +61,13 @@ Tocar num lançamento da lista abre o **detalhe**: descrição, valor, situaçã
 - **Excluir** (lixeira): exclusão lógica do lançamento e dos seus anexos; em série pergunta "Só este" ou "Este e os seguintes". Deslizar na lista exclui só aquele lançamento.
 
 Limitação: a tabela `anexo` é só local (sem equivalente no PostgreSQL, pois a sincronização de lançamentos não está ativa).
+
+### Pagamento / recebimento (`core/pagamento.dart`, seção "Dados do pagamento" do formulário)
+A **Data de vencimento** (despesa ou receita) é o campo do lançamento. Ao marcar **Registrar pagamento** (ou *Registrar recebimento*, nas receitas) — no formulário ou no botão do detalhe — aparecem:
+- **Data do pagamento/recebimento** (padrão: hoje);
+- **Forma de pagamento/recebimento:** dinheiro, PIX, transferência (TED/DOC), boleto, cartão de débito, cartão de crédito, débito automático, cheque, outro;
+- **Banco/conta do pagamento/recebimento:** uma das suas contas (padrão: a conta do lançamento); é dela que o dinheiro sai ou entra no saldo;
+- **Tipo:** *Total* quita o lançamento (fica pago); *Parcial* registra uma parte, o lançamento continua em aberto e o detalhe mostra "Falta pagar/receber";
+- **Valor de desconto** (opcional, não passa do valor);
+- **Valor pago/recebido:** no tipo Total começa em valor − desconto e pode ser alterado (juros, multa). No tipo Parcial deve ser maior que zero e, somado ao desconto, ficar abaixo do valor.
+Regras de saldo: lançamento pago movimenta o caixa pelo **valor pago** (se registrado) na **conta do pagamento**; pagamento parcial ainda não altera saldos (só a quitação total). O dashboard continua posicionando o lançamento no mês do vencimento. **Desfazer pagamento** volta a pendente e limpa esses dados. Marcar o quadradinho da lista registra pagamento total, hoje, sem detalhes. Banco local `schemaVersion 4`.

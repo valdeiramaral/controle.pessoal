@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/arquivos.dart';
 import '../../core/formatos.dart';
 import '../../core/lancamento_calculo.dart';
+import '../../core/pagamento.dart';
 import '../../data/local/banco.dart';
 import 'contas_page.dart';
 import 'lancamento_form_page.dart';
@@ -101,13 +102,52 @@ class _Corpo extends ConsumerWidget {
             Text('${receita ? '+' : '-'} ${formatarCentavos(l.valorCentavos)}',
                 key: const Key('detalhe_valor'), style: t.headlineMedium?.copyWith(color: cor, fontWeight: FontWeight.w700)),
             const SizedBox(height: 8),
-            SwitchListTile(
-              key: const Key('detalhe_pago'),
-              contentPadding: EdgeInsets.zero,
-              title: Text(l.status == 'pago' ? (receita ? 'Recebida' : 'Paga') : (receita ? 'A receber' : 'A pagar')),
-              value: l.status == 'pago',
-              onChanged: (_) => banco.alternarPagamento(l),
-            ),
+            Row(children: [
+              Expanded(
+                child: Text(
+                  l.status == 'pago'
+                      ? (receita ? 'Recebida' : 'Paga')
+                      : (l.tipoPagamento == 'parcial' ? (receita ? 'Recebimento parcial' : 'Pagamento parcial') : (receita ? 'A receber' : 'A pagar')),
+                  key: const Key('detalhe_situacao'),
+                  style: t.titleMedium,
+                ),
+              ),
+              if (l.status != 'pago')
+                FilledButton.tonalIcon(
+                  key: const Key('botao_registrar_pagamento'),
+                  onPressed: () => abrirFormularioLancamento(context, lancamento: l, registrarPagamento: true),
+                  icon: const Icon(Icons.check_circle_outline),
+                  label: Text(receita ? 'Registrar recebimento' : 'Registrar pagamento'),
+                ),
+              if (l.dataPagamento != null)
+                TextButton(
+                  key: const Key('botao_desfazer_pagamento'),
+                  onPressed: () => banco.desfazerPagamento(l),
+                  child: Text(receita ? 'Desfazer recebimento' : 'Desfazer pagamento'),
+                ),
+            ]),
+            if (l.dataPagamento != null) ...[
+              const SizedBox(height: 8),
+              Container(
+                key: const Key('detalhe_pagamento'),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(border: Border.all(color: Theme.of(context).colorScheme.outlineVariant), borderRadius: BorderRadius.circular(14)),
+                child: Column(children: [
+                  _Linha(receita ? 'Data do recebimento' : 'Data do pagamento', formatarData(l.dataPagamento!), chave: 'detalhe_data_pagamento'),
+                  _Linha(receita ? 'Forma de recebimento' : 'Forma de pagamento', nomeDaForma(l.formaPagamento), chave: 'detalhe_forma'),
+                  FutureBuilder<Conta?>(
+                    future: l.contaPagamentoId == null ? Future.value(null) : (banco.select(banco.contas)..where((c) => c.id.equals(l.contaPagamentoId!))).getSingleOrNull(),
+                    builder: (_, sn) => _Linha(receita ? 'Banco do recebimento' : 'Banco do pagamento',
+                        sn.data == null ? '—' : (tituloDaConta(sn.data!) == sn.data!.nome ? sn.data!.nome : '${tituloDaConta(sn.data!)} · ${sn.data!.nome}'),
+                        chave: 'detalhe_banco_pagamento'),
+                  ),
+                  _Linha(receita ? 'Tipo de recebimento' : 'Tipo de pagamento', tiposPagamento[l.tipoPagamento] ?? '—', chave: 'detalhe_tipo_pagamento'),
+                  _Linha(receita ? 'Valor recebido' : 'Valor pago', formatarCentavos(l.valorPagoCentavos ?? l.valorCentavos), chave: 'detalhe_valor_pago'),
+                  if ((l.descontoCentavos ?? 0) > 0) _Linha('Desconto', formatarCentavos(l.descontoCentavos!), chave: 'detalhe_desconto'),
+                  if (l.status != 'pago') _Linha('Falta ${receita ? 'receber' : 'pagar'}', formatarCentavos(restanteCentavos(l)), chave: 'detalhe_restante'),
+                ]),
+              ),
+            ],
             const Divider(),
             _Linha('Vencimento', formatarData(l.dia), chave: 'detalhe_data'),
             FutureBuilder<Conta?>(

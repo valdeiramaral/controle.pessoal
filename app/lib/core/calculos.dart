@@ -1,4 +1,5 @@
 import '../data/local/banco.dart';
+import 'pagamento.dart';
 
 /// Saldo atual, em centavos: saldo inicial das contas + lancamentos PAGOS.
 ///
@@ -18,9 +19,9 @@ int calcularSaldoCentavos(
   for (final l in lancamentos) {
     if (l.excluidoEm != null || l.status != 'pago') continue;
     if (l.tipo == 'receita') {
-      saldo += l.valorCentavos;
+      saldo += valorEfetivo(l);
     } else if (l.tipo == 'despesa') {
-      saldo -= l.valorCentavos;
+      saldo -= valorEfetivo(l);
     }
   }
   return saldo;
@@ -30,11 +31,11 @@ int calcularSaldoCentavos(
 int calcularSaldoDaContaCentavos(Conta conta, Iterable<Lancamento> lancamentos) {
   var saldo = conta.saldoInicialCentavos;
   for (final l in lancamentos) {
-    if (l.contaId != conta.id || l.excluidoEm != null || l.status != 'pago') continue;
+    if (contaEfetiva(l) != conta.id || l.excluidoEm != null || l.status != 'pago') continue;
     if (l.tipo == 'receita') {
-      saldo += l.valorCentavos;
+      saldo += valorEfetivo(l);
     } else if (l.tipo == 'despesa') {
-      saldo -= l.valorCentavos;
+      saldo -= valorEfetivo(l);
     }
   }
   return saldo;

@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/lancamento_calculo.dart';
+import '../../core/pagamento.dart';
 import 'tabelas.dart';
 
 part 'banco.g.dart';
@@ -60,7 +61,7 @@ class Banco extends _$Banco {
   Banco.paraTeste(super.e);
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -86,6 +87,15 @@ class Banco extends _$Banco {
           if (de < 3) {
             // v3: anexos dos lancamentos.
             await m.createTable(anexos);
+          }
+          if (de < 4) {
+            // v4: dados do pagamento/recebimento no lancamento.
+            await m.addColumn(lancamentos, lancamentos.dataPagamento);
+            await m.addColumn(lancamentos, lancamentos.formaPagamento);
+            await m.addColumn(lancamentos, lancamentos.contaPagamentoId);
+            await m.addColumn(lancamentos, lancamentos.tipoPagamento);
+            await m.addColumn(lancamentos, lancamentos.valorPagoCentavos);
+            await m.addColumn(lancamentos, lancamentos.descontoCentavos);
           }
         },
       );
@@ -127,6 +137,7 @@ class Banco extends _$Banco {
     String? grupoParcelas,
     String tags = '',
     String? observacao,
+    DadosPagamento? pagamento,
   }) async {
     final id = _uuid.v4();
     await into(lancamentos).insert(LancamentosCompanion.insert(
@@ -137,13 +148,19 @@ class Banco extends _$Banco {
       valorCentavos: valorCentavos,
       dia: dia ?? DateTime.now(),
       tipo: tipo,
-      status: Value(pago ? 'pago' : 'pendente'),
+      status: Value(pago || (pagamento?.quita ?? false) ? 'pago' : 'pendente'),
       recorrencia: Value(recorrencia),
       parcelaNumero: Value(parcelaNumero),
       parcelaTotal: Value(parcelaTotal),
       grupoParcelas: Value(grupoParcelas),
       tags: Value(tags),
       observacao: Value(observacao),
+      dataPagamento: Value(pagamento?.data),
+      formaPagamento: Value(pagamento?.forma),
+      contaPagamentoId: Value(pagamento?.contaId),
+      tipoPagamento: Value(pagamento?.tipo),
+      valorPagoCentavos: Value(pagamento?.valorPagoCentavos),
+      descontoCentavos: Value(pagamento?.descontoCentavos),
     ));
     return id;
   }
@@ -166,6 +183,7 @@ class Banco extends _$Banco {
     bool pago = false,
     String tags = '',
     String? observacao,
+    DadosPagamento? pagamento,
     List<ArquivoParaAnexar> anexos = const [],
   }) async {
     final ids = <String>[];
@@ -215,6 +233,7 @@ class Banco extends _$Banco {
           categoriaId: categoriaId,
           tags: tags,
           observacao: observacao,
+          pagamento: pagamento,
         ));
       }
       for (final a in anexos) {
@@ -281,6 +300,7 @@ class Banco extends _$Banco {
     required String tags,
     String? observacao,
     required bool pago,
+    DadosPagamento? pagamento,
     bool aplicarNosSeguintes = false,
     List<ArquivoParaAnexar> novosAnexos = const [],
     List<String> anexosRemovidos = const [],
@@ -296,7 +316,13 @@ class Banco extends _$Banco {
         categoriaId: Value(categoriaId),
         tags: Value(tags),
         observacao: Value(observacao),
-        status: Value(pago ? 'pago' : 'pendente'),
+        status: Value(pago || (pagamento?.quita ?? false) ? 'pago' : 'pendente'),
+        dataPagamento: Value(pagamento?.data),
+        formaPagamento: Value(pagamento?.forma),
+        contaPagamentoId: Value(pagamento?.contaId),
+        tipoPagamento: Value(pagamento?.tipo),
+        valorPagoCentavos: Value(pagamento?.valorPagoCentavos),
+        descontoCentavos: Value(pagamento?.descontoCentavos),
         atualizadoEm: Value(agora),
       ));
       for (final s in seguintes) {
@@ -531,10 +557,33 @@ class Banco extends _$Banco {
         ),
       );
 
-  Future<void> alternarPagamento(Lancamento l) =>
-      (update(lancamentos)..where((t) => t.id.equals(l.id))).write(
+  /// Marca como pago (total, hoje, sem detalhes) ou desfaz o pagamento (limpa os dados registrados).
+  Future<void> alternarPagamento(Lancamento l) {
+    final pagar = l.status != 'pago';
+    return (update(lancamentos)..where((t) => t.id.equals(l.id))).write(
+      LancamentosCompanion(
+        status: Value(pagar ? 'pago' : 'pendente'),
+        dataPagamento: Value(pagar ? DateTime.now() : null),
+        formaPagamento: const Value(null),
+        contaPagamentoId: const Value(null),
+        tipoPagamento: Value(pagar ? 'total' : null),
+        valorPagoCentavos: const Value(null),
+        descontoCentavos: const Value(null),
+        atualizadoEm: Value(DateTime.now()),
+      ),
+    );
+  }
+
+  /// Desfaz o pagamento/recebimento (volta a pendente e limpa os dados registrados).
+  Future<void> desfazerPagamento(Lancamento l) => (update(lancamentos)..where((t) => t.id.equals(l.id))).write(
         LancamentosCompanion(
-          status: Value(l.status == 'pago' ? 'pendente' : 'pago'),
+          status: const Value('pendente'),
+          dataPagamento: const Value(null),
+          formaPagamento: const Value(null),
+          contaPagamentoId: const Value(null),
+          tipoPagamento: const Value(null),
+          valorPagoCentavos: const Value(null),
+          descontoCentavos: const Value(null),
           atualizadoEm: Value(DateTime.now()),
         ),
       );

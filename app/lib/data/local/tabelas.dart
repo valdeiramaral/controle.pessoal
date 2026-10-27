@@ -102,6 +102,13 @@ class Lancamentos extends Table with ColunasSync {
   TextColumn get grupoParcelas => text().nullable()();
   TextColumn get tags => text().withDefault(const Constant(''))(); // separadas por virgula
   TextColumn get observacao => text().nullable()();
+  // Pagamento (despesa) ou recebimento (receita) registrado:
+  DateTimeColumn get dataPagamento => dateTime().nullable()();
+  TextColumn get formaPagamento => text().nullable()(); // ver core/pagamento.dart
+  TextColumn get contaPagamentoId => text().nullable()(); // conta/banco de onde saiu ou entrou o dinheiro
+  TextColumn get tipoPagamento => text().nullable()(); // total | parcial
+  IntColumn get valorPagoCentavos => integer().nullable()();
+  IntColumn get descontoCentavos => integer().nullable()();
   @override
   Set<Column> get primaryKey => {id};
 }
