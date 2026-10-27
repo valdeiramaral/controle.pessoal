@@ -13,6 +13,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'util_testes.dart';
 
 class _SessaoFalsa extends SessaoNotifier {
   _SessaoFalsa(this.estado);
@@ -61,6 +62,7 @@ void main() {
     await tester.tap(find.text('Finanças'));
     await tester.pumpAndSettle();
     expect(find.text('Usuários'), findsNothing);
+    await encerrar(tester);
   });
 
   testWidgets('modulo novo cadastrado aparece no menu na hora e abre a tela dele', (tester) async {
@@ -140,5 +142,6 @@ void main() {
     await tester.tap(noMenu);
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('modulo_em_breve')), findsOneWidget);
+    await encerrar(tester);
   });
 }

@@ -10,6 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'util_testes.dart';
 
 http.Response _json(int status, Object corpo) => http.Response.bytes(
     utf8.encode(jsonEncode(corpo)), status,
@@ -159,9 +160,10 @@ void main() {
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('campo_nome_perfil')), 'Gerente de Contas');
     await tester.tap(find.byKey(const Key('todos_financas')));
+    await tester.pump();
     await tester.tap(find.byKey(const Key('perm_saude.registro.ver')));
     await tester.pump();
-    await tester.tap(find.byKey(const Key('botao_salvar')));
+    await tocarRolando(tester, find.byKey(const Key('botao_salvar')));
     await tester.pumpAndSettle();
     final post = pedidos.firstWhere((p) => p.metodo == 'POST' && p.caminho == '/perfis');
     expect(post.corpo!['nome'], 'Gerente de Contas');
@@ -178,9 +180,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.widget<CheckboxListTile>(find.byKey(const Key('perm_financas.conta.ver'))).value, isTrue);
     await tester.tap(find.byKey(const Key('perm_financas.conta.ver')));
+    await tester.pump();
     await tester.tap(find.byKey(const Key('perm_saude.registro.ver')));
     await tester.pump();
-    await tester.tap(find.byKey(const Key('botao_salvar')));
+    await tocarRolando(tester, find.byKey(const Key('botao_salvar')));
     await tester.pumpAndSettle();
     final put = pedidos.firstWhere((p) => p.metodo == 'PUT' && p.caminho == '/perfis/p3');
     expect(put.corpo!['permissoes'], ['saude.registro.ver']);
@@ -198,7 +201,7 @@ void main() {
     expect(cb.value, isTrue);
     expect(cb.onChanged, isNull);
     expect(find.byKey(const Key('botao_excluir')), findsNothing);
-    await tester.tap(find.byKey(const Key('botao_salvar')));
+    await tocarRolando(tester, find.byKey(const Key('botao_salvar')));
     await tester.pumpAndSettle();
     final put = pedidos.firstWhere((p) => p.metodo == 'PUT' && p.caminho == '/perfis/p1');
     expect(put.corpo!.containsKey('permissoes'), isFalse);
@@ -230,13 +233,15 @@ void main() {
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('campo_nome_grupo')), 'Contabilidade');
     await tester.tap(find.byKey(const Key('grupo_perfil_contador')));
+    await tester.pump();
     await tester.tap(find.byKey(const Key('botao_membros')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('escolher_u2')));
+    await tester.pump();
     await tester.tap(find.byKey(const Key('confirmar_membros')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('membro_u2')), findsOneWidget);
-    await tester.tap(find.byKey(const Key('botao_salvar')));
+    await tocarRolando(tester, find.byKey(const Key('botao_salvar')));
     await tester.pumpAndSettle();
     final post = pedidos.firstWhere((p) => p.metodo == 'POST' && p.caminho == '/grupos');
     expect(post.corpo!['nome'], 'Contabilidade');
@@ -261,6 +266,7 @@ void main() {
     expect(tester.widget<SegmentedButton<String>>(find.byKey(const Key('excecao_financas.conta.gerenciar'))).selected, {'negar'});
     expect(negar, findsOneWidget);
     await tester.tap(find.descendant(of: find.byKey(const Key('excecao_financas.conta.ver')), matching: find.text('Permitir')));
+    await tester.pump();
     await tester.tap(find.byKey(const Key('excecoes_saude')));
     await tester.pumpAndSettle();
     await tester.tap(find.descendant(of: find.byKey(const Key('excecao_saude.registro.ver')), matching: find.text('Negar')));
@@ -268,8 +274,7 @@ void main() {
     await tester.tap(find.descendant(of: find.byKey(const Key('excecao_financas.conta.gerenciar')), matching: find.text('Herdar')));
     await tester.pump();
 
-    await tester.ensureVisible(find.byKey(const Key('botao_salvar')));
-    await tester.tap(find.byKey(const Key('botao_salvar')));
+    await tocarRolando(tester, find.byKey(const Key('botao_salvar')));
     await tester.pumpAndSettle();
 
     final grupos = pedidos.firstWhere((p) => p.metodo == 'PUT' && p.caminho == '/usuarios/u1/grupos');

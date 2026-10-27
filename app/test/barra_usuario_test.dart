@@ -9,6 +9,7 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'util_testes.dart';
 
 class _SessaoFalsa extends SessaoNotifier {
   _SessaoFalsa(this.estado);
@@ -49,5 +50,6 @@ void main() {
     await tester.tap(find.byKey(const Key('botao_sair_topo')));
     await tester.pumpAndSettle();
     expect(container.read(sessaoProvider).fase, FaseSessao.deslogado);
+    await encerrar(tester);
   });
 }

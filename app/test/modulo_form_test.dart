@@ -10,6 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'util_testes.dart';
 
 class _SessaoFalsa extends SessaoNotifier {
   _SessaoFalsa(this.estado);
@@ -61,7 +62,7 @@ void main() {
     expect(find.byKey(const Key('aviso_pacote')), findsNothing);
     expect(find.byKey(const Key('botao_add_usuario')), findsOneWidget);
 
-    await tester.tap(find.byKey(const Key('botao_salvar')));
+    await tocarRolando(tester, find.byKey(const Key('botao_salvar')));
     await tester.pumpAndSettle();
     expect(enviados.single['no_pacote'], false);
     expect(enviados.single['liberacoes'], isEmpty);
@@ -92,7 +93,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Desativada'), findsOneWidget);
 
-    await tester.tap(find.byKey(const Key('botao_salvar')));
+    await tocarRolando(tester, find.byKey(const Key('botao_salvar')));
     await tester.pumpAndSettle();
     final libs = (enviados.single['liberacoes'] as List).cast<Map<String, dynamic>>();
     expect(libs[0]['usuario_id'], 'u1');

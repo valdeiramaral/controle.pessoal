@@ -5,6 +5,7 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'util_testes.dart';
 
 void main() {
   test('atalhos de periodo', () {
@@ -53,5 +54,6 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Resumo do período'), findsOneWidget);
     expect(tester.takeException(), isNull);
+    await encerrar(tester);
   });
 }

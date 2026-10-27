@@ -12,6 +12,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'util_testes.dart';
 
 class _SessaoFalsa extends SessaoNotifier {
   _SessaoFalsa(this.estado);
@@ -81,5 +82,6 @@ void main() {
     await tester.pumpAndSettle();
     expect(salvos.last, {'modo': 'escuro', 'escala': 1.0, 'cor': 'azul'});
     expect(Theme.of(tester.element(find.text('Cor do sistema'))).brightness, Brightness.dark);
+    await encerrar(tester);
   });
 }
