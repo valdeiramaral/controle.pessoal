@@ -242,6 +242,97 @@ class Banco extends _$Banco {
     return id;
   }
 
+  Stream<Lancamento?> observarLancamento(String id) =>
+      (select(lancamentos)..where((l) => l.id.equals(id) & l.excluidoEm.isNull())).watchSingleOrNull();
+
+  Future<Lancamento?> lancamentoPorId(String id) =>
+      (select(lancamentos)..where((l) => l.id.equals(id))).getSingleOrNull();
+
+  /// Conteudo (bytes) de um anexo, lido so quando o usuario abre/baixa.
+  Future<Uint8List?> conteudoDoAnexo(String id) async =>
+      (await (select(anexos)..where((a) => a.id.equals(id))).getSingleOrNull())?.dados;
+
+  Future<void> excluirAnexo(String id) => (update(anexos)..where((a) => a.id.equals(id))).write(
+        AnexosCompanion(excluidoEm: Value(DateTime.now()), atualizadoEm: Value(DateTime.now())),
+      );
+
+  /// Lancamentos da mesma serie (fixa/parcelada) com vencimento depois de [l].
+  Future<List<Lancamento>> _seguintesDaSerie(Lancamento l) async {
+    final g = l.grupoParcelas;
+    if (g == null) return const [];
+    return (select(lancamentos)
+          ..where((t) => t.grupoParcelas.equals(g) & t.excluidoEm.isNull() & t.dia.isBiggerThanValue(l.dia)))
+        .get();
+  }
+
+  /// Quantos lancamentos ativos vem depois deste na mesma serie.
+  Future<int> contarSeguintesDaSerie(Lancamento l) async => (await _seguintesDaSerie(l)).length;
+
+  /// Edita um lancamento. Valor, descricao, vencimento e situacao valem so para ele;
+  /// conta, categoria, tags e observacao tambem vao para os seguintes da serie se [aplicarNosSeguintes].
+  /// Anexos: [anexosRemovidos] saem (exclusao logica) e [novosAnexos] entram neste lancamento.
+  Future<void> atualizarLancamento(
+    Lancamento original, {
+    required String descricao,
+    required int valorCentavos,
+    required DateTime dia,
+    required String contaId,
+    String? categoriaId,
+    required String tags,
+    String? observacao,
+    required bool pago,
+    bool aplicarNosSeguintes = false,
+    List<ArquivoParaAnexar> novosAnexos = const [],
+    List<String> anexosRemovidos = const [],
+  }) async {
+    final agora = DateTime.now();
+    await transaction(() async {
+      final seguintes = aplicarNosSeguintes ? await _seguintesDaSerie(original) : const <Lancamento>[];
+      await (update(lancamentos)..where((t) => t.id.equals(original.id))).write(LancamentosCompanion(
+        descricao: Value(descricao),
+        valorCentavos: Value(valorCentavos),
+        dia: Value(dia),
+        contaId: Value(contaId),
+        categoriaId: Value(categoriaId),
+        tags: Value(tags),
+        observacao: Value(observacao),
+        status: Value(pago ? 'pago' : 'pendente'),
+        atualizadoEm: Value(agora),
+      ));
+      for (final s in seguintes) {
+        await (update(lancamentos)..where((t) => t.id.equals(s.id))).write(LancamentosCompanion(
+          contaId: Value(contaId),
+          categoriaId: Value(categoriaId),
+          tags: Value(tags),
+          observacao: Value(observacao),
+          atualizadoEm: Value(agora),
+        ));
+      }
+      for (final id in anexosRemovidos) {
+        await excluirAnexo(id);
+      }
+      for (final a in novosAnexos) {
+        await inserirAnexo(lancamentoId: original.id, nome: a.nome, bytes: a.bytes, tipoMime: a.tipoMime);
+      }
+    });
+  }
+
+  /// Exclusao logica do lancamento; com [seguintes] tambem os da serie com vencimento posterior.
+  /// Os anexos dos excluidos tambem saem. Devolve quantos lancamentos foram excluidos.
+  Future<int> excluirLancamentoDaSerie(Lancamento l, {bool seguintes = false}) async {
+    final alvos = [l, if (seguintes) ...await _seguintesDaSerie(l)];
+    final agora = DateTime.now();
+    await transaction(() async {
+      for (final a in alvos) {
+        await (update(lancamentos)..where((t) => t.id.equals(a.id)))
+            .write(LancamentosCompanion(excluidoEm: Value(agora), atualizadoEm: Value(agora)));
+        await (update(anexos)..where((t) => t.lancamentoId.equals(a.id) & t.excluidoEm.isNull()))
+            .write(AnexosCompanion(excluidoEm: Value(agora), atualizadoEm: Value(agora)));
+      }
+    });
+    return alvos.length;
+  }
+
   /// Anexos ativos de um lancamento (sem o conteudo, so a lista).
   Stream<List<Anexo>> observarAnexos(String lancamentoId) => (select(anexos)
         ..where((a) => a.lancamentoId.equals(lancamentoId) & a.excluidoEm.isNull())

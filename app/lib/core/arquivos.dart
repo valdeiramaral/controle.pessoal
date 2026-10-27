@@ -1,4 +1,7 @@
+import 'dart:typed_data';
+
 import 'package:file_picker/file_picker.dart';
+import 'package:file_saver/file_saver.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/local/banco.dart';
@@ -39,3 +42,22 @@ Future<List<ArquivoAnexo>> escolherArquivosDoAparelho() async {
 
 /// Trocavel nos testes (sem abrir janela de arquivos de verdade).
 final escolhedorArquivosProvider = Provider<EscolherArquivos>((ref) => escolherArquivosDoAparelho);
+
+/// Entrega o arquivo ao usuario: baixa no navegador (web) ou grava na pasta do aparelho.
+typedef BaixarArquivo = Future<void> Function(String nome, Uint8List bytes, String? tipoMime);
+
+Future<void> baixarArquivoDoAparelho(String nome, Uint8List bytes, String? tipoMime) async {
+  final ponto = nome.lastIndexOf('.');
+  final base = ponto > 0 ? nome.substring(0, ponto) : nome;
+  final ext = ponto > 0 ? nome.substring(ponto + 1) : '';
+  await FileSaver.instance.saveFile(
+    name: base,
+    bytes: bytes,
+    fileExtension: ext,
+    mimeType: MimeType.custom,
+    customMimeType: tipoMime ?? 'application/octet-stream',
+  );
+}
+
+/// Trocavel nos testes.
+final baixadorArquivosProvider = Provider<BaixarArquivo>((ref) => baixarArquivoDoAparelho);

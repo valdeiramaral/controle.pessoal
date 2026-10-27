@@ -9,6 +9,7 @@ import '../../core/lancamento_calculo.dart';
 import '../../data/local/banco.dart';
 import 'contas_page.dart';
 import 'dashboard_page.dart';
+import 'lancamento_detalhe_page.dart';
 import 'lancamento_form_page.dart';
 
 class FinancasPage extends ConsumerWidget {
@@ -82,8 +83,10 @@ class FinancasPage extends ConsumerWidget {
                         padding: const EdgeInsets.only(right: 16),
                         child: const Icon(Icons.delete_outline, color: Colors.white),
                       ),
-                      onDismissed: (_) => banco.excluirLancamento(l.id),
+                      onDismissed: (_) => banco.excluirLancamentoDaSerie(l),
                       child: ListTile(
+                        key: Key('lancamento_${l.id}'),
+                        onTap: () => abrirDetalheLancamento(context, l.id),
                         leading: Checkbox(
                           value: l.status == 'pago',
                           onChanged: (_) => banco.alternarPagamento(l),

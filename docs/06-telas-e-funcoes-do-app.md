@@ -54,4 +54,10 @@ Botão **+** da aba Lançamentos abre o formulário (Despesa ou Receita). Cálcu
 8. **Anexos** — vários arquivos (PDF, foto, texto), até 10, 5 MB cada, escolhidos pelo seletor do aparelho; ficam no banco local (tabela `anexo`, schema v3) e, em séries, no primeiro lançamento.
 9. **Tags** — palavras livres em minúsculas, sem repetição, até 10 de 30 letras; gravadas separadas por vírgula.
 Na listagem, cada lançamento mostra data, tags e o clipe com a quantidade de anexos.
-Limitação: ainda não há tela para abrir/baixar os anexos nem editar um lançamento já salvo; a tabela `anexo` é só local (ainda sem equivalente no PostgreSQL, pois a sincronização de lançamentos não está ativa).
+### Detalhe, edição e exclusão (`lancamento_detalhe_page.dart`)
+Tocar num lançamento da lista abre o **detalhe**: descrição, valor, situação (paga/a pagar, alternável), vencimento, conta/cartão, categoria, parcela ou repetição, observação, tags e anexos.
+- **Anexos:** tocar abre a prévia (imagem ou texto) com botão **Baixar**; PDF e demais tipos são baixados direto (`file_saver`: download no navegador ou gravação na pasta do aparelho).
+- **Editar** (lápis): mesmo formulário, com tipo e repetição fixos. Valor, descrição, vencimento e situação valem só para o lançamento aberto; numa série (fixa/parcelada) a caixa "Aplicar conta, categoria, tags e observação também aos N seguintes" estende esses quatro campos aos lançamentos posteriores. Anexos podem ser removidos (desfazer antes de salvar) e novos podem ser adicionados.
+- **Excluir** (lixeira): exclusão lógica do lançamento e dos seus anexos; em série pergunta "Só este" ou "Este e os seguintes". Deslizar na lista exclui só aquele lançamento.
+
+Limitação: a tabela `anexo` é só local (sem equivalente no PostgreSQL, pois a sincronização de lançamentos não está ativa).

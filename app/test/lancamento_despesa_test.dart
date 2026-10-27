@@ -1,9 +1,11 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:controle_pessoal/core/arquivos.dart';
 import 'package:controle_pessoal/core/lancamento_calculo.dart';
 import 'package:controle_pessoal/core/tema.dart';
 import 'package:controle_pessoal/data/local/banco.dart';
+import 'package:controle_pessoal/features/financas/lancamento_detalhe_page.dart';
 import 'package:controle_pessoal/features/financas/lancamento_form_page.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
@@ -102,6 +104,61 @@ void main() {
       expect(ls.map((l) => l.dia.month), [1, 2, 3, 4]);
       expect(ls[1].dia, DateTime(2026, 2, 28));
     });
+    test('editar: so este, ou tambem a conta/categoria/tags dos seguintes; anexos entram e saem', () async {
+      final cat = await banco.inserirCategoria(nome: 'Casa');
+      final ids = await banco.lancar(
+          descricao: 'Internet',
+          valorCentavos: 10000,
+          tipo: 'despesa',
+          vencimento: DateTime(2026, 1, 10),
+          contaId: contaPadraoId,
+          repeticao: 'fixa',
+          vezes: 3,
+          anexos: [ArquivoParaAnexar(nome: 'a.pdf', bytes: Uint8List.fromList([1]))]);
+      final primeiro = (await banco.lancamentoPorId(ids.first))!;
+      expect(await banco.contarSeguintesDaSerie(primeiro), 2);
+      final antigo = (await banco.observarAnexos(primeiro.id).first).single;
+      await banco.atualizarLancamento(primeiro,
+          descricao: 'Internet fibra',
+          valorCentavos: 12000,
+          dia: DateTime(2026, 1, 12),
+          contaId: contaPadraoId,
+          categoriaId: cat,
+          tags: 'casa',
+          observacao: 'Plano novo',
+          pago: true,
+          aplicarNosSeguintes: true,
+          novosAnexos: [ArquivoParaAnexar(nome: 'b.png', bytes: Uint8List.fromList([2, 3]), tipoMime: 'image/png')],
+          anexosRemovidos: [antigo.id]);
+      final ls = (await banco.select(banco.lancamentos).get())..sort((a, b) => a.dia.compareTo(b.dia));
+      expect([ls[0].descricao, ls[0].valorCentavos, ls[0].status, ls[0].dia], ['Internet fibra', 12000, 'pago', DateTime(2026, 1, 12)]);
+      // Os seguintes herdam categoria, tags e observacao, mas nao valor/descricao/situacao.
+      for (final s in ls.skip(1)) {
+        expect([s.categoriaId, s.tags, s.observacao, s.descricao, s.valorCentavos, s.status], [cat, 'casa', 'Plano novo', 'Internet', 10000, 'pendente']);
+      }
+      expect((await banco.observarAnexos(primeiro.id).first).map((a) => a.nomeArquivo), ['b.png']);
+      expect(await banco.conteudoDoAnexo(antigo.id), isNotNull); // exclusao logica: o registro continua
+    });
+
+    test('excluir: so este, ou este e os seguintes (com os anexos)', () async {
+      final ids = await banco.lancar(
+          descricao: 'Plano',
+          valorCentavos: 5000,
+          tipo: 'despesa',
+          vencimento: DateTime(2026, 3, 1),
+          contaId: contaPadraoId,
+          repeticao: 'fixa',
+          vezes: 4,
+          anexos: [ArquivoParaAnexar(nome: 'x.pdf', bytes: Uint8List.fromList([1]))]);
+      final todos = (await banco.select(banco.lancamentos).get())..sort((a, b) => a.dia.compareTo(b.dia));
+      expect(await banco.excluirLancamentoDaSerie(todos[2], seguintes: true), 2); // 3o e 4o
+      var ativos = (await banco.observarLancamentos().first);
+      expect(ativos.length, 2);
+      expect(await banco.excluirLancamentoDaSerie(todos[0]), 1);
+      ativos = await banco.observarLancamentos().first;
+      expect(ativos.map((l) => l.id), [todos[1].id]);
+      expect(await banco.observarAnexos(ids.first).first, isEmpty); // anexo saiu junto
+    });
   });
 
   group('tela', () {
@@ -181,6 +238,89 @@ void main() {
       expect(ls.first.contaId, contaPadraoId);
       expect((await banco.select(banco.anexos).get()).single.nomeArquivo, 'comprovante.pdf');
       expect(find.text('Nova despesa'), findsNothing); // fechou
+      expect(tester.takeException(), isNull);
+      await encerrar(tester);
+    });
+
+    testWidgets('detalhe: abre anexos, edita (remove anexo, muda valor) e exclui', (tester) async {
+      tester.view.physicalSize = const Size(900, 2600);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final banco = Banco.paraTeste(NativeDatabase.memory());
+      addTearDown(banco.close);
+      final baixados = <String>[];
+      // PNG 1x1 valido.
+      final png = base64Decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==');
+      final ids = await banco.lancar(
+        descricao: 'Energia',
+        valorCentavos: 23050,
+        tipo: 'despesa',
+        vencimento: DateTime(2026, 11, 10),
+        contaId: contaPadraoId,
+        tags: 'casa,luz',
+        observacao: 'Conta de outubro',
+        anexos: [
+          ArquivoParaAnexar(nome: 'fatura.pdf', bytes: Uint8List.fromList([1, 2, 3]), tipoMime: 'application/pdf'),
+          ArquivoParaAnexar(nome: 'foto.png', bytes: png, tipoMime: 'image/png'),
+        ],
+      );
+      final anexos = await banco.observarAnexos(ids.first).first;
+      final pdf = anexos.firstWhere((a) => a.nomeArquivo == 'fatura.pdf');
+      final img = anexos.firstWhere((a) => a.nomeArquivo == 'foto.png');
+
+      await tester.pumpWidget(ProviderScope(
+        overrides: [
+          bancoProvider.overrideWithValue(banco),
+          baixadorArquivosProvider.overrideWithValue((nome, bytes, mime) async => baixados.add(nome)),
+        ],
+        child: MaterialApp(theme: temaApp(), home: Scaffold(body: Builder(builder: (c) => TextButton(onPressed: () => abrirDetalheLancamento(c, ids.first), child: const Text('abrir'))))),
+      ));
+      await tester.tap(find.text('abrir'));
+      await tester.pumpAndSettle();
+
+      expect(tester.widget<Text>(find.byKey(const Key('detalhe_descricao'))).data, 'Energia');
+      expect(find.byKey(const Key('detalhe_observacao')), findsOneWidget);
+      expect(find.byKey(const Key('detalhe_tag_luz')), findsOneWidget);
+      expect(tester.widget<Text>(find.byKey(const Key('detalhe_data'))).data, '10/11/2026');
+
+      // PDF: baixa direto. Imagem: abre a previa e baixa pelo botao.
+      await tester.tap(find.byKey(Key('anexo_${pdf.id}')));
+      await tester.pumpAndSettle();
+      expect(baixados, ['fatura.pdf']);
+      await tester.tap(find.byKey(Key('anexo_${img.id}')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('previa_imagem')), findsOneWidget);
+      await tester.tap(find.byKey(const Key('baixar_anexo_dialogo')));
+      await tester.pumpAndSettle();
+      expect(baixados, ['fatura.pdf', 'foto.png']);
+      await tester.tap(find.byKey(const Key('fechar_anexo')));
+      await tester.pumpAndSettle();
+
+      // Editar: novo valor, tira o PDF, marca como paga.
+      await tester.tap(find.byKey(const Key('botao_editar_lancamento')));
+      await tester.pumpAndSettle();
+      expect(find.text('Editar despesa'), findsOneWidget);
+      expect(tester.widget<TextFormField>(find.byKey(const Key('campo_valor'))).controller!.text, '230,50');
+      await tester.enterText(find.byKey(const Key('campo_valor')), '250,00');
+      await tester.tap(find.byKey(Key('remover_anexo_existente_${pdf.id}')));
+      await tester.pump();
+      await tocarRolando(tester, find.byKey(const Key('campo_pago'))); // marca como paga
+      await tester.pump();
+      await tocarRolando(tester, find.byKey(const Key('botao_salvar_lancamento')));
+      await tester.pumpAndSettle();
+
+      final l = (await banco.lancamentoPorId(ids.first))!;
+      expect([l.valorCentavos, l.status], [25000, 'pago']);
+      expect((await banco.observarAnexos(ids.first).first).map((a) => a.nomeArquivo), ['foto.png']);
+      expect(tester.widget<Text>(find.byKey(const Key('detalhe_valor'))).data!.contains('250,00'), isTrue);
+
+      // Excluir (sem serie): confirma e volta.
+      await tester.tap(find.byKey(const Key('botao_excluir_lancamento')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('confirmar_exclusao_lancamento')));
+      await tester.pumpAndSettle();
+      expect(await banco.observarLancamentos().first, isEmpty);
+      expect(find.byKey(const Key('detalhe_descricao')), findsNothing);
       expect(tester.takeException(), isNull);
       await encerrar(tester);
     });

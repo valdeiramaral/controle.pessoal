@@ -10,14 +10,16 @@ import '../auth/widgets_auth.dart';
 import 'contas_page.dart';
 
 /// Abre o formulario de lancamento (despesa ou receita). Devolve true se salvou.
-Future<bool?> abrirFormularioLancamento(BuildContext context, {String tipo = 'despesa', DateTime? hoje}) =>
-    Navigator.of(context).push<bool>(MaterialPageRoute(builder: (_) => LancamentoFormPage(tipo: tipo, hoje: hoje)));
+Future<bool?> abrirFormularioLancamento(BuildContext context, {String tipo = 'despesa', DateTime? hoje, Lancamento? lancamento}) =>
+    Navigator.of(context).push<bool>(
+        MaterialPageRoute(builder: (_) => LancamentoFormPage(tipo: tipo, hoje: hoje, lancamento: lancamento)));
 
 /// Lancamento de despesa/receita: descricao, valor (total, se parcelado), vencimento,
 /// conta/cartao, categoria, repeticao (fixa ou parcelada), observacao, anexos e tags.
 class LancamentoFormPage extends ConsumerStatefulWidget {
-  const LancamentoFormPage({super.key, this.tipo = 'despesa', this.hoje});
+  const LancamentoFormPage({super.key, this.tipo = 'despesa', this.hoje, this.lancamento});
   final String tipo;
+  final Lancamento? lancamento; // != null: edita este lancamento
   final DateTime? hoje; // para testes
 
   @override
@@ -42,6 +44,10 @@ class _LancamentoFormPageState extends ConsumerState<LancamentoFormPage> {
   String? _erro;
   bool _salvando = false;
 
+  final _existentes = <Anexo>[]; // anexos ja gravados (so na edicao)
+  final _removidos = <String>{};
+  bool _aplicarSeguintes = false;
+  int _seguintes = 0;
   List<Conta> _contas = const [];
   List<Categoria> _categorias = const [];
   bool _carregado = false;
@@ -49,9 +55,18 @@ class _LancamentoFormPageState extends ConsumerState<LancamentoFormPage> {
   @override
   void initState() {
     super.initState();
-    _tipo = widget.tipo;
+    final l = widget.lancamento;
+    _tipo = l?.tipo ?? widget.tipo;
     final h = widget.hoje ?? DateTime.now();
-    _data = DateTime(h.year, h.month, h.day);
+    _data = l == null ? DateTime(h.year, h.month, h.day) : DateTime(l.dia.year, l.dia.month, l.dia.day);
+    if (l != null) {
+      _descricao.text = l.descricao;
+      _valor.text = (l.valorCentavos / 100).toStringAsFixed(2).replaceAll('.', ',');
+      _observacao.text = l.observacao ?? '';
+      _pago = l.status == 'pago';
+      _categoriaId = l.categoriaId;
+      _tags.addAll(tagsDoTexto(l.tags));
+    }
     _carregar();
   }
 
@@ -61,11 +76,16 @@ class _LancamentoFormPageState extends ConsumerState<LancamentoFormPage> {
         .where((c) => c.titularidade != 'externa')
         .toList();
     final categorias = await (banco.select(banco.categorias)..where((c) => c.excluidoEm.isNull())).get();
+    final l = widget.lancamento;
+    final existentes = l == null ? <Anexo>[] : await banco.observarAnexos(l.id).first;
+    final seguintes = l == null ? 0 : await banco.contarSeguintesDaSerie(l);
     if (!mounted) return;
     setState(() {
       _contas = contas;
       _categorias = categorias;
-      _contaId = contas.isEmpty ? null : contas.first.id;
+      _contaId = l != null && contas.any((c) => c.id == l.contaId) ? l.contaId : (l != null || contas.isEmpty ? null : contas.first.id);
+      _existentes.addAll(existentes);
+      _seguintes = seguintes;
       _carregado = true;
     });
   }
@@ -79,6 +99,8 @@ class _LancamentoFormPageState extends ConsumerState<LancamentoFormPage> {
   }
 
   bool get _despesa => _tipo == 'despesa';
+  bool get _editando => widget.lancamento != null;
+  bool get _daSerie => widget.lancamento?.grupoParcelas != null;
 
   Future<void> _escolherData() async {
     final d = await showDatePicker(
@@ -110,7 +132,7 @@ class _LancamentoFormPageState extends ConsumerState<LancamentoFormPage> {
     String? aviso;
     setState(() {
       for (final a in novos) {
-        if (_anexos.length >= maximoAnexos) {
+        if (_anexos.length + _existentes.where((e) => !_removidos.contains(e.id)).length >= maximoAnexos) {
           aviso = 'Use no máximo $maximoAnexos anexos.';
           break;
         }
@@ -156,6 +178,26 @@ class _LancamentoFormPageState extends ConsumerState<LancamentoFormPage> {
     final vezes = _repeticao == 'unica' ? 1 : int.parse(_vezes.text.trim());
     setState(() => _salvando = true);
     try {
+      if (_editando) {
+        await ref.read(bancoProvider).atualizarLancamento(
+              widget.lancamento!,
+              descricao: _descricao.text.trim(),
+              valorCentavos: centavos,
+              dia: _data,
+              contaId: _contaId!,
+              categoriaId: _categoriaId,
+              tags: tagsParaTexto(_tags),
+              observacao: _observacao.text.trim().isEmpty ? null : _observacao.text.trim(),
+              pago: _pago,
+              aplicarNosSeguintes: _aplicarSeguintes,
+              novosAnexos: List.of(_anexos),
+              anexosRemovidos: _removidos.toList(),
+            );
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Lançamento atualizado.')));
+        Navigator.of(context).pop(true);
+        return;
+      }
       await ref.read(bancoProvider).lancar(
             descricao: _descricao.text.trim(),
             valorCentavos: centavos,
@@ -208,7 +250,7 @@ class _LancamentoFormPageState extends ConsumerState<LancamentoFormPage> {
         ? dividirParcelas(centavos, vezes)
         : null;
     return Scaffold(
-      appBar: AppBar(title: Text(_despesa ? 'Nova despesa' : 'Nova receita')),
+      appBar: AppBar(title: Text(_editando ? (_despesa ? 'Editar despesa' : 'Editar receita') : (_despesa ? 'Nova despesa' : 'Nova receita'))),
       body: !_carregado
           ? const Center(child: CircularProgressIndicator())
           : Form(
@@ -219,7 +261,7 @@ class _LancamentoFormPageState extends ConsumerState<LancamentoFormPage> {
                   child: ListView(
                     padding: const EdgeInsets.all(16),
                     children: [
-                      SegmentedButton<String>(
+                      if (!_editando) SegmentedButton<String>(
                         key: const Key('campo_tipo_lancamento'),
                         segments: const [
                           ButtonSegment(value: 'despesa', label: Text('Despesa')),
@@ -228,7 +270,7 @@ class _LancamentoFormPageState extends ConsumerState<LancamentoFormPage> {
                         selected: {_tipo},
                         onSelectionChanged: (s) => setState(() => _tipo = s.first),
                       ),
-                      const SizedBox(height: 16),
+                      if (!_editando) const SizedBox(height: 16),
                       TextFormField(
                         key: const Key('campo_descricao'),
                         controller: _descricao,
@@ -249,8 +291,10 @@ class _LancamentoFormPageState extends ConsumerState<LancamentoFormPage> {
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
                         inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,R\$ ]'))],
                         decoration: InputDecoration(
-                          labelText: _repeticao == 'parcelada' ? 'Valor total (R\$)' : 'Valor (R\$)',
-                          helperText: _repeticao == 'parcelada' ? 'Informe o valor total; ele será dividido nas parcelas' : null,
+                          labelText: _editando
+                              ? (widget.lancamento!.parcelaTotal != null ? 'Valor desta parcela (R\$)' : 'Valor (R\$)')
+                              : (_repeticao == 'parcelada' ? 'Valor total (R\$)' : 'Valor (R\$)'),
+                          helperText: !_editando && _repeticao == 'parcelada' ? 'Informe o valor total; ele será dividido nas parcelas' : null,
                         ),
                         validator: _validarValor,
                         onChanged: (_) => setState(() {}),
@@ -305,6 +349,7 @@ class _LancamentoFormPageState extends ConsumerState<LancamentoFormPage> {
                         },
                       ),
                       const SizedBox(height: 12),
+                      if (!_editando)
                       DropdownButtonFormField<String>(
                         key: const Key('campo_repetir'),
                         value: _repeticao,
@@ -320,6 +365,24 @@ class _LancamentoFormPageState extends ConsumerState<LancamentoFormPage> {
                           _vezes.text = _repeticao == 'fixa' ? '12' : '2';
                         }),
                       ),
+                      if (_editando && _daSerie) ...[
+                        Text(
+                          widget.lancamento!.parcelaTotal != null
+                              ? 'Parcela ${widget.lancamento!.parcelaNumero} de ${widget.lancamento!.parcelaTotal}'
+                              : 'Despesa fixa: parte de uma série mensal',
+                          key: const Key('info_serie'),
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                        if (_seguintes > 0)
+                          CheckboxListTile(
+                            key: const Key('campo_aplicar_seguintes'),
+                            contentPadding: EdgeInsets.zero,
+                            controlAffinity: ListTileControlAffinity.leading,
+                            title: Text('Aplicar conta, categoria, tags e observação também aos $_seguintes lançamentos seguintes'),
+                            value: _aplicarSeguintes,
+                            onChanged: (v) => setState(() => _aplicarSeguintes = v ?? false),
+                          ),
+                      ],
                       if (_repeticao != 'unica') ...[
                         const SizedBox(height: 12),
                         TextFormField(
@@ -378,7 +441,7 @@ class _LancamentoFormPageState extends ConsumerState<LancamentoFormPage> {
                       KeyedSubtree(
                         key: const Key('botao_salvar_lancamento'),
                         child: BotaoPrincipal(
-                            texto: _despesa ? 'Lançar despesa' : 'Lançar receita', enviando: _salvando, aoPressionar: _salvar),
+                            texto: _editando ? 'Salvar alterações' : (_despesa ? 'Lançar despesa' : 'Lançar receita'), enviando: _salvando, aoPressionar: _salvar),
                       ),
                       const SizedBox(height: 24),
                     ],
@@ -402,6 +465,23 @@ class _LancamentoFormPageState extends ConsumerState<LancamentoFormPage> {
       ]),
       Text('Comprovante, cupom… PDF, foto ou texto, até ${formatarTamanho(maximoBytesAnexo)} cada. Pode anexar mais de um.',
           style: Theme.of(context).textTheme.bodySmall),
+      for (final e in _existentes)
+        ListTile(
+          key: Key('anexo_existente_${e.id}'),
+          dense: true,
+          contentPadding: EdgeInsets.zero,
+          leading: Icon((e.tipoMime ?? '').startsWith('image/') ? Icons.image_outlined : Icons.description_outlined),
+          title: Text(e.nomeArquivo,
+              overflow: TextOverflow.ellipsis,
+              style: _removidos.contains(e.id) ? const TextStyle(decoration: TextDecoration.lineThrough) : null),
+          subtitle: Text(_removidos.contains(e.id) ? 'Será removido ao salvar' : formatarTamanho(e.tamanhoBytes)),
+          trailing: IconButton(
+            key: Key('remover_anexo_existente_${e.id}'),
+            tooltip: _removidos.contains(e.id) ? 'Desfazer' : 'Remover anexo',
+            icon: Icon(_removidos.contains(e.id) ? Icons.undo : Icons.close),
+            onPressed: () => setState(() => _removidos.contains(e.id) ? _removidos.remove(e.id) : _removidos.add(e.id)),
+          ),
+        ),
       for (var i = 0; i < _anexos.length; i++)
         ListTile(
           key: Key('anexo_$i'),
