@@ -88,15 +88,128 @@ class Banco extends _$Banco {
     required String tipo,
     bool pago = false,
     DateTime? dia,
+    String? contaId,
+    String? categoriaId,
+    String? recorrencia,
+    int? parcelaNumero,
+    int? parcelaTotal,
+    String? grupoParcelas,
   }) =>
       into(lancamentos).insert(LancamentosCompanion.insert(
-        contaId: contaPadraoId,
+        contaId: contaId ?? contaPadraoId,
+        categoriaId: Value(categoriaId),
         descricao: descricao,
         valorCentavos: valorCentavos,
         dia: dia ?? DateTime.now(),
         tipo: tipo,
         status: Value(pago ? 'pago' : 'pendente'),
+        recorrencia: Value(recorrencia),
+        parcelaNumero: Value(parcelaNumero),
+        parcelaTotal: Value(parcelaTotal),
+        grupoParcelas: Value(grupoParcelas),
       ));
+
+  /// Cria [parcelas] lancamentos mensais (a primeira em [primeiroDia]); [valorParcelaCentavos] e o valor de cada uma.
+  Future<void> inserirParcelado({
+    required String descricao,
+    required int valorParcelaCentavos,
+    required String tipo,
+    required int parcelas,
+    required DateTime primeiroDia,
+    String? contaId,
+    String? categoriaId,
+  }) async {
+    final grupo = _uuid.v4();
+    for (var i = 0; i < parcelas; i++) {
+      await inserirLancamento(
+        descricao: '$descricao (${i + 1}/$parcelas)',
+        valorCentavos: valorParcelaCentavos,
+        tipo: tipo,
+        pago: false,
+        dia: DateTime(primeiroDia.year, primeiroDia.month + i, primeiroDia.day),
+        contaId: contaId,
+        categoriaId: categoriaId,
+        parcelaNumero: i + 1,
+        parcelaTotal: parcelas,
+        grupoParcelas: grupo,
+      );
+    }
+  }
+
+  Stream<List<Categoria>> observarCategorias() => (select(categorias)
+        ..where((c) => c.excluidoEm.isNull())
+        ..orderBy([(c) => OrderingTerm.asc(c.nome)]))
+      .watch();
+
+  Stream<List<Orcamento>> observarOrcamentos() =>
+      (select(orcamentos)..where((o) => o.excluidoEm.isNull())).watch();
+
+  Future<String> inserirCategoria({
+    required String nome,
+    String tipo = 'despesa',
+    String? cor,
+  }) async {
+    final id = _uuid.v4();
+    await into(categorias).insert(CategoriasCompanion.insert(
+      id: Value(id),
+      nome: nome,
+      tipo: tipo,
+      cor: Value(cor),
+    ));
+    return id;
+  }
+
+  Future<String> inserirConta({
+    required String nome,
+    String tipo = 'corrente',
+    int saldoInicialCentavos = 0,
+  }) async {
+    final id = _uuid.v4();
+    await into(contas).insert(ContasCompanion.insert(
+      id: Value(id),
+      nome: nome,
+      tipo: tipo,
+      saldoInicialCentavos: Value(saldoInicialCentavos),
+    ));
+    return id;
+  }
+
+  /// Define (ou troca) o limite mensal de uma categoria; [mes] e normalizado para o dia 1.
+  Future<void> definirOrcamento({
+    required String categoriaId,
+    required DateTime mes,
+    required int valorLimiteCentavos,
+  }) async {
+    final m = DateTime(mes.year, mes.month, 1);
+    final existente = await (select(orcamentos)
+          ..where((o) =>
+              o.excluidoEm.isNull() &
+              o.categoriaId.equals(categoriaId) &
+              o.mes.equals(m)))
+        .getSingleOrNull();
+    if (existente == null) {
+      await into(orcamentos).insert(OrcamentosCompanion.insert(
+        categoriaId: categoriaId,
+        mes: m,
+        valorLimiteCentavos: valorLimiteCentavos,
+      ));
+    } else {
+      await (update(orcamentos)..where((o) => o.id.equals(existente.id))).write(
+        OrcamentosCompanion(
+          valorLimiteCentavos: Value(valorLimiteCentavos),
+          atualizadoEm: Value(DateTime.now()),
+        ),
+      );
+    }
+  }
+
+  Future<void> excluirOrcamento(String id) =>
+      (update(orcamentos)..where((t) => t.id.equals(id))).write(
+        OrcamentosCompanion(
+          excluidoEm: Value(DateTime.now()),
+          atualizadoEm: Value(DateTime.now()),
+        ),
+      );
 
   Future<void> alternarPagamento(Lancamento l) =>
       (update(lancamentos)..where((t) => t.id.equals(l.id))).write(

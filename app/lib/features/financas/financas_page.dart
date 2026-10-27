@@ -6,6 +6,7 @@ import '../nav/menu_lateral.dart';
 import '../../core/calculos.dart';
 import '../../core/formatos.dart';
 import '../../data/local/banco.dart';
+import 'dashboard_page.dart';
 
 class FinancasPage extends ConsumerWidget {
   const FinancasPage({super.key});
@@ -13,9 +14,32 @@ class FinancasPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final banco = ref.watch(bancoProvider);
-    return Scaffold(
-      appBar: const BarraPagina(title: Text('Finanças')),
-      body: StreamBuilder<List<Lancamento>>(
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        appBar: const BarraPagina(title: Text('Finanças')),
+        body: Column(children: [
+          const TabBar(tabs: [
+            Tab(key: Key('aba_dashboard'), icon: Icon(Icons.dashboard_outlined), text: 'Dashboard'),
+            Tab(key: Key('aba_lancamentos'), icon: Icon(Icons.receipt_long_outlined), text: 'Lançamentos'),
+          ]),
+          Expanded(
+            child: TabBarView(children: [
+              const DashboardFinancas(),
+              _lista(context, banco),
+            ]),
+          ),
+        ]),
+        floatingActionButton: FloatingActionButton(
+          onPressed: () => _novoLancamento(context, banco),
+          child: const Icon(Icons.add),
+        ),
+      ),
+    );
+  }
+
+  Widget _lista(BuildContext context, Banco banco) {
+    return StreamBuilder<List<Lancamento>>(
         stream: banco.observarLancamentos(),
         builder: (context, snap) {
           final itens = snap.data ?? const <Lancamento>[];
@@ -74,75 +98,135 @@ class FinancasPage extends ConsumerWidget {
             ],
           );
         },
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _novoLancamento(context, banco),
-        child: const Icon(Icons.add),
-      ),
     );
   }
 
   Future<void> _novoLancamento(BuildContext context, Banco banco) async {
     final descricao = TextEditingController();
     final valor = TextEditingController();
+    final parcelas = TextEditingController(text: '2');
     var tipo = 'despesa';
     var pago = true;
+    var repeticao = 'variavel'; // variavel | fixa | parcelada
+    final contas = await (banco.select(banco.contas)..where((c) => c.excluidoEm.isNull())).get();
+    final categorias = await (banco.select(banco.categorias)..where((c) => c.excluidoEm.isNull())).get();
+    String? contaId = contas.isEmpty ? null : contas.first.id;
+    String? categoriaId;
+    if (!context.mounted) return;
 
     await showDialog<void>(
       context: context,
       builder: (context) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
-          title: const Text('Novo lançamento'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: descricao,
-                decoration: const InputDecoration(labelText: 'Descrição'),
-              ),
-              TextField(
-                controller: valor,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(labelText: 'Valor (R\$)'),
-              ),
-              const SizedBox(height: 8),
-              SegmentedButton<String>(
-                segments: const [
-                  ButtonSegment(value: 'despesa', label: Text('Despesa')),
-                  ButtonSegment(value: 'receita', label: Text('Receita')),
+        builder: (context, setState) {
+          final cats = categorias.where((c) => c.tipo == tipo).toList();
+          if (categoriaId != null && !cats.any((c) => c.id == categoriaId)) categoriaId = null;
+          return AlertDialog(
+            title: const Text('Novo lançamento'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: descricao,
+                    decoration: const InputDecoration(labelText: 'Descrição'),
+                  ),
+                  TextField(
+                    controller: valor,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: InputDecoration(
+                        labelText: repeticao == 'parcelada' ? 'Valor de cada parcela (R\$)' : 'Valor (R\$)'),
+                  ),
+                  const SizedBox(height: 8),
+                  SegmentedButton<String>(
+                    segments: const [
+                      ButtonSegment(value: 'despesa', label: Text('Despesa')),
+                      ButtonSegment(value: 'receita', label: Text('Receita')),
+                    ],
+                    selected: {tipo},
+                    onSelectionChanged: (s) => setState(() => tipo = s.first),
+                  ),
+                  if (contas.length > 1)
+                    DropdownButtonFormField<String>(
+                      value: contaId,
+                      decoration: const InputDecoration(labelText: 'Conta'),
+                      items: [for (final c in contas) DropdownMenuItem(value: c.id, child: Text(c.nome))],
+                      onChanged: (v) => setState(() => contaId = v),
+                    ),
+                  if (cats.isNotEmpty)
+                    DropdownButtonFormField<String?>(
+                      value: categoriaId,
+                      decoration: const InputDecoration(labelText: 'Categoria'),
+                      items: [
+                        const DropdownMenuItem<String?>(value: null, child: Text('Sem categoria')),
+                        for (final c in cats) DropdownMenuItem<String?>(value: c.id, child: Text(c.nome)),
+                      ],
+                      onChanged: (v) => setState(() => categoriaId = v),
+                    ),
+                  DropdownButtonFormField<String>(
+                    value: repeticao,
+                    decoration: const InputDecoration(labelText: 'Recorrência'),
+                    items: const [
+                      DropdownMenuItem(value: 'variavel', child: Text('Variável (única)')),
+                      DropdownMenuItem(value: 'fixa', child: Text('Fixa (todo mês)')),
+                      DropdownMenuItem(value: 'parcelada', child: Text('Parcelada')),
+                    ],
+                    onChanged: (v) => setState(() => repeticao = v ?? repeticao),
+                  ),
+                  if (repeticao == 'parcelada')
+                    TextField(
+                      controller: parcelas,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(labelText: 'Número de parcelas'),
+                    ),
+                  if (repeticao != 'parcelada')
+                    CheckboxListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Já pago/recebido'),
+                      value: pago,
+                      onChanged: (v) => setState(() => pago = v ?? true),
+                    ),
                 ],
-                selected: {tipo},
-                onSelectionChanged: (s) => setState(() => tipo = s.first),
               ),
-              CheckboxListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Já pago/recebido'),
-                value: pago,
-                onChanged: (v) => setState(() => pago = v ?? true),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancelar'),
+              ),
+              FilledButton(
+                onPressed: () async {
+                  final centavos = centavosDeTexto(valor.text);
+                  if (descricao.text.trim().isEmpty || centavos == null) return;
+                  if (repeticao == 'parcelada') {
+                    final n = int.tryParse(parcelas.text.trim());
+                    if (n == null || n < 2 || n > 120) return;
+                    await banco.inserirParcelado(
+                      descricao: descricao.text.trim(),
+                      valorParcelaCentavos: centavos,
+                      tipo: tipo,
+                      parcelas: n,
+                      primeiroDia: DateTime.now(),
+                      contaId: contaId,
+                      categoriaId: categoriaId,
+                    );
+                  } else {
+                    await banco.inserirLancamento(
+                      descricao: descricao.text.trim(),
+                      valorCentavos: centavos,
+                      tipo: tipo,
+                      pago: pago,
+                      contaId: contaId,
+                      categoriaId: categoriaId,
+                      recorrencia: repeticao == 'fixa' ? 'FREQ=MONTHLY' : null,
+                    );
+                  }
+                  if (context.mounted) Navigator.pop(context);
+                },
+                child: const Text('Salvar'),
               ),
             ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancelar'),
-            ),
-            FilledButton(
-              onPressed: () async {
-                final centavos = centavosDeTexto(valor.text);
-                if (descricao.text.trim().isEmpty || centavos == null) return;
-                await banco.inserirLancamento(
-                  descricao: descricao.text.trim(),
-                  valorCentavos: centavos,
-                  tipo: tipo,
-                  pago: pago,
-                );
-                if (context.mounted) Navigator.pop(context);
-              },
-              child: const Text('Salvar'),
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }

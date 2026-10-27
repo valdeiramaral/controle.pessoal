@@ -42,6 +42,9 @@ Fonte: `git log` (41 commits até `8dda663`). Hash entre parênteses.
 ## Fase 6 — Documentação e backup
 - Esta pasta `docs/`, geradores automáticos e `backup.bat`/`backup.ps1`.
 
+## Fase 7 — Dashboard de Finanças
+- Aba Dashboard em Finanças no layout de referência (saldos, ranking, visão geral, contas, orçamentos, recorrência), cálculos em `core/dashboard.dart`, orçamentos/contas/categorias e lançamentos com categoria e recorrência.
+
 ## Pendências conhecidas
 - Rodar `testar.bat` (testes Flutter novos), aplicar migração `2026-10-28_liberacao_modulo_validade.sql` e reconstruir a imagem da API.
 - Importar lançamentos locais antigos "órfãos" para a conta do SuperUsuário (opcional).

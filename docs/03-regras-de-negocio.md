@@ -25,3 +25,6 @@ Nome, e-mail e **Sair** aparecem ao lado da conta em todas as telas. Tela inicia
 
 ## Dados
 Todas as tabelas de dados do usuário têm `id` (UUID do aparelho), `usuario_id`, `criado_em`, `atualizado_em`, `excluido_em`. Detalhes de cada objeto em `05-banco-objetos.md`; rotas em `04-api-rotas.md`.
+
+## Finanças — dashboard
+Ver tabela de regras em `06-telas-e-funcoes-do-app.md` (seção Dashboard de Finanças). Valores em centavos; só registros ativos (`excluido_em` nulo); transferência não conta como receita/despesa; recorrência: fixa = tem `recorrencia`, parcelada = tem `parcela_total`, variável = demais; orçamento é único por categoria e mês (dia 1).
