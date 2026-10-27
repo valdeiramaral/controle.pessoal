@@ -203,20 +203,22 @@ class CartaoAuth extends StatelessWidget {
   }
 }
 
-/// Campo preenchido, sem borda ate receber foco.
+/// Campo preenchido, sem borda ate receber foco. O rotulo flutua DENTRO do preenchimento
+/// (borda do tipo "underline" com cantos arredondados), para nao ficar sobre a borda do campo.
 InputDecoration decoracaoCampo(BuildContext context, String rotulo, IconData icone, {Widget? sufixo}) {
   final cores = Theme.of(context).colorScheme;
-  OutlineInputBorder borda(Color cor, [double largura = 1]) => OutlineInputBorder(
+  final escuro = Theme.of(context).brightness == Brightness.dark;
+  InputBorder borda(Color cor, [double largura = 1]) => UnderlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide(color: cor, width: largura),
+        borderSide: cor == Colors.transparent ? BorderSide.none : BorderSide(color: cor, width: largura),
       );
   return InputDecoration(
     labelText: rotulo,
     prefixIcon: Icon(icone),
     suffixIcon: sufixo,
     filled: true,
-    fillColor: cores.surfaceContainerHighest.withValues(alpha: 0.45),
-    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+    fillColor: escuro ? cores.surfaceContainerHighest.withValues(alpha: 0.45) : const Color(0xFFEFF2F8),
+    contentPadding: const EdgeInsets.fromLTRB(16, 22, 16, 10),
     border: borda(Colors.transparent),
     enabledBorder: borda(Colors.transparent),
     focusedBorder: borda(cores.primary, 2),
