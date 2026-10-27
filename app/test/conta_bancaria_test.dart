@@ -65,6 +65,8 @@ void main() {
       expect(bancoPorCodigo('999').nome, 'Outro banco');
       expect(bancoPorCodigo(null).codigo, codigoOutroBanco);
       expect(catalogoBancos.map((b) => b.codigo).toSet().length, catalogoBancos.length);
+      expect(catalogoBancos.length, greaterThan(400)); // lista completa Febraban + Outro banco
+      expect(bancoPorCodigo('070').nome, isNot('Outro banco')); // BRB
     });
   });
 
@@ -199,6 +201,46 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('erro_conta')), findsOneWidget);
       expect((await banco.select(banco.contas).get()).where((x) => x.banco == '341').length, 1);
+      expect(tester.takeException(), isNull);
+      await encerrar(tester);
+    });
+
+    testWidgets('banco: busca na lista Febraban e cadastra banco que nao consta', (tester) async {
+      tester.view.physicalSize = const Size(800, 1800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(app(banco, const ContasPage()));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('botao_adicionar_conta')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('campo_titularidade')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Sim, a conta é minha').last);
+      await tester.pumpAndSettle();
+
+      // Busca por codigo acha um banco fora dos destaques (070 = BRB).
+      await tester.tap(find.byKey(const Key('campo_banco')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(const Key('busca_banco')), '070');
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('banco_070')), findsOneWidget);
+      expect(find.byKey(const Key('banco_341')), findsNothing);
+
+      // Banco fora da lista: pede o nome do banco.
+      await tester.enterText(find.byKey(const Key('busca_banco')), 'zzzz');
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('banco_000')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('campo_nome_banco')), findsOneWidget);
+      await tester.enterText(find.byKey(const Key('campo_nome_banco')), 'Banco do Vilarejo');
+      await tester.enterText(find.byKey(const Key('campo_agencia')), '12');
+      await tester.enterText(find.byKey(const Key('campo_numero')), '99887');
+      await tester.tap(find.byKey(const Key('botao_salvar_conta')));
+      await tester.pumpAndSettle();
+
+      final c = (await banco.select(banco.contas).get()).firstWhere((x) => x.banco == codigoOutroBanco);
+      expect(c.nome, 'Banco do Vilarejo');
+      expect(tituloDaConta(c), 'Banco do Vilarejo');
       expect(tester.takeException(), isNull);
       await encerrar(tester);
     });

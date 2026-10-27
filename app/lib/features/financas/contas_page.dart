@@ -9,7 +9,7 @@ import 'conta_detalhe_page.dart';
 import 'conta_form_page.dart';
 
 /// Nome de exibicao da conta: nome do banco (ou o nome da conta, se nao for bancaria).
-String tituloDaConta(Conta c) => c.banco == null ? c.nome : bancoPorCodigo(c.banco).nome;
+String tituloDaConta(Conta c) => c.banco == null || c.banco == codigoOutroBanco ? c.nome : bancoPorCodigo(c.banco).nome;
 
 String nomeDoTipoConta(String tipo) => switch (tipo) {
       'corrente' => 'Conta corrente',

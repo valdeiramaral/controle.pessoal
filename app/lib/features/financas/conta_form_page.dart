@@ -26,6 +26,7 @@ class _ContaFormPageState extends ConsumerState<ContaFormPage> {
   late final TextEditingController _documento;
   late final TextEditingController _pix;
   late final TextEditingController _apelido;
+  late final TextEditingController _nomeBanco;
   late final TextEditingController _saldo;
   String? _titularidade;
   String? _banco;
@@ -45,6 +46,7 @@ class _ContaFormPageState extends ConsumerState<ContaFormPage> {
     _documento = TextEditingController(text: formatarCpfOuCnpj(c?.documento));
     _pix = TextEditingController(text: c?.chavePix ?? '');
     _apelido = TextEditingController(text: c?.apelido ?? (c != null && c.banco == null ? c.nome : ''));
+    _nomeBanco = TextEditingController(text: c != null && c.banco == codigoOutroBanco ? c.nome : '');
     _saldo = TextEditingController(
         text: c == null || c.saldoInicialCentavos == 0 ? '' : (c.saldoInicialCentavos / 100).toStringAsFixed(2).replaceAll('.', ','));
     _titularidade = c?.titularidade;
@@ -54,7 +56,7 @@ class _ContaFormPageState extends ConsumerState<ContaFormPage> {
 
   @override
   void dispose() {
-    for (final c in [_agencia, _numero, _documento, _pix, _apelido, _saldo]) {
+    for (final c in [_agencia, _numero, _documento, _pix, _apelido, _nomeBanco, _saldo]) {
       c.dispose();
     }
     super.dispose();
@@ -82,7 +84,9 @@ class _ContaFormPageState extends ConsumerState<ContaFormPage> {
         setState(() => _erro = 'Já existe uma conta cadastrada com este banco, agência e número.');
         return;
       }
-      final nome = apelido.isNotEmpty ? apelido : bancoPorCodigo(codigo).nome;
+      final nome = codigo == codigoOutroBanco
+          ? _nomeBanco.text.trim()
+          : (apelido.isNotEmpty ? apelido : bancoPorCodigo(codigo).nome);
       final doc = soDigitos(_documento.text);
       final pix = _pix.text.trim();
       if (_editando) {
@@ -164,25 +168,52 @@ class _ContaFormPageState extends ConsumerState<ContaFormPage> {
                   onChanged: (v) => setState(() => _titularidade = v),
                 ),
                 const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
+                FormField<String>(
                   key: const Key('campo_banco'),
-                  value: _banco,
-                  isExpanded: true,
-                  decoration: const InputDecoration(labelText: 'Banco', hintText: 'Escolha o banco'),
-                  items: [
-                    for (final b in catalogoBancos)
-                      DropdownMenuItem(
-                        value: b.codigo,
-                        child: Row(children: [
-                          SeloBanco(b.codigo, raio: 12),
-                          const SizedBox(width: 10),
-                          Expanded(child: Text(b.codigo == codigoOutroBanco ? b.nome : '${b.codigo} · ${b.nome}')),
-                        ]),
+                  initialValue: _banco,
+                  validator: (v) => _banco == null ? 'Escolha o banco' : null,
+                  builder: (campo) => InkWell(
+                    borderRadius: BorderRadius.circular(12),
+                    onTap: () async {
+                      final escolhido = await escolherBanco(context, _banco);
+                      if (escolhido != null) {
+                        setState(() => _banco = escolhido);
+                        campo.didChange(escolhido);
+                      }
+                    },
+                    child: InputDecorator(
+                      isEmpty: _banco == null,
+                      decoration: InputDecoration(
+                        labelText: 'Banco',
+                        hintText: 'Escolha o banco',
+                        errorText: campo.errorText,
+                        suffixIcon: const Icon(Icons.arrow_drop_down),
                       ),
-                  ],
-                  validator: (v) => v == null ? 'Escolha o banco' : null,
-                  onChanged: (v) => setState(() => _banco = v),
+                      child: _banco == null
+                          ? const SizedBox.shrink()
+                          : Row(children: [
+                              SeloBanco(_banco, raio: 12),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                  child: Text(
+                                      _banco == codigoOutroBanco
+                                          ? bancoPorCodigo(_banco).nome
+                                          : '${_banco!} · ${bancoPorCodigo(_banco).nome}',
+                                      overflow: TextOverflow.ellipsis)),
+                            ]),
+                    ),
+                  ),
                 ),
+                if (_banco == codigoOutroBanco) ...[
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    key: const Key('campo_nome_banco'),
+                    controller: _nomeBanco,
+                    textCapitalization: TextCapitalization.words,
+                    decoration: const InputDecoration(labelText: 'Nome do banco', hintText: 'Banco que não está na lista'),
+                    validator: (v) => (v ?? '').trim().length < 2 ? 'Informe o nome do banco' : null,
+                  ),
+                ],
                 const SizedBox(height: 12),
                 Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Expanded(
@@ -231,10 +262,10 @@ class _ContaFormPageState extends ConsumerState<ContaFormPage> {
                 key: const Key('campo_apelido'),
                 controller: _apelido,
                 decoration: InputDecoration(
-                  labelText: _dinheiro || _banco == codigoOutroBanco ? 'Nome da conta' : 'Apelido para a conta (opcional)',
+                  labelText: _dinheiro ? 'Nome da conta' : 'Apelido para a conta (opcional)',
                   hintText: 'Insira um apelido',
                 ),
-                validator: (v) => (_dinheiro || _banco == codigoOutroBanco) && (v ?? '').trim().isEmpty
+                validator: (v) => _dinheiro && (v ?? '').trim().isEmpty
                     ? 'Informe um nome para a conta'
                     : null,
               ),
@@ -260,6 +291,72 @@ class _ContaFormPageState extends ConsumerState<ContaFormPage> {
             ])),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Lista pesquisavel com todos os bancos (codigo ou nome). Devolve o codigo escolhido.
+Future<String?> escolherBanco(BuildContext context, String? atual) {
+  return showDialog<String>(
+    context: context,
+    builder: (c) => const _EscolherBanco(),
+  );
+}
+
+class _EscolherBanco extends StatefulWidget {
+  const _EscolherBanco();
+  @override
+  State<_EscolherBanco> createState() => _EscolherBancoState();
+}
+
+class _EscolherBancoState extends State<_EscolherBanco> {
+  String _busca = '';
+
+  String _norm(String s) => s
+      .toLowerCase()
+      .replaceAll(RegExp('[áàâã]'), 'a')
+      .replaceAll(RegExp('[éê]'), 'e')
+      .replaceAll('í', 'i')
+      .replaceAll(RegExp('[óôõ]'), 'o')
+      .replaceAll(RegExp('[úü]'), 'u')
+      .replaceAll('ç', 'c');
+
+  @override
+  Widget build(BuildContext context) {
+    final q = _norm(_busca.trim());
+    final lista = [
+      for (final b in catalogoBancos)
+        if (b.codigo == codigoOutroBanco || q.isEmpty || _norm('${b.codigo} ${b.nome}').contains(q)) b,
+    ];
+    return Dialog(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 460, maxHeight: 560),
+        child: Column(children: [
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: TextField(
+              key: const Key('busca_banco'),
+              autofocus: true,
+              decoration: const InputDecoration(prefixIcon: Icon(Icons.search), hintText: 'Buscar banco por nome ou código'),
+              onChanged: (v) => setState(() => _busca = v),
+            ),
+          ),
+          Expanded(
+            child: ListView.builder(
+              itemCount: lista.length,
+              itemBuilder: (_, i) {
+                final b = lista[i];
+                return ListTile(
+                  key: Key('banco_${b.codigo}'),
+                  leading: SeloBanco(b.codigo, raio: 14),
+                  title: Text(b.codigo == codigoOutroBanco ? 'Outro banco (não está na lista)' : '${b.codigo} · ${b.nome}'),
+                  onTap: () => Navigator.pop(context, b.codigo),
+                );
+              },
+            ),
+          ),
+        ]),
       ),
     );
   }
