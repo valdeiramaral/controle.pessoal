@@ -40,4 +40,4 @@ Regras:
 - Contas **externas** não têm saldo e não entram no saldo total, no dashboard nem na escolha de conta do lançamento.
 - Exclusão é lógica; é **recusada** para a conta padrão (Carteira) e para contas com lançamentos.
 - Banco local: `schemaVersion 2` (migração adiciona `titularidade, banco, agencia, numero_conta, documento, chave_pix, apelido`); servidor: `banco/migracoes/2026-10-27_conta_bancaria.sql`.
-- "Outro banco" exige um nome (apelido).
+- "Novo banco" (primeiro da lista) permite cadastrar um banco fora da lista Febraban e exige o nome do banco.

@@ -62,11 +62,12 @@ void main() {
 
     test('catalogo de bancos', () {
       expect(bancoPorCodigo('341').nome, 'Itaú');
-      expect(bancoPorCodigo('999').nome, 'Outro banco');
+      expect(bancoPorCodigo('999').nome, 'Novo banco');
       expect(bancoPorCodigo(null).codigo, codigoOutroBanco);
       expect(catalogoBancos.map((b) => b.codigo).toSet().length, catalogoBancos.length);
-      expect(catalogoBancos.length, greaterThan(400)); // lista completa Febraban + Outro banco
-      expect(bancoPorCodigo('070').nome, isNot('Outro banco')); // BRB
+      expect(catalogoBancos.length, greaterThan(400)); // lista completa Febraban + Novo banco
+      expect(catalogoBancos.first.codigo, codigoOutroBanco); // Novo banco e o primeiro
+      expect(bancoPorCodigo('070').nome, isNot('Novo banco')); // BRB
     });
   });
 

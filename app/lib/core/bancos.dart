@@ -37,13 +37,13 @@ const _destaques = <BancoCatalogo>[
 ];
 
 /// Todos os bancos da lista COMPE/Febraban (os destaques primeiro, depois os demais por codigo)
-/// e, no fim, "Outro banco" para quem nao consta na lista.
+/// e, no inicio, "Novo banco" para quem nao consta na lista.
 final catalogoBancos = <BancoCatalogo>[
+  const BancoCatalogo(codigoOutroBanco, 'Novo banco', '+', Color(0xFF607D8B)),
   ..._destaques,
   for (final (codigo, nome) in bancosFebraban)
     if (!_destaques.any((d) => d.codigo == codigo))
       BancoCatalogo(codigo, nome, _sigla(nome), _corDoCodigo(codigo)),
-  const BancoCatalogo(codigoOutroBanco, 'Outro banco', '?', Color(0xFF607D8B)),
 ];
 
 String _sigla(String nome) {
@@ -58,9 +58,9 @@ Color _corDoCodigo(String codigo) {
   return HSLColor.fromAHSL(1, (n * 47) % 360, .45, .32).toColor();
 }
 
-/// Banco pelo codigo; codigos desconhecidos/nulos caem em "Outro banco".
+/// Banco pelo codigo; codigos desconhecidos/nulos caem em "Novo banco".
 BancoCatalogo bancoPorCodigo(String? codigo) =>
-    catalogoBancos.firstWhere((b) => b.codigo == codigo, orElse: () => catalogoBancos.last);
+    catalogoBancos.firstWhere((b) => b.codigo == codigo, orElse: () => catalogoBancos.first);
 
 /// Selo redondo do banco (sigla sobre a cor da marca).
 class SeloBanco extends StatelessWidget {

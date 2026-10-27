@@ -350,7 +350,7 @@ class _EscolherBancoState extends State<_EscolherBanco> {
                 return ListTile(
                   key: Key('banco_${b.codigo}'),
                   leading: SeloBanco(b.codigo, raio: 14),
-                  title: Text(b.codigo == codigoOutroBanco ? 'Outro banco (não está na lista)' : '${b.codigo} · ${b.nome}'),
+                  title: Text(b.codigo == codigoOutroBanco ? 'Novo banco (cadastrar um que não está na lista)' : '${b.codigo} · ${b.nome}'),
                   onTap: () => Navigator.pop(context, b.codigo),
                 );
               },
