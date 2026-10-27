@@ -66,6 +66,7 @@ void main() {
       expect(bancoPorCodigo(null).codigo, codigoOutroBanco);
       expect(catalogoBancos.map((b) => b.codigo).toSet().length, catalogoBancos.length);
       expect(catalogoBancos.length, greaterThan(400)); // lista completa Febraban + Novo banco
+      expect(bancosComLogo, containsAll(['341', '237', '001', '104', '033', '260']));
       expect(catalogoBancos.first.codigo, codigoOutroBanco); // Novo banco e o primeiro
       expect(bancoPorCodigo('070').nome, isNot('Novo banco')); // BRB
     });

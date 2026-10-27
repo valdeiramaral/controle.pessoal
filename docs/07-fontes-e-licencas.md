@@ -23,3 +23,4 @@
 Material Icons (Google) — Apache License 2.0, 91 ícones em `core/icones_modulo.dart`.
 
 Licenças exatas: conferir `LICENSE` de cada pacote (`npm ls`, `flutter pub deps`).
+- Logos dos bancos: ver docs/logos-bancos-aviso.md (marcas das instituicoes, uso nominativo).
