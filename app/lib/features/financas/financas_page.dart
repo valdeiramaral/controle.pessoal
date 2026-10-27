@@ -6,6 +6,7 @@ import '../nav/menu_lateral.dart';
 import '../../core/calculos.dart';
 import '../../core/formatos.dart';
 import '../../data/local/banco.dart';
+import 'contas_page.dart';
 import 'dashboard_page.dart';
 
 class FinancasPage extends ConsumerWidget {
@@ -15,18 +16,20 @@ class FinancasPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final banco = ref.watch(bancoProvider);
     return DefaultTabController(
-      length: 2,
+      length: 3,
       child: Scaffold(
         appBar: const BarraPagina(title: Text('Finanças')),
         body: Column(children: [
           const TabBar(tabs: [
             Tab(key: Key('aba_dashboard'), icon: Icon(Icons.dashboard_outlined), text: 'Dashboard'),
             Tab(key: Key('aba_lancamentos'), icon: Icon(Icons.receipt_long_outlined), text: 'Lançamentos'),
+            Tab(key: Key('aba_contas'), icon: Icon(Icons.account_balance_outlined), text: 'Contas'),
           ]),
           Expanded(
             child: TabBarView(children: [
               const DashboardFinancas(),
               _lista(context, banco),
+              const ContasPage(),
             ]),
           ),
         ]),
@@ -108,7 +111,7 @@ class FinancasPage extends ConsumerWidget {
     var tipo = 'despesa';
     var pago = true;
     var repeticao = 'variavel'; // variavel | fixa | parcelada
-    final contas = await (banco.select(banco.contas)..where((c) => c.excluidoEm.isNull())).get();
+    final contas = await (banco.select(banco.contas)..where((c) => c.excluidoEm.isNull() & c.titularidade.equals('externa').not())).get();
     final categorias = await (banco.select(banco.categorias)..where((c) => c.excluidoEm.isNull())).get();
     String? contaId = contas.isEmpty ? null : contas.first.id;
     String? categoriaId;
@@ -149,7 +152,7 @@ class FinancasPage extends ConsumerWidget {
                     DropdownButtonFormField<String>(
                       value: contaId,
                       decoration: const InputDecoration(labelText: 'Conta'),
-                      items: [for (final c in contas) DropdownMenuItem(value: c.id, child: Text(c.nome))],
+                      items: [for (final c in contas) DropdownMenuItem(value: c.id, child: Text(tituloDaConta(c) == c.nome ? c.nome : '${tituloDaConta(c)} · ${c.nome}'))],
                       onChanged: (v) => setState(() => contaId = v),
                     ),
                   if (cats.isNotEmpty)

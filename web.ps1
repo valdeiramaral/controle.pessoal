@@ -47,6 +47,9 @@ if (Test-Path $arqEnv) {
 }
 Push-Location (Join-Path $raiz "app")
 try {
+    # Regenera o codigo do banco local (necessario quando as tabelas mudam).
+    dart run build_runner build --delete-conflicting-outputs
+    if ($LASTEXITCODE -ne 0) { Write-Host 'build_runner falhou. Veja a mensagem acima.' -ForegroundColor Red; exit 1 }
     flutter run -d chrome --web-port $Porta @defines
 } finally {
     Pop-Location

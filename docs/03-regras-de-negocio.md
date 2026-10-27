@@ -28,3 +28,6 @@ Todas as tabelas de dados do usuário têm `id` (UUID do aparelho), `usuario_id`
 
 ## Finanças — dashboard
 Ver tabela de regras em `06-telas-e-funcoes-do-app.md` (seção Dashboard de Finanças). Valores em centavos; só registros ativos (`excluido_em` nulo); transferência não conta como receita/despesa; recorrência: fixa = tem `recorrencia`, parcelada = tem `parcela_total`, variável = demais; orçamento é único por categoria e mês (dia 1).
+
+## Finanças — contas bancárias
+Titularidade `propria` (do usuário; tem saldo) ou `externa` (de terceiros; só cadastro, fora de saldos e lançamentos). Banco/agência/número únicos entre contas ativas. Documento (CPF/CNPJ) guardado só com dígitos. Conta padrão e contas com lançamentos não podem ser excluídas. Detalhes em `06-telas-e-funcoes-do-app.md`; colunas em `05-banco-objetos.md` (tabela `conta`).

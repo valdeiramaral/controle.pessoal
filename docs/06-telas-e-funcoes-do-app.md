@@ -27,3 +27,17 @@ Aba **Dashboard** do módulo Finanças (ao lado da aba **Lançamentos**), com na
 | Despesas por recorrência | Rosca: **Fixas** (lançamento com recorrência), **Parceladas** (com parcelas), **Variáveis** (demais) |
 
 Transferências não entram em receitas nem despesas. O menu ⋮ também cria contas e categorias. O diálogo "Novo lançamento" agora aceita conta, categoria e recorrência (variável, fixa mensal ou parcelada, que cria uma parcela por mês).
+
+## Contas bancárias (`features/financas/contas_page.dart`, `conta_form_page.dart`, `conta_detalhe_page.dart`)
+Aba **Contas** de Finanças, em três telas:
+1. **Lista** — "Minhas contas" (cartões com banco, agência, conta e saldo) e "Contas externas" (só cadastro, sem saldo); botão **Adicionar conta**.
+2. **Adicionar/Editar conta** — tipo (corrente, poupança, cartão, dinheiro), "Conta de minha titularidade?", banco (catálogo de 19 opções em `core/bancos.dart`, selo colorido com sigla, sem logotipos), agência, conta, CPF/CNPJ (opcional), chave PIX (opcional), apelido (opcional) e saldo inicial (só contas próprias). Tipo "Dinheiro" esconde os dados bancários e exige um nome.
+3. **Gerenciar conta** — mostra os dados, botão **Editar** e lixeira para excluir.
+
+Regras:
+- Agência: 1–5 dígitos (+ `-dígito`); conta: 1–12 dígitos (+ `-dígito`); CPF/CNPJ com dígitos verificadores corretos; PIX: CPF/CNPJ, celular, e-mail ou chave aleatória (`core/conta_validacao.dart`).
+- Não permite duas contas ativas com o mesmo banco + agência + número.
+- Contas **externas** não têm saldo e não entram no saldo total, no dashboard nem na escolha de conta do lançamento.
+- Exclusão é lógica; é **recusada** para a conta padrão (Carteira) e para contas com lançamentos.
+- Banco local: `schemaVersion 2` (migração adiciona `titularidade, banco, agencia, numero_conta, documento, chave_pix, apelido`); servidor: `banco/migracoes/2026-10-27_conta_bancaria.sql`.
+- "Outro banco" exige um nome (apelido).

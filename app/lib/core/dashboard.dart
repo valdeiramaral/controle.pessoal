@@ -112,7 +112,8 @@ DadosDashboard calcularDashboard({
   required DateTime mes,
   required DateTime hoje,
 }) {
-  final cs = contas.where((c) => c.excluidoEm == null).toList();
+  // Contas externas (de terceiros) so existem no cadastro: nao entram nos saldos.
+  final cs = contas.where((c) => c.excluidoEm == null && c.titularidade != 'externa').toList();
   final ls = lancamentos.where((l) => l.excluidoEm == null && (l.tipo == 'receita' || l.tipo == 'despesa')).toList();
   final cats = {for (final c in categorias.where((c) => c.excluidoEm == null)) c.id: c};
   final cartoes = {for (final c in cs.where((c) => c.tipo == 'cartao')) c.id};

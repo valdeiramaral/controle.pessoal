@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/dashboard.dart';
 import '../../core/formatos.dart';
 import '../../data/local/banco.dart';
+import 'contas_page.dart';
 
 const _meses = [
   'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
@@ -144,7 +145,7 @@ class _DashboardFinancasState extends ConsumerState<DashboardFinancas> {
         onSelected: (v) {
           switch (v) {
             case 'conta':
-              _novaConta(context, banco);
+              abrirFormularioConta(context);
             case 'categoria':
               _novaCategoria(context, banco);
             case 'orcamento':
@@ -158,53 +159,6 @@ class _DashboardFinancasState extends ConsumerState<DashboardFinancas> {
         ],
       ),
     ]);
-  }
-
-  Future<void> _novaConta(BuildContext context, Banco banco) async {
-    final nome = TextEditingController();
-    final saldo = TextEditingController();
-    var tipo = 'corrente';
-    await showDialog<void>(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
-          title: const Text('Nova conta'),
-          content: Column(mainAxisSize: MainAxisSize.min, children: [
-            TextField(controller: nome, decoration: const InputDecoration(labelText: 'Nome')),
-            const SizedBox(height: 8),
-            DropdownButtonFormField<String>(
-              value: tipo,
-              decoration: const InputDecoration(labelText: 'Tipo'),
-              items: const [
-                DropdownMenuItem(value: 'corrente', child: Text('Conta corrente')),
-                DropdownMenuItem(value: 'poupanca', child: Text('Poupança')),
-                DropdownMenuItem(value: 'dinheiro', child: Text('Dinheiro')),
-                DropdownMenuItem(value: 'cartao', child: Text('Cartão de crédito')),
-              ],
-              onChanged: (v) => setState(() => tipo = v ?? tipo),
-            ),
-            TextField(
-              controller: saldo,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(labelText: 'Saldo inicial (R\$)'),
-            ),
-          ]),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
-            FilledButton(
-              onPressed: () async {
-                if (nome.text.trim().isEmpty) return;
-                final centavos = saldo.text.trim().isEmpty ? 0 : centavosDeTexto(saldo.text);
-                if (centavos == null) return;
-                await banco.inserirConta(nome: nome.text.trim(), tipo: tipo, saldoInicialCentavos: centavos);
-                if (context.mounted) Navigator.pop(context);
-              },
-              child: const Text('Salvar'),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 
   Future<void> _novaCategoria(BuildContext context, Banco banco) async {

@@ -45,7 +45,7 @@ class Banco extends _$Banco {
   Banco.paraTeste(super.e);
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -56,6 +56,18 @@ class Banco extends _$Banco {
             nome: 'Carteira',
             tipo: 'dinheiro',
           ));
+        },
+        onUpgrade: (m, de, para) async {
+          if (de < 2) {
+            // v2: dados bancarios na conta.
+            await m.addColumn(contas, contas.titularidade);
+            await m.addColumn(contas, contas.banco);
+            await m.addColumn(contas, contas.agencia);
+            await m.addColumn(contas, contas.numeroConta);
+            await m.addColumn(contas, contas.documento);
+            await m.addColumn(contas, contas.chavePix);
+            await m.addColumn(contas, contas.apelido);
+          }
         },
       );
 
@@ -159,10 +171,18 @@ class Banco extends _$Banco {
     return id;
   }
 
+  /// Cria uma conta (bancaria ou nao). [titularidade]: 'propria' ou 'externa'.
   Future<String> inserirConta({
     required String nome,
     String tipo = 'corrente',
     int saldoInicialCentavos = 0,
+    String titularidade = 'propria',
+    String? banco,
+    String? agencia,
+    String? numeroConta,
+    String? documento,
+    String? chavePix,
+    String? apelido,
   }) async {
     final id = _uuid.v4();
     await into(contas).insert(ContasCompanion.insert(
@@ -170,8 +190,81 @@ class Banco extends _$Banco {
       nome: nome,
       tipo: tipo,
       saldoInicialCentavos: Value(saldoInicialCentavos),
+      titularidade: Value(titularidade),
+      banco: Value(banco),
+      agencia: Value(agencia),
+      numeroConta: Value(numeroConta),
+      documento: Value(documento),
+      chavePix: Value(chavePix),
+      apelido: Value(apelido),
     ));
     return id;
+  }
+
+  Future<void> atualizarConta(
+    String id, {
+    required String nome,
+    required String tipo,
+    required int saldoInicialCentavos,
+    required String titularidade,
+    String? banco,
+    String? agencia,
+    String? numeroConta,
+    String? documento,
+    String? chavePix,
+    String? apelido,
+  }) =>
+      (update(contas)..where((c) => c.id.equals(id))).write(ContasCompanion(
+        nome: Value(nome),
+        tipo: Value(tipo),
+        saldoInicialCentavos: Value(saldoInicialCentavos),
+        titularidade: Value(titularidade),
+        banco: Value(banco),
+        agencia: Value(agencia),
+        numeroConta: Value(numeroConta),
+        documento: Value(documento),
+        chavePix: Value(chavePix),
+        apelido: Value(apelido),
+        atualizadoEm: Value(DateTime.now()),
+      ));
+
+  /// Ja existe outra conta (ativa) com o mesmo banco, agencia e numero?
+  Future<bool> existeContaBancaria({
+    required String banco,
+    required String agencia,
+    required String numeroConta,
+    String? ignorarId,
+  }) async {
+    final q = select(contas)
+      ..where((c) =>
+          c.excluidoEm.isNull() &
+          c.banco.equals(banco) &
+          c.agencia.equals(agencia) &
+          c.numeroConta.equals(numeroConta));
+    final achadas = await q.get();
+    return achadas.any((c) => c.id != ignorarId);
+  }
+
+  Stream<Conta?> observarConta(String id) =>
+      (select(contas)..where((c) => c.id.equals(id) & c.excluidoEm.isNull())).watchSingleOrNull();
+
+  Future<int> contarLancamentosDaConta(String id) async {
+    final n = countAll();
+    final q = selectOnly(lancamentos)
+      ..addColumns([n])
+      ..where(lancamentos.contaId.equals(id) & lancamentos.excluidoEm.isNull());
+    return (await q.getSingle()).read(n) ?? 0;
+  }
+
+  /// Exclusao logica. Recusa (retorna o motivo) a conta padrao e contas com lancamentos; null = excluida.
+  Future<String?> excluirConta(String id) async {
+    if (id == contaPadraoId) return 'A conta padrão (Carteira) não pode ser excluída.';
+    final n = await contarLancamentosDaConta(id);
+    if (n > 0) return 'Esta conta tem $n lançamento(s). Exclua ou mude os lançamentos antes.';
+    await (update(contas)..where((c) => c.id.equals(id))).write(
+      ContasCompanion(excluidoEm: Value(DateTime.now()), atualizadoEm: Value(DateTime.now())),
+    );
+    return null;
   }
 
   /// Define (ou troca) o limite mensal de uma categoria; [mes] e normalizado para o dia 1.

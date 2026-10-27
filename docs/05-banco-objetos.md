@@ -23,7 +23,7 @@ Extensoes instaladas: plpgsql 1.0.
 | [`categoria`](#categoria) | 9 | sim |  |
 | [`configuracao`](#configuracao) | 2 | sim |  |
 | [`consulta`](#consulta) | 13 | sim |  |
-| [`conta`](#conta) | 10 | sim |  |
+| [`conta`](#conta) | 17 | sim |  |
 | [`documento`](#documento) | 11 | sim |  |
 | [`evento`](#evento) | 16 | sim |  |
 | [`grupo`](#grupo) | 5 | sim |  |
@@ -157,12 +157,21 @@ Seguranca por linha (RLS):
 | `saldo_inicial` | numeric(14,2) | sim | 0 |  |
 | `dia_fechamento` | smallint | nao |  |  |
 | `dia_vencimento` | smallint | nao |  |  |
+| `titularidade` | text | sim | 'propria'::text |  |
+| `banco` | text | nao |  |  |
+| `agencia` | text | nao |  |  |
+| `numero_conta` | text | nao |  |  |
+| `documento` | text | nao |  |  |
+| `chave_pix` | text | nao |  |  |
+| `apelido` | text | nao |  |  |
 | `criado_em` | timestamp with time zone | sim | now() |  |
 | `atualizado_em` | timestamp with time zone | sim | now() |  |
 | `excluido_em` | timestamp with time zone | nao |  |  |
 
 Restricoes:
 
+- **Regra (CHECK)** `ck_conta_documento`: `CHECK (((documento IS NULL) OR (documento ~ '^[0-9]{11}$\|^[0-9]{14}$'::text)))`
+- **Regra (CHECK)** `ck_conta_titularidade`: `CHECK ((titularidade = ANY (ARRAY['propria'::text, 'externa'::text])))`
 - **Regra (CHECK)** `conta_dia_fechamento_check`: `CHECK (((dia_fechamento >= 1) AND (dia_fechamento <= 31)))`
 - **Regra (CHECK)** `conta_dia_vencimento_check`: `CHECK (((dia_vencimento >= 1) AND (dia_vencimento <= 31)))`
 - **Chave estrangeira** `conta_usuario_id_fkey`: `FOREIGN KEY (usuario_id) REFERENCES controle.usuario(id)`

@@ -20,6 +20,26 @@ bool cpfValido(String? texto) {
   return dv(9) == int.parse(c[9]) && dv(10) == int.parse(c[10]);
 }
 
+/// CNPJ com 14 digitos, digitos verificadores corretos e sem sequencia repetida.
+bool cnpjValido(String? texto) {
+  final c = soDigitos(texto);
+  if (c.length != 14 || RegExp(r'^(\d)\1{13}$').hasMatch(c)) return false;
+  int dv(int n) {
+    const pesos = [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+    var s = 0;
+    for (var i = 0; i < n; i++) {
+      s += int.parse(c[i]) * pesos[13 - n + i];
+    }
+    final r = s % 11;
+    return r < 2 ? 0 : 11 - r;
+  }
+
+  return dv(12) == int.parse(c[12]) && dv(13) == int.parse(c[13]);
+}
+
+/// CPF (11 digitos) ou CNPJ (14 digitos) valido.
+bool cpfOuCnpjValido(String? texto) => cpfValido(texto) || cnpjValido(texto);
+
 /// Aplica um molde: '#' recebe um digito, qualquer outro caractere e fixo.
 /// Para quando acabam os digitos (nao completa com mascara vazia).
 String aplicarMolde(String digitos, String molde) {
@@ -37,6 +57,14 @@ String aplicarMolde(String digitos, String molde) {
 }
 
 String formatarCpf(String? s) => aplicarMolde(soDigitos(s), '###.###.###-##');
+String formatarCnpj(String? s) => aplicarMolde(soDigitos(s), '##.###.###/####-##');
+
+/// Mostra como CPF (ate 11 digitos) ou CNPJ (mais de 11) enquanto o usuario digita.
+String formatarCpfOuCnpj(String? s) {
+  final d = soDigitos(s);
+  return d.length > 11 ? formatarCnpj(d.length > 14 ? d.substring(0, 14) : d) : formatarCpf(d);
+}
+
 String formatarCep(String? s) => aplicarMolde(soDigitos(s), '#####-###');
 
 /// (11) 98765-4321 (celular) ou (11) 3333-4444 (fixo). Acima de 11 digitos, so os 11 primeiros.
@@ -69,6 +97,7 @@ class MascaraFormatter extends TextInputFormatter {
   final String Function(String) formatar;
 
   static MascaraFormatter cpf() => MascaraFormatter(formatarCpf);
+  static MascaraFormatter cpfOuCnpj() => MascaraFormatter(formatarCpfOuCnpj);
   static MascaraFormatter cep() => MascaraFormatter(formatarCep);
   static MascaraFormatter telefone() => MascaraFormatter(formatarTelefone);
   static MascaraFormatter data() =>

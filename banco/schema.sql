@@ -142,6 +142,14 @@ CREATE TABLE conta (
   -- Campos do cartao de credito (fase 2)
   dia_fechamento  smallint CHECK (dia_fechamento BETWEEN 1 AND 31),
   dia_vencimento  smallint CHECK (dia_vencimento BETWEEN 1 AND 31),
+  -- Dados bancarios: propria (do usuario) ou externa (de terceiros, so cadastro)
+  titularidade    text NOT NULL DEFAULT 'propria' CONSTRAINT ck_conta_titularidade CHECK (titularidade IN ('propria', 'externa')),
+  banco           text,   -- codigo COMPE (ex.: 341) ou 000 = outro banco
+  agencia         text,
+  numero_conta    text,
+  documento       text CONSTRAINT ck_conta_documento CHECK (documento IS NULL OR documento ~ '^[0-9]{11}$|^[0-9]{14}$'), -- CPF/CNPJ so digitos
+  chave_pix       text,
+  apelido         text,
   criado_em       timestamptz NOT NULL DEFAULT now(),
   atualizado_em   timestamptz NOT NULL DEFAULT now(),
   excluido_em     timestamptz

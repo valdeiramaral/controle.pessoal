@@ -45,6 +45,9 @@ Fonte: `git log` (41 commits até `8dda663`). Hash entre parênteses.
 ## Fase 7 — Dashboard de Finanças
 - Aba Dashboard em Finanças no layout de referência (saldos, ranking, visão geral, contas, orçamentos, recorrência), cálculos em `core/dashboard.dart`, orçamentos/contas/categorias e lançamentos com categoria e recorrência.
 
+## Fase 8 — Cadastro de contas bancárias
+- Aba Contas em Finanças (lista, adicionar/editar, gerenciar), catálogo de bancos, validações de agência/conta/CPF/CNPJ/PIX, contas próprias × externas, migração do banco local (v2) e do servidor; testes do esquema corrigidos para a regra "módulo do pacote".
+
 ## Pendências conhecidas
 - Rodar `testar.bat` (testes Flutter novos), aplicar migração `2026-10-28_liberacao_modulo_validade.sql` e reconstruir a imagem da API.
 - Importar lançamentos locais antigos "órfãos" para a conta do SuperUsuário (opcional).

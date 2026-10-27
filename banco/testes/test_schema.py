@@ -383,11 +383,16 @@ def main():
           novo() + "INSERT INTO liberacao_modulo (modulo_codigo, usuario_id, concedida) VALUES ('financas', %s, false);\n"
                    "SELECT modulo_liberado(%s, 'financas')::text || (SELECT count(*) FROM permissoes_do_usuario(%s) p WHERE p LIKE 'financas.%%');"
                    % (ID, ID, ID), valor="false0")
-    teste("sem liberacao do plano o modulo fecha",
+    teste("modulo do pacote vale para todos sem liberacao",
           novo() + "DELETE FROM liberacao_modulo WHERE plano_codigo='gratuito' AND modulo_codigo='saude';\n"
+                   "SELECT modulo_liberado(%s, 'saude');" % ID, valor="t")
+    teste("fora do pacote e sem liberacao o modulo fecha",
+          novo() + "UPDATE modulo SET no_pacote=false WHERE codigo='saude';\n"
+                   "DELETE FROM liberacao_modulo WHERE plano_codigo='gratuito' AND modulo_codigo='saude';\n"
                    "SELECT modulo_liberado(%s, 'saude');" % ID, valor="f")
     teste("liberacao individual reabre o modulo",
-          novo() + "DELETE FROM liberacao_modulo WHERE plano_codigo='gratuito' AND modulo_codigo='saude';\n"
+          novo() + "UPDATE modulo SET no_pacote=false WHERE codigo='saude';\n"
+                   "DELETE FROM liberacao_modulo WHERE plano_codigo='gratuito' AND modulo_codigo='saude';\n"
                    "INSERT INTO liberacao_modulo (modulo_codigo, usuario_id) VALUES ('saude', %s);\n"
                    "SELECT modulo_liberado(%s, 'saude');" % (ID, ID), valor="t")
     teste("liberacao por grupo reabre o modulo para o membro",
@@ -397,9 +402,10 @@ def main():
                    "INSERT INTO liberacao_modulo (modulo_codigo, grupo_id) VALUES ('agenda','99999999-9999-9999-9999-999999999999');\n"
                    "SELECT modulo_liberado(%s, 'agenda');" % (ID, ID), valor="t")
     teste("liberacao vencida (fim no passado) nao vale",
-          novo() + "DELETE FROM liberacao_modulo WHERE plano_codigo='gratuito' AND modulo_codigo='saude';\n"
-                   "INSERT INTO liberacao_modulo (modulo_codigo, usuario_id, inicio, fim) "
-                   "VALUES ('saude', %s, now() - interval '2 days', now() - interval '1 day');\n"
+          novo() + "UPDATE modulo SET no_pacote=false WHERE codigo='saude';\n"
+                   "DELETE FROM liberacao_modulo WHERE plano_codigo='gratuito' AND modulo_codigo='saude';\n"
+                   "INSERT INTO liberacao_modulo (modulo_codigo, usuario_id, vitalicio, inicio, fim) "
+                   "VALUES ('saude', %s, false, now() - interval '2 days', now() - interval '1 day');\n"
                    "SELECT modulo_liberado(%s, 'saude');" % (ID, ID), valor="f")
     teste("modulo desativado fecha para todos",
           novo() + "UPDATE modulo SET ativo=false WHERE codigo='financas';\n"
@@ -528,6 +534,17 @@ def main():
           "UPDATE conta SET nome = 'Y' WHERE id = '%s'; " % CONTA_A +
           "SELECT atualizado_em > transaction_timestamp() + interval '1 second' "
           "FROM conta WHERE id = '%s';" % CONTA_A, valor="t")
+
+    # ---------------- Contas bancarias ----------------
+    teste("conta bancaria guarda banco, agencia, numero, documento, PIX e apelido",
+          "UPDATE conta SET titularidade = 'externa', banco = '341', agencia = '4544', "
+          "numero_conta = '18882982', documento = '11222333000181', chave_pix = 'a@b.com', apelido = 'Pai' "
+          "WHERE id = '%s'; SELECT banco || agencia || numero_conta FROM conta WHERE id = '%s';" % (CONTA_A, CONTA_A),
+          valor="341454418882982")
+    teste("titularidade invalida e recusada",
+          "UPDATE conta SET titularidade = 'amiga' WHERE id = '%s';" % CONTA_A, erro="ck_conta_titularidade")
+    teste("documento com tamanho invalido e recusado",
+          "UPDATE conta SET documento = '123' WHERE id = '%s';" % CONTA_A, erro="ck_conta_documento")
 
     # ---------------- Resultado ----------------
     falhas = 0

@@ -37,6 +37,14 @@ class Contas extends Table with ColunasSync {
   IntColumn get saldoInicialCentavos => integer().withDefault(const Constant(0))();
   IntColumn get diaFechamento => integer().nullable()();
   IntColumn get diaVencimento => integer().nullable()();
+  // Conta bancaria: propria (do usuario) ou externa (de terceiros, so cadastro).
+  TextColumn get titularidade => text().withDefault(const Constant('propria'))(); // propria | externa
+  TextColumn get banco => text().nullable()(); // codigo do banco (ver core/bancos.dart)
+  TextColumn get agencia => text().nullable()();
+  TextColumn get numeroConta => text().nullable()();
+  TextColumn get documento => text().nullable()(); // CPF/CNPJ do titular, so digitos
+  TextColumn get chavePix => text().nullable()();
+  TextColumn get apelido => text().nullable()();
   @override
   Set<Column> get primaryKey => {id};
 }
