@@ -198,7 +198,7 @@ class CartaoAuth extends StatelessWidget {
           ),
         ],
       ),
-      child: Theme(data: temaAzul(context), child: filho),
+      child: Material(type: MaterialType.transparency, child: Theme(data: temaAzul(context), child: filho)),
     );
   }
 }

@@ -111,7 +111,9 @@ class FinancasPage extends ConsumerWidget {
     var tipo = 'despesa';
     var pago = true;
     var repeticao = 'variavel'; // variavel | fixa | parcelada
-    final contas = await (banco.select(banco.contas)..where((c) => c.excluidoEm.isNull() & c.titularidade.equals('externa').not())).get();
+    final contas = (await (banco.select(banco.contas)..where((c) => c.excluidoEm.isNull())).get())
+        .where((c) => c.titularidade != 'externa')
+        .toList();
     final categorias = await (banco.select(banco.categorias)..where((c) => c.excluidoEm.isNull())).get();
     String? contaId = contas.isEmpty ? null : contas.first.id;
     String? categoriaId;

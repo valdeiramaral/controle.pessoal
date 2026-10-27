@@ -87,7 +87,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       child: Container(
                         color: Colors.white,
                         padding: const EdgeInsets.fromLTRB(36, 30, 36, 26),
-                        child: Theme(data: temaAzul(context), child: formulario),
+                        child: Material(type: MaterialType.transparency, child: Theme(data: temaAzul(context), child: formulario)),
                       ),
                     ),
                   ]),

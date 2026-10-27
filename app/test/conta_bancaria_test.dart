@@ -160,7 +160,7 @@ void main() {
       await tester.tap(find.byKey(const Key('botao_salvar_conta')));
       await tester.pumpAndSettle();
       expect(find.text('Informe se a conta é sua'), findsWidgets);
-      expect(find.text('Escolha o banco'), findsOneWidget);
+      expect(find.text('Escolha o banco'), findsWidgets); // dica + mensagem de erro
       expect(find.text('Informe a agência'), findsOneWidget);
       expect(find.text('Informe o número da conta'), findsOneWidget);
 

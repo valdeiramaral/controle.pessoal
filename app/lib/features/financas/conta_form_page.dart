@@ -139,6 +139,7 @@ class _ContaFormPageState extends ConsumerState<ContaFormPage> {
               DropdownButtonFormField<String>(
                 key: const Key('campo_tipo'),
                 value: _tipo,
+                isExpanded: true,
                 decoration: const InputDecoration(labelText: 'Tipo de conta'),
                 items: const [
                   DropdownMenuItem(value: 'corrente', child: Text('Conta corrente')),
@@ -153,6 +154,7 @@ class _ContaFormPageState extends ConsumerState<ContaFormPage> {
                 DropdownButtonFormField<String>(
                   key: const Key('campo_titularidade'),
                   value: _titularidade,
+                  isExpanded: true,
                   decoration: const InputDecoration(labelText: 'Conta de minha titularidade?', hintText: 'Informe se a conta é sua'),
                   items: const [
                     DropdownMenuItem(value: 'propria', child: Text('Sim, a conta é minha')),

@@ -112,12 +112,13 @@ class MenuLateral extends ConsumerWidget {
         (Icons.extension_outlined, 'Módulos', const ModulosPage(), Colors.orange.shade300),
     ];
 
+    final larguraAlvo = emDrawer ? 280.0 : (recolhido ? 76.0 : 250.0);
     return ClipRRect(
       borderRadius: BorderRadius.circular(22),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         curve: Curves.easeOut,
-        width: emDrawer ? 280 : (recolhido ? 76 : 250),
+        width: larguraAlvo,
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
@@ -125,7 +126,14 @@ class MenuLateral extends ConsumerWidget {
             colors: ref.watch(aparenciaProvider).corSistema.menu,
           ),
         ),
-        child: SafeArea(
+        // O conteudo ja nasce na largura final (sem estouro durante a animacao; o excesso e cortado).
+        child: OverflowBox(
+          alignment: Alignment.topLeft,
+          minWidth: larguraAlvo,
+          maxWidth: larguraAlvo,
+          child: Material(
+            type: MaterialType.transparency,
+            child: SafeArea(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -187,6 +195,8 @@ class MenuLateral extends ConsumerWidget {
                 ]),
               ),
             ],
+          ),
+        ),
           ),
         ),
       ),

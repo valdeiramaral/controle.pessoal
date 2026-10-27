@@ -57,11 +57,11 @@ void main() {
 
     test('cadastro: e-mail repetido (409) e sucesso (201)', () async {
       final repetido = _api((r) async => _json(409, {'erro': 'email_ja_cadastrado'}));
-      final e = await _erroDe(() => repetido.cadastrar(nome: 'Bia', email: 'a@b.com', senha: '12345678'));
+      final e = await _erroDe(() => repetido.cadastrar(nome: 'Bia', email: 'a@b.com', senha: '12345678', cpf: '52998224725', telefone: '11987654321'));
       expect(e.mensagem, 'Já existe uma conta com este e-mail.');
 
       final ok = _api((r) async => _json(201, {'id': 'u1'}));
-      await ok.cadastrar(nome: 'Bia', email: 'a@b.com', senha: '12345678');
+      await ok.cadastrar(nome: 'Bia', email: 'a@b.com', senha: '12345678', cpf: '52998224725', telefone: '11987654321');
     });
 
     test('GET /me manda o token e le o usuario', () async {
