@@ -1,11 +1,11 @@
 {
-    "name": "controle_pessoal",
-    "short_name": "controle_pessoal",
+    "name": "Central Pessoal",
+    "short_name": "Central Pessoal",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "Sua vida, sob controle! Sua evolução pessoal, financeira e bem-estar.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

@@ -8,6 +8,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../core/lancamento_calculo.dart';
 import '../../core/pagamento.dart';
+import '../../core/saude_calculo.dart';
 import 'tabelas.dart';
 
 part 'banco.g.dart';
@@ -38,6 +39,7 @@ DateTime _somarMeses(DateTime d, int m) => adicionarMeses(d, m);
   Metas,
   Consultas,
   Medicamentos,
+  AgendamentosSaude,
   RegistrosTomada,
   Indicadores,
   Documentos,
@@ -61,7 +63,7 @@ class Banco extends _$Banco {
   Banco.paraTeste(super.e);
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -96,6 +98,19 @@ class Banco extends _$Banco {
             await m.addColumn(lancamentos, lancamentos.tipoPagamento);
             await m.addColumn(lancamentos, lancamentos.valorPagoCentavos);
             await m.addColumn(lancamentos, lancamentos.descontoCentavos);
+          }
+          if (de < 5) {
+            // v5: posologia/estoque dos medicamentos e agendamentos de saude.
+            await m.addColumn(medicamentos, medicamentos.formato);
+            await m.addColumn(medicamentos, medicamentos.tratamento);
+            await m.addColumn(medicamentos, medicamentos.instrucoes);
+            await m.addColumn(medicamentos, medicamentos.quantidade);
+            await m.addColumn(medicamentos, medicamentos.frequencia);
+            await m.addColumn(medicamentos, medicamentos.diasSemana);
+            await m.addColumn(medicamentos, medicamentos.intervaloDias);
+            await m.addColumn(medicamentos, medicamentos.ativo);
+            await m.addColumn(medicamentos, medicamentos.lembreteReabastecer);
+            await m.createTable(agendamentosSaude);
           }
         },
       );
@@ -673,11 +688,31 @@ class Banco extends _$Banco {
         ..orderBy([(m) => OrderingTerm.asc(m.nome)]))
       .watch();
 
-  /// [horarios] no formato "08:00,20:00". Retorna o id do medicamento.
+  Future<List<Medicamento>> listarMedicamentos() => (select(medicamentos)
+        ..where((m) => m.excluidoEm.isNull())
+        ..orderBy([(m) => OrderingTerm.asc(m.nome)]))
+      .get();
+
+  Future<Medicamento?> medicamentoPorId(String id) =>
+      (select(medicamentos)..where((m) => m.id.equals(id))).getSingleOrNull();
+
+  /// [horarios] no formato "08:00,20:00" (vazio se for so "quando necessario"). Retorna o id do medicamento.
   Future<String> inserirMedicamento({
     required String nome,
     required String dose,
     required String horarios,
+    String formato = 'comprimido',
+    String? tratamento,
+    String? instrucoes,
+    int quantidade = 1,
+    String frequencia = 'diaria',
+    String diasSemana = '',
+    int intervaloDias = 1,
+    DateTime? inicio,
+    DateTime? fim,
+    int? estoque,
+    int? estoqueMinimo,
+    bool lembreteReabastecer = true,
   }) async {
     final id = _uuid.v4();
     await into(medicamentos).insert(MedicamentosCompanion.insert(
@@ -685,9 +720,132 @@ class Banco extends _$Banco {
       nome: nome,
       dose: dose,
       horarios: horarios,
-      inicio: DateTime.now(),
+      inicio: inicio ?? DateTime.now(),
+      formato: Value(formato),
+      tratamento: Value(tratamento),
+      instrucoes: Value(instrucoes),
+      quantidade: Value(quantidade),
+      frequencia: Value(frequencia),
+      diasSemana: Value(diasSemana),
+      intervaloDias: Value(intervaloDias),
+      fim: Value(fim),
+      estoque: Value(estoque),
+      estoqueMinimo: Value(estoqueMinimo),
+      lembreteReabastecer: Value(lembreteReabastecer),
     ));
     return id;
+  }
+
+  /// Regrava todos os dados editaveis do medicamento.
+  Future<void> atualizarMedicamento(
+    String id, {
+    required String nome,
+    required String dose,
+    required String horarios,
+    required String formato,
+    String? tratamento,
+    String? instrucoes,
+    required int quantidade,
+    required String frequencia,
+    required String diasSemana,
+    required int intervaloDias,
+    required DateTime inicio,
+    DateTime? fim,
+    int? estoque,
+    int? estoqueMinimo,
+    required bool lembreteReabastecer,
+  }) =>
+      (update(medicamentos)..where((t) => t.id.equals(id))).write(MedicamentosCompanion(
+        nome: Value(nome),
+        dose: Value(dose),
+        horarios: Value(horarios),
+        formato: Value(formato),
+        tratamento: Value(tratamento),
+        instrucoes: Value(instrucoes),
+        quantidade: Value(quantidade),
+        frequencia: Value(frequencia),
+        diasSemana: Value(diasSemana),
+        intervaloDias: Value(intervaloDias),
+        inicio: Value(inicio),
+        fim: Value(fim),
+        estoque: Value(estoque),
+        estoqueMinimo: Value(estoqueMinimo),
+        lembreteReabastecer: Value(lembreteReabastecer),
+        atualizadoEm: Value(DateTime.now()),
+      ));
+
+  /// Suspende ("nao estou tomando": sem doses nem lembretes) ou reativa o medicamento.
+  Future<void> definirAtivoMedicamento(String id, bool ativo) =>
+      (update(medicamentos)..where((t) => t.id.equals(id))).write(
+        MedicamentosCompanion(ativo: Value(ativo), atualizadoEm: Value(DateTime.now())),
+      );
+
+  Future<void> ajustarEstoque(String id, int? estoque) =>
+      (update(medicamentos)..where((t) => t.id.equals(id))).write(
+        MedicamentosCompanion(estoque: Value(estoque), atualizadoEm: Value(DateTime.now())),
+      );
+
+  Future<void> _mexerEstoque(String id, int delta) async {
+    final m = await medicamentoPorId(id);
+    if (m == null || m.estoque == null) return;
+    final novo = m.estoque! + delta;
+    await ajustarEstoque(id, novo < 0 ? 0 : novo);
+  }
+
+  Stream<List<RegistroTomada>> observarTomadasDoDia(DateTime dia) {
+    final ini = DateTime(dia.year, dia.month, dia.day);
+    final fim = ini.add(const Duration(days: 1));
+    return (select(registrosTomada)
+          ..where((r) =>
+              r.excluidoEm.isNull() & r.horarioPrevisto.isBiggerOrEqualValue(ini) & r.horarioPrevisto.isSmallerThanValue(fim))
+          ..orderBy([(r) => OrderingTerm.asc(r.horarioPrevisto)]))
+        .watch();
+  }
+
+  Future<List<RegistroTomada>> listarTomadasDoDia(DateTime dia) {
+    final ini = DateTime(dia.year, dia.month, dia.day);
+    final fim = ini.add(const Duration(days: 1));
+    return (select(registrosTomada)
+          ..where((r) =>
+              r.excluidoEm.isNull() & r.horarioPrevisto.isBiggerOrEqualValue(ini) & r.horarioPrevisto.isSmallerThanValue(fim))
+          ..orderBy([(r) => OrderingTerm.asc(r.horarioPrevisto)]))
+        .get();
+  }
+
+  /// Marca a dose prevista como 'tomou', 'pulou' ou volta para 'pendente'.
+  /// Tomar desconta [Medicamento.quantidade] do estoque; desfazer devolve (sem passar de zero).
+  Future<void> registrarTomada(Medicamento m, DateTime previsto, {String status = 'tomou', DateTime? real}) =>
+      transaction(() async {
+        final existentes = await (select(registrosTomada)
+              ..where((r) => r.medicamentoId.equals(m.id) & r.horarioPrevisto.equals(previsto) & r.excluidoEm.isNull()))
+            .get();
+        final antes = existentes.isEmpty ? null : existentes.first.status;
+        final horarioReal = status == 'pendente' ? null : (real ?? DateTime.now());
+        if (existentes.isEmpty) {
+          await into(registrosTomada).insert(RegistrosTomadaCompanion.insert(
+            medicamentoId: m.id,
+            horarioPrevisto: previsto,
+            status: Value(status),
+            horarioReal: Value(horarioReal),
+          ));
+        } else {
+          await (update(registrosTomada)..where((r) => r.id.equals(existentes.first.id))).write(RegistrosTomadaCompanion(
+            status: Value(status),
+            horarioReal: Value(horarioReal),
+            atualizadoEm: Value(DateTime.now()),
+          ));
+        }
+        final consumia = antes == 'tomou';
+        final consome = status == 'tomou';
+        if (consome && !consumia) await _mexerEstoque(m.id, -m.quantidade);
+        if (!consome && consumia) await _mexerEstoque(m.id, m.quantidade);
+      });
+
+  /// Dose fora de horario ("somente quando necessario" ou extra): registra como tomada agora.
+  Future<void> registrarDoseAvulsa(Medicamento m, {DateTime? agora}) {
+    final a = agora ?? DateTime.now();
+    final previsto = DateTime(a.year, a.month, a.day, a.hour, a.minute, a.second);
+    return registrarTomada(m, previsto, real: previsto);
   }
 
   Future<void> excluirMedicamento(String id) =>
@@ -697,6 +855,160 @@ class Banco extends _$Banco {
           atualizadoEm: Value(DateTime.now()),
         ),
       );
+
+  // ----------------------- Consultas, exames e retornos -----------------------
+
+  Stream<List<AgendamentoSaude>> observarAgendamentos() => (select(agendamentosSaude)
+        ..where((a) => a.excluidoEm.isNull())
+        ..orderBy([(a) => OrderingTerm.asc(a.dataHora)]))
+      .watch();
+
+  Future<List<AgendamentoSaude>> listarAgendamentos() => (select(agendamentosSaude)
+        ..where((a) => a.excluidoEm.isNull())
+        ..orderBy([(a) => OrderingTerm.asc(a.dataHora)]))
+      .get();
+
+  Future<AgendamentoSaude?> agendamentoPorId(String id) =>
+      (select(agendamentosSaude)..where((a) => a.id.equals(id) & a.excluidoEm.isNull())).getSingleOrNull();
+
+  /// Cria um agendamento ou, com [repeticaoUnidade] e [vezes] >= 2, uma serie periodica
+  /// (uma linha por data, como nos lancamentos fixos). Cada data tambem vira compromisso na Agenda.
+  Future<List<AgendamentoSaude>> criarAgendamentos({
+    required String tipo,
+    required String titulo,
+    String? profissional,
+    String? especialidade,
+    String? local,
+    required DateTime dataHora,
+    String? preparo,
+    String? observacao,
+    int? lembreteMin,
+    String? repeticaoUnidade,
+    int repeticaoIntervalo = 1,
+    int vezes = 1,
+  }) async {
+    final serie = repeticaoUnidade != null && vezes >= 2;
+    final datas = serie
+        ? ocorrenciasAgendamento(dataHora, repeticaoUnidade, repeticaoIntervalo, vezes)
+        : [dataHora];
+    final grupo = serie ? _uuid.v4() : null;
+    final ids = <String>[];
+    await transaction(() async {
+      for (var i = 0; i < datas.length; i++) {
+        final eventoId = await inserirEvento(titulo: tituloEventoSaude(tipo, titulo), inicio: datas[i], tipo: 'saude');
+        final id = _uuid.v4();
+        ids.add(id);
+        await into(agendamentosSaude).insert(AgendamentosSaudeCompanion.insert(
+          id: Value(id),
+          tipo: tipo,
+          titulo: titulo,
+          dataHora: datas[i],
+          profissional: Value(profissional),
+          especialidade: Value(especialidade),
+          local: Value(local),
+          preparo: Value(preparo),
+          observacao: Value(observacao),
+          lembreteMin: Value(lembreteMin),
+          eventoId: Value(eventoId),
+          grupoSerie: Value(grupo),
+          serieNumero: Value(serie ? i + 1 : null),
+          serieTotal: Value(serie ? datas.length : null),
+          repeticao: Value(serie ? '$repeticaoUnidade:$repeticaoIntervalo' : null),
+        ));
+      }
+    });
+    return (select(agendamentosSaude)
+          ..where((a) => a.id.isIn(ids))
+          ..orderBy([(a) => OrderingTerm.asc(a.dataHora)]))
+        .get();
+  }
+
+  Future<List<AgendamentoSaude>> _seguintes(AgendamentoSaude a) async {
+    if (a.grupoSerie == null || a.serieNumero == null) return const [];
+    return (select(agendamentosSaude)
+          ..where((x) =>
+              x.grupoSerie.equals(a.grupoSerie!) & x.serieNumero.isBiggerThanValue(a.serieNumero!) & x.excluidoEm.isNull())
+          ..orderBy([(x) => OrderingTerm.asc(x.serieNumero)]))
+        .get();
+  }
+
+  Future<int> contarSeguintesAgendamento(AgendamentoSaude a) async => (await _seguintes(a)).length;
+
+  Future<void> _atualizarEvento(String? eventoId, {String? titulo, DateTime? inicio, String? local, bool? excluido}) async {
+    if (eventoId == null) return;
+    await (update(eventos)..where((e) => e.id.equals(eventoId))).write(EventosCompanion(
+      titulo: titulo == null ? const Value.absent() : Value(titulo),
+      inicio: inicio == null ? const Value.absent() : Value(inicio),
+      local: local == null ? const Value.absent() : Value(local),
+      excluidoEm: excluido == null ? const Value.absent() : Value(excluido ? DateTime.now() : null),
+      atualizadoEm: Value(DateTime.now()),
+    ));
+  }
+
+  /// Edita o agendamento. Com [aplicarNosSeguintes], os demais dados (menos a data) passam
+  /// tambem aos agendamentos posteriores da serie. Devolve os agendamentos alterados (para refazer lembretes).
+  Future<List<AgendamentoSaude>> atualizarAgendamento(
+    AgendamentoSaude original, {
+    required String tipo,
+    required String titulo,
+    String? profissional,
+    String? especialidade,
+    String? local,
+    required DateTime dataHora,
+    String? preparo,
+    String? observacao,
+    int? lembreteMin,
+    bool aplicarNosSeguintes = false,
+  }) async {
+    final alvos = [original, if (aplicarNosSeguintes) ...await _seguintes(original)];
+    await transaction(() async {
+      for (final a in alvos) {
+        final esta = a.id == original.id;
+        await (update(agendamentosSaude)..where((t) => t.id.equals(a.id))).write(AgendamentosSaudeCompanion(
+          tipo: Value(tipo),
+          titulo: Value(titulo),
+          profissional: Value(profissional),
+          especialidade: Value(especialidade),
+          local: Value(local),
+          preparo: Value(preparo),
+          observacao: Value(observacao),
+          lembreteMin: Value(lembreteMin),
+          dataHora: esta ? Value(dataHora) : const Value.absent(),
+          atualizadoEm: Value(DateTime.now()),
+        ));
+        await _atualizarEvento(a.eventoId,
+            titulo: tituloEventoSaude(tipo, titulo), inicio: esta ? dataHora : null, local: local ?? '');
+      }
+    });
+    return (select(agendamentosSaude)..where((t) => t.id.isIn(alvos.map((a) => a.id).toList()))).get();
+  }
+
+  /// Muda a situacao (agendado, realizado, cancelado, faltou). Cancelado/faltou tiram o
+  /// compromisso da Agenda; voltar para agendado o recoloca.
+  Future<void> definirStatusAgendamento(AgendamentoSaude a, String status, {String? resultado}) async {
+    await (update(agendamentosSaude)..where((t) => t.id.equals(a.id))).write(AgendamentosSaudeCompanion(
+      status: Value(status),
+      resultado: resultado == null ? const Value.absent() : Value(resultado.isEmpty ? null : resultado),
+      atualizadoEm: Value(DateTime.now()),
+    ));
+    await _atualizarEvento(a.eventoId, excluido: status == 'cancelado' || status == 'faltou');
+  }
+
+  /// Exclui (logicamente) o agendamento e seu compromisso na Agenda; [seguintes] inclui o resto da serie.
+  /// Devolve os excluidos (para cancelar lembretes).
+  Future<List<AgendamentoSaude>> excluirAgendamento(AgendamentoSaude a, {bool seguintes = false}) async {
+    final alvos = [a, if (seguintes) ...await _seguintes(a)];
+    await transaction(() async {
+      for (final x in alvos) {
+        await (update(agendamentosSaude)..where((t) => t.id.equals(x.id))).write(AgendamentosSaudeCompanion(
+          excluidoEm: Value(DateTime.now()),
+          atualizadoEm: Value(DateTime.now()),
+        ));
+        await _atualizarEvento(x.eventoId, excluido: true);
+      }
+    });
+    return alvos;
+  }
 }
 
 /// Nome de arquivo seguro para o id do usuario (so letras, numeros e _).

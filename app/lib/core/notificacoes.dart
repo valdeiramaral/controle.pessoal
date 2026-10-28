@@ -10,6 +10,9 @@ class ServicoNotificacoes {
 
   final FlutterLocalNotificationsPlugin _plugin = FlutterLocalNotificationsPlugin();
 
+  // So agenda/cancela depois de iniciar(): nos testes (e na web) os metodos nao fazem nada.
+  bool _pronto = false;
+
   static const NotificationDetails _detalhes = NotificationDetails(
     android: AndroidNotificationDetails(
       'lembretes',
@@ -43,6 +46,7 @@ class ServicoNotificacoes {
         .resolvePlatformSpecificImplementation<
             IOSFlutterLocalNotificationsPlugin>()
         ?.requestPermissions(alert: true, badge: true, sound: true);
+    _pronto = true;
   }
 
   /// Id numerico estavel a partir do UUID do registro.
@@ -65,7 +69,7 @@ class ServicoNotificacoes {
     required String corpo,
     required DateTime quando,
   }) async {
-    if (kIsWeb) return;
+    if (kIsWeb || !_pronto) return;
     if (!quando.isAfter(DateTime.now())) return;
     await _plugin.zonedSchedule(
       id,
@@ -87,7 +91,7 @@ class ServicoNotificacoes {
     required int hora,
     required int minuto,
   }) async {
-    if (kIsWeb) return;
+    if (kIsWeb || !_pronto) return;
     final agora = tz.TZDateTime.now(tz.local);
     var proxima =
         tz.TZDateTime(tz.local, agora.year, agora.month, agora.day, hora, minuto);
@@ -105,8 +109,36 @@ class ServicoNotificacoes {
     );
   }
 
+  /// Notificacao que se repete toda semana no [diaSemana] (1 = segunda ... 7 = domingo) e horario.
+  Future<void> agendarSemanal({
+    required int id,
+    required String titulo,
+    required String corpo,
+    required int diaSemana,
+    required int hora,
+    required int minuto,
+  }) async {
+    if (kIsWeb || !_pronto) return;
+    final agora = tz.TZDateTime.now(tz.local);
+    var proxima = tz.TZDateTime(tz.local, agora.year, agora.month, agora.day, hora, minuto);
+    while (proxima.weekday != diaSemana || !proxima.isAfter(agora)) {
+      proxima = proxima.add(const Duration(days: 1));
+    }
+    await _plugin.zonedSchedule(
+      id,
+      titulo,
+      corpo,
+      proxima,
+      _detalhes,
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
+      matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
+    );
+  }
+
   Future<void> cancelar(int id) async {
-    if (kIsWeb) return;
+    if (kIsWeb || !_pronto) return;
     await _plugin.cancel(id);
   }
 }

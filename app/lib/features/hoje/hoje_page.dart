@@ -132,7 +132,7 @@ class _HojePageState extends ConsumerState<HojePage> {
               final dados = _Dados(
                 eventos: (snapEv.data ?? const <Evento>[]).where(_casaEvento).toList(),
                 lancamentos: snapLan.data ?? const <Lancamento>[],
-                medicamentos: (snapMed.data ?? const <Medicamento>[]).where((m) => _casaTexto(m.nome)).toList(),
+                medicamentos: (snapMed.data ?? const <Medicamento>[]).where((m) => m.ativo && _casaTexto(m.nome)).toList(),
                 de: _deAplicado,
                 ate: _ateAplicado,
                 incluirAbertas: _incluirAbertasAplicado,
@@ -373,7 +373,7 @@ class _HojePageState extends ConsumerState<HojePage> {
           _linha(context, [
             Text(m.nome, style: const TextStyle(fontWeight: FontWeight.w600)),
             Text(m.dose),
-            Text(m.horarios.replaceAll(',', '  ')),
+            Text(m.frequencia == 'necessario' ? 'Se necessário' : m.horarios.replaceAll(',', '  ')),
           ], const [4, 2, 3]),
       ],
     ]);

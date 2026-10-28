@@ -6,7 +6,7 @@
 | `nav` | Casca com menu lateral recolhível, ícones coloridos, barra de página com nome/e-mail/Sair (`acoes_usuario.dart`) |
 | `hoje` | Tela inicial em abas, filtros de período, indicadores (KPIs) |
 | `financas` | Contas, categorias, lançamentos, saldos |
-| `saude` | Medicamentos, consultas, indicadores, documentos |
+| `saude` | Medicação (posologia, doses do dia, estoque), consultas e exames (únicos ou periódicos), indicadores, documentos |
 | `agenda` | Eventos, tarefas, lembretes |
 | `aparencia` | Claro/Escuro/Sistema, tamanho da letra, cor do sistema |
 | `admin` | Usuários, perfis, grupos, permissões, planos, cadastro de módulos (pacote, liberação por usuário, validade/vitalício, ícones com busca) |
@@ -71,3 +71,25 @@ A **Data de vencimento** (despesa ou receita) é o campo do lançamento. Ao marc
 - **Valor de desconto** (opcional, não passa do valor);
 - **Valor pago/recebido:** no tipo Total começa em valor − desconto e pode ser alterado (juros, multa). No tipo Parcial deve ser maior que zero e, somado ao desconto, ficar abaixo do valor.
 Regras de saldo: lançamento pago movimenta o caixa pelo **valor pago** (se registrado) na **conta do pagamento**; pagamento parcial ainda não altera saldos (só a quitação total). O dashboard continua posicionando o lançamento no mês do vencimento. **Desfazer pagamento** volta a pendente e limpa esses dados. Marcar o quadradinho da lista registra pagamento total, hoje, sem detalhes. Banco local `schemaVersion 4`.
+
+## Saúde (`features/saude/`, regras em `core/saude_calculo.dart`)
+A tela **Saúde** tem duas abas: **Medicação** e **Consultas e exames**. Banco local `schemaVersion 5` (tabelas `medicamento` ampliada e `agendamento_saude` nova).
+
+### Medicação
+- **Hoje:** doses programadas do dia em ordem de horário, cada uma com **Tomei** (registra o horário real e desconta do estoque), **Pular** e **Desfazer** (devolve ao estoque). Dose pendente depois do horário aparece como *Atrasada*. Medicamentos "somente quando necessário" têm o botão **Registrar dose**. Ao tomar e o estoque chegar ao mínimo, aparece o aviso de estoque baixo.
+- **Meus medicamentos:** nome, dose, formato, frequência/horários, tratamento, estoque (com dias restantes estimados; vermelho quando baixo) e *Não estou tomando* para os suspensos. Tocar abre o formulário.
+- **Formulário** (`medicamento_form_page.dart`), em três blocos:
+  1. *Detalhes:* **Nome**, **Dose** (ex.: 100 mg), **Formato** (comprimido, cápsula, líquido, gotas, injeção, pomada, spray, adesivo, pó, outro), **Tratamento** (para que serve) e **Instruções**.
+  2. *Quando você toma:* **Começar**, **Terminar** (opcional), **Frequência** (*todos os dias*, *dias da semana*, *a cada N dias*, *somente quando necessário*), **Horários** (até 12, por seletor de hora) e **Quantidade por tomada** (unidades descontadas do estoque a cada dose).
+  3. *Estoque:* **Estoque atual**, **Lembrete de reabastecer** e **Lembrar quando restarem N** unidades.
+- **Suspender:** pede confirmação ("O medicamento será alterado para *Não estou tomando*. Você não receberá mais lembretes"), cancela os lembretes e tira o medicamento das doses de hoje e do painel Hoje. **Voltar a tomar** reativa e refaz os lembretes. **Excluir** remove o medicamento.
+- **Lembretes:** notificação local por horário — diária, semanal por dia da semana, ou doses avulsas (próximas 30) quando há data final ou intervalo de N dias; renovadas ao abrir a tela. Na web não há lembretes locais.
+
+### Consultas e exames
+- **Lista:** *Próximos* (do dia de hoje em diante, em ordem) e *Histórico* (realizados, cancelados, faltas e antigos sem baixa); filtros *Todos / Consultas / Exames / Vacinas e outros*; séries mostram `n/total`.
+- **Formulário** (`agendamento_form_page.dart`): **Tipo** (consulta, exame, retorno, vacina, outro), **Descrição** (ou nome do exame), **Especialidade** (consulta/retorno), **Médico/profissional** (ou solicitante), **Local** (ou laboratório), **Data e hora**, **Lembrete** (15 min a 2 dias antes, ou nenhum; padrão 1 hora), **Preparo** (jejum, documentos) e **Observação**.
+- **Agendamento periódico:** *Repetir* = semanal, quinzenal, mensal, bimestral, trimestral, semestral, anual ou **personalizado** (a cada N dias/semanas/meses/anos) com o **total de agendamentos** (2 a 60). Gera uma linha por data (31/01 + 1 mês = 28/02; hora mantida), com prévia "N agendamentos: de … a …".
+- **Agenda:** cada data vira também um compromisso do tipo *saúde* na aba Agenda. Cancelar ou marcar *Faltei* tira o compromisso da Agenda; voltar para *agendado* o recoloca; excluir remove.
+- **Detalhe** (`agendamento_detalhe_page.dart`): todos os dados e ações **Realizado** (com campo de resultado/anotações), **Faltei**, **Cancelar agendamento**, **Voltar para agendado**, **Editar** e **Excluir**. Em série, editar tem a caixa "Aplicar descrição, local, profissional, preparo, observação e lembrete também aos N seguintes" (a data muda só no aberto) e excluir pergunta *Só este* ou *Este e os seguintes*.
+
+Limitação: os campos novos de `medicamento` e a tabela `agendamento_saude` são só locais por enquanto (a sincronização com o PostgreSQL não está ativa). Valores numéricos de estoque são inteiros (unidades).

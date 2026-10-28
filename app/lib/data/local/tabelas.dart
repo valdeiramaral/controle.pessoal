@@ -168,6 +168,39 @@ class Medicamentos extends Table with ColunasSync {
   DateTimeColumn get fim => dateTime().nullable()();
   IntColumn get estoque => integer().nullable()();
   IntColumn get estoqueMinimo => integer().nullable()();
+  // Posologia e controle (schema v5):
+  TextColumn get formato => text().withDefault(const Constant('comprimido'))(); // ver core/saude_calculo.dart
+  TextColumn get tratamento => text().nullable()(); // para que serve (ex.: Colesterol alto)
+  TextColumn get instrucoes => text().nullable()();
+  IntColumn get quantidade => integer().withDefault(const Constant(1))(); // unidades por tomada
+  TextColumn get frequencia => text().withDefault(const Constant('diaria'))(); // diaria | dias_semana | intervalo | necessario
+  TextColumn get diasSemana => text().withDefault(const Constant(''))(); // "1,3,5" (1 = segunda)
+  IntColumn get intervaloDias => integer().withDefault(const Constant(1))();
+  BoolColumn get ativo => boolean().withDefault(const Constant(true))(); // false = "nao estou tomando"
+  BoolColumn get lembreteReabastecer => boolean().withDefault(const Constant(true))();
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Consulta, exame, retorno ou vacina agendados (unicos ou em serie periodica).
+@DataClassName('AgendamentoSaude')
+class AgendamentosSaude extends Table with ColunasSync {
+  TextColumn get tipo => text()(); // consulta | exame | retorno | vacina | outro
+  TextColumn get titulo => text()(); // especialidade/motivo ou nome do exame
+  TextColumn get profissional => text().nullable()();
+  TextColumn get especialidade => text().nullable()();
+  TextColumn get local => text().nullable()();
+  DateTimeColumn get dataHora => dateTime()();
+  TextColumn get preparo => text().nullable()(); // jejum, documentos...
+  TextColumn get observacao => text().nullable()();
+  TextColumn get status => text().withDefault(const Constant('agendado'))(); // agendado | realizado | cancelado | faltou
+  TextColumn get resultado => text().nullable()();
+  IntColumn get lembreteMin => integer().nullable()(); // antecedencia do lembrete; null = sem
+  TextColumn get eventoId => text().nullable()(); // compromisso espelhado na Agenda
+  TextColumn get grupoSerie => text().nullable()();
+  IntColumn get serieNumero => integer().nullable()();
+  IntColumn get serieTotal => integer().nullable()();
+  TextColumn get repeticao => text().nullable()(); // "meses:3"
   @override
   Set<Column> get primaryKey => {id};
 }

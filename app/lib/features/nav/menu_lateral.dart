@@ -236,7 +236,7 @@ class _Cabecalho extends ConsumerWidget {
         Theme(data: temaAzul(context), child: const MarcaApp(tamanho: 38)),
         const SizedBox(width: 10),
         const Expanded(
-          child: Text('Controle Pessoal',
+          child: Text('Central Pessoal',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 16)),
