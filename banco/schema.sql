@@ -558,7 +558,7 @@ CREATE TABLE liberacao_modulo (
   plano_codigo  text REFERENCES plano (codigo) ON DELETE CASCADE,
   concedida     boolean NOT NULL DEFAULT true,   -- false = bloqueio explicito
   ativa         boolean NOT NULL DEFAULT true,   -- false = liberacao desativada (nao vale, mas fica cadastrada)
-  fixo          boolean NOT NULL DEFAULT false,  -- true = modulo fixado no topo do menu deste usuario
+  fixo          boolean NOT NULL DEFAULT true,   -- true = o modulo aparece no menu deste usuario; false = liberado, mas oculto do menu
   vitalicio     boolean NOT NULL DEFAULT true,   -- true = sem data de validade; false = vale entre inicio e fim
   inicio        timestamptz,
   fim           timestamptz,

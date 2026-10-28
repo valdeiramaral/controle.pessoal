@@ -63,7 +63,7 @@ class Banco extends _$Banco {
   Banco.paraTeste(super.e);
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -119,6 +119,11 @@ class Banco extends _$Banco {
             await m.addColumn(medicamentos, medicamentos.validade);
             await m.addColumn(medicamentos, medicamentos.posologia);
             await m.addColumn(medicamentos, medicamentos.informacoes);
+          }
+          if (de < 7) {
+            // v7: periodo de uso do medicamento (continuo, diario, semanal ou mensal) e por quanto tempo.
+            await m.addColumn(medicamentos, medicamentos.periodoUso);
+            await m.addColumn(medicamentos, medicamentos.duracaoUso);
           }
         },
       );
@@ -726,6 +731,8 @@ class Banco extends _$Banco {
     DateTime? validade,
     String? posologia,
     String? informacoes,
+    String periodoUso = 'continuo',
+    int? duracaoUso,
   }) async {
     final id = _uuid.v4();
     await into(medicamentos).insert(MedicamentosCompanion.insert(
@@ -750,6 +757,8 @@ class Banco extends _$Banco {
       validade: Value(validade),
       posologia: Value(posologia),
       informacoes: Value(informacoes),
+      periodoUso: Value(periodoUso),
+      duracaoUso: Value(duracaoUso),
     ));
     return id;
   }
@@ -777,6 +786,8 @@ class Banco extends _$Banco {
     DateTime? validade,
     String? posologia,
     String? informacoes,
+    String periodoUso = 'continuo',
+    int? duracaoUso,
   }) =>
       (update(medicamentos)..where((t) => t.id.equals(id))).write(MedicamentosCompanion(
         nome: Value(nome),
@@ -799,6 +810,8 @@ class Banco extends _$Banco {
         validade: Value(validade),
         posologia: Value(posologia),
         informacoes: Value(informacoes),
+        periodoUso: Value(periodoUso),
+        duracaoUso: Value(duracaoUso),
         atualizadoEm: Value(DateTime.now()),
       ));
 

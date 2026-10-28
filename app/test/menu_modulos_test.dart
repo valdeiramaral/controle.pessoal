@@ -57,16 +57,6 @@ Future<void> _abrir(WidgetTester tester, List<Map<String, String>> liberados) as
 Finder _noMenu(String t) => find.descendant(of: find.byType(MenuLateral), matching: find.text(t));
 
 void main() {
-  test('ordenarModulos: Agenda do Dia primeiro, depois os fixos do usuario, depois o resto', () {
-    final lista = ordenarModulos(const [
-      ModuloMenu(codigo: 'saude', nome: 'Saúde'),
-      ModuloMenu(codigo: 'academia', nome: 'Academia', fixo: true),
-      ModuloMenu(codigo: 'painel', nome: 'Agenda do Dia'),
-      ModuloMenu(codigo: 'agenda', nome: 'Agenda', fixo: true),
-    ]);
-    expect(lista.map((m) => m.codigo), ['painel', 'agenda', 'academia', 'saude']);
-  });
-
   test('ordenarModulos poe os com tela primeiro, na ordem de sempre, e mantem os demais', () {
     final lista = ordenarModulos(const [
       ModuloMenu(codigo: 'academia', nome: 'Academia'),

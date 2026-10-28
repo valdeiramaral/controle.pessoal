@@ -155,6 +155,7 @@ void main() {
     final lib = (postado!['liberacoes'] as List).single as Map<String, dynamic>;
     expect(lib['usuario_id'], 'u1');
     expect(lib['vitalicio'], true);
+    expect(lib['fixo'], true); // aparece no menu por padrao
     expect(lib['ativa'], true);
     expect(noMenu, findsOneWidget); // apareceu no menu
 

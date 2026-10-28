@@ -333,7 +333,7 @@ class LiberacaoModulo {
     required this.nome,
     this.email,
     this.ativa = true,
-    this.fixo = false,
+    this.fixo = true,
     this.vitalicio = true,
     this.inicio,
     this.fim,
@@ -345,7 +345,7 @@ class LiberacaoModulo {
   final String? email;
   final bool ativa;
 
-  /// Modulo fixado no topo do menu deste usuario.
+  /// Fixo no menu: aparece no menu deste usuario (desmarcado = liberado, mas oculto).
   final bool fixo;
   final bool vitalicio;
   final DateTime? inicio;
@@ -359,7 +359,7 @@ class LiberacaoModulo {
         nome: j['usuario_nome'] as String? ?? '',
         email: j['usuario_email'] as String?,
         ativa: j['ativa'] as bool? ?? true,
-        fixo: j['fixo'] as bool? ?? false,
+        fixo: j['fixo'] as bool? ?? true,
         vitalicio: j['vitalicio'] as bool? ?? true,
         inicio: DateTime.tryParse((j['inicio'] as String?) ?? '')?.toLocal(),
         fim: DateTime.tryParse((j['fim'] as String?) ?? '')?.toLocal(),
@@ -369,14 +369,14 @@ class LiberacaoModulo {
 
 /// Modulo que aparece no menu do usuario logado.
 class ModuloMenu {
-  const ModuloMenu({required this.codigo, required this.nome, this.descricao, this.icone = 'extension', this.fixo = false});
+  const ModuloMenu({required this.codigo, required this.nome, this.descricao, this.icone = 'extension', this.fixo = true});
 
   final String codigo;
   final String nome;
   final String? descricao;
   final String icone;
 
-  /// Fixado no topo do menu deste usuario (definido ao liberar o modulo para ele).
+  /// Fixo no menu deste usuario (definido ao liberar o modulo para ele).
   final bool fixo;
 
   factory ModuloMenu.deJson(Map<String, dynamic> j) => ModuloMenu(
@@ -384,7 +384,7 @@ class ModuloMenu {
         nome: j['nome'] as String,
         descricao: j['descricao'] as String?,
         icone: j['icone'] as String? ?? 'extension',
-        fixo: j['fixo'] as bool? ?? false,
+        fixo: j['fixo'] as bool? ?? true,
       );
 }
 

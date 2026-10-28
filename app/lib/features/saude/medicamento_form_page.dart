@@ -45,12 +45,21 @@ class _MedicamentoFormPageState extends ConsumerState<MedicamentoFormPage> {
   final _dias = <int>{};
   var _horarios = <(int, int)>[(8, 0)];
   late DateTime _inicio;
-  DateTime? _fim;
+  String _periodo = 'continuo';
+  final _duracao = TextEditingController(text: '7');
   bool _lembrete = true;
   String? _erro;
   bool _salvando = false;
 
   bool get _editando => widget.medicamento != null;
+
+  int? get _duracaoUso {
+    final n = int.tryParse(_duracao.text.trim());
+    return n == null || n < 1 ? null : n;
+  }
+
+  /// Data final do uso, calculada pelo periodo e pela duracao (continuo = sem data final).
+  DateTime? get _fimCalculado => _periodo == 'continuo' ? null : fimDoPeriodo(_inicio, _periodo, _duracaoUso);
 
   @override
   void initState() {
@@ -72,7 +81,16 @@ class _MedicamentoFormPageState extends ConsumerState<MedicamentoFormPage> {
       _dias.addAll(lerDiasSemana(m.diasSemana));
       _horarios = lerHorarios(m.horarios);
       _inicio = soDia(m.inicio);
-      _fim = m.fim == null ? null : soDia(m.fim!);
+      _periodo = periodosUso.containsKey(m.periodoUso) ? m.periodoUso : 'continuo';
+      if (_periodo != 'continuo' && m.duracaoUso != null) {
+        _duracao.text = '${m.duracaoUso}';
+      } else if (m.fim != null) {
+        // cadastro antigo, so com data final: vira "diario" pelo numero de dias
+        _periodo = 'diario';
+        _duracao.text = '${soDia(m.fim!).difference(soDia(m.inicio)).inDays + 1}';
+      } else {
+        _periodo = 'continuo';
+      }
       _lembrete = m.lembreteReabastecer;
       _tipoMed = tiposMedicamento.containsKey(m.tipoMedicamento) ? m.tipoMedicamento : null;
       _fabricante.text = m.fabricante ?? '';
@@ -111,14 +129,14 @@ class _MedicamentoFormPageState extends ConsumerState<MedicamentoFormPage> {
 
   @override
   void dispose() {
-    for (final c in [_nome, _dose, _tratamento, _instrucoes, _quantidade, _intervalo, _estoque, _estoqueMinimo, _fabricante, _posologia, _informacoes]) {
+    for (final c in [_duracao, _nome, _dose, _tratamento, _instrucoes, _quantidade, _intervalo, _estoque, _estoqueMinimo, _fabricante, _posologia, _informacoes]) {
       c.dispose();
     }
     super.dispose();
   }
 
   Future<void> _escolherData({required bool inicio}) async {
-    final base = inicio ? _inicio : (_fim ?? _inicio);
+    final base = _inicio;
     final d = await showDatePicker(
       context: context,
       initialDate: base,
@@ -126,7 +144,7 @@ class _MedicamentoFormPageState extends ConsumerState<MedicamentoFormPage> {
       lastDate: DateTime(2100),
     );
     if (d == null) return;
-    setState(() => inicio ? _inicio = soDia(d) : _fim = soDia(d));
+    setState(() => _inicio = soDia(d));
   }
 
   Future<void> _adicionarHorario() async {
@@ -157,8 +175,8 @@ class _MedicamentoFormPageState extends ConsumerState<MedicamentoFormPage> {
       setState(() => _erro = 'Escolha os dias da semana.');
       return;
     }
-    if (_fim != null && _fim!.isBefore(_inicio)) {
-      setState(() => _erro = 'A data final não pode ser antes do início.');
+    if (_periodo != 'continuo' && _duracaoUso == null) {
+      setState(() => _erro = 'Informe por quanto tempo o medicamento será usado (um número a partir de 1).');
       return;
     }
     setState(() => _salvando = true);
@@ -189,7 +207,9 @@ class _MedicamentoFormPageState extends ConsumerState<MedicamentoFormPage> {
           diasSemana: dias,
           intervaloDias: intervalo,
           inicio: _inicio,
-          fim: _fim,
+          fim: _fimCalculado,
+          periodoUso: _periodo,
+          duracaoUso: _periodo == 'continuo' ? null : _duracaoUso,
           estoque: estoque,
           estoqueMinimo: minimo,
           lembreteReabastecer: _lembrete,
@@ -212,7 +232,9 @@ class _MedicamentoFormPageState extends ConsumerState<MedicamentoFormPage> {
           diasSemana: dias,
           intervaloDias: intervalo,
           inicio: _inicio,
-          fim: _fim,
+          fim: _fimCalculado,
+          periodoUso: _periodo,
+          duracaoUso: _periodo == 'continuo' ? null : _duracaoUso,
           estoque: estoque,
           estoqueMinimo: minimo,
           lembreteReabastecer: _lembrete,
@@ -439,8 +461,32 @@ class _MedicamentoFormPageState extends ConsumerState<MedicamentoFormPage> {
                 const SizedBox(height: 8),
                 _campoData(const Key('campo_inicio_med'), 'Começar', _inicio, () => _escolherData(inicio: true)),
                 const SizedBox(height: 8),
-                _campoData(const Key('campo_fim_med'), 'Terminar', _fim, () => _escolherData(inicio: false),
-                    limpar: () => setState(() => _fim = null)),
+                DropdownButtonFormField<String>(
+                  key: const Key('campo_periodo_med'),
+                  initialValue: _periodo,
+                  decoration: const InputDecoration(labelText: 'Período de uso'),
+                  items: [for (final e in periodosUso.entries) DropdownMenuItem(value: e.key, child: Text(e.value))],
+                  onChanged: (v) => setState(() => _periodo = v ?? _periodo),
+                ),
+                if (_periodo != 'continuo') ...[
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    key: const Key('campo_duracao_med'),
+                    controller: _duracao,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    decoration: InputDecoration(
+                      labelText: 'Por quanto tempo (${_periodo == 'diario' ? 'dias' : _periodo == 'semanal' ? 'semanas' : 'meses'})',
+                    ),
+                    onChanged: (_) => setState(() {}),
+                    validator: (v) => _periodo != 'continuo' && (int.tryParse((v ?? '').trim()) ?? 0) < 1 ? 'Informe um número a partir de 1' : null,
+                  ),
+                  if (_fimCalculado != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 6, left: 4),
+                      child: Text('Termina em ${formatarData(_fimCalculado!)}', key: const Key('termino_med')),
+                    ),
+                ],
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
                   key: const Key('campo_frequencia_med'),

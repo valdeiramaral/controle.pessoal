@@ -1,4 +1,5 @@
 import 'package:controle_pessoal/core/catalogo_medicamentos.dart';
+import 'package:controle_pessoal/core/formatos.dart';
 import 'package:controle_pessoal/core/saude_calculo.dart';
 import 'package:controle_pessoal/core/tema.dart';
 import 'package:controle_pessoal/data/local/banco.dart';
@@ -516,6 +517,78 @@ void main() {
       await tester.pumpAndSettle();
       expect(await banco.agendamentoPorId(consulta.id), isNull);
       expect(find.text('Próximos (1)'), findsOneWidget); // voltou para a lista, so o exame
+      await encerrar(tester);
+    });
+  });
+
+  group('medicamento: periodo de uso', () {
+    test('fimDoPeriodo: dias, semanas e meses (o inicio conta como o primeiro dia); continuo = sem fim', () {
+      final i = DateTime(2026, 10, 1);
+      expect(fimDoPeriodo(i, 'diario', 7), DateTime(2026, 10, 7));
+      expect(fimDoPeriodo(i, 'diario', 1), DateTime(2026, 10, 1));
+      expect(fimDoPeriodo(i, 'semanal', 2), DateTime(2026, 10, 14));
+      expect(fimDoPeriodo(DateTime(2026, 1, 15), 'mensal', 1), DateTime(2026, 2, 14));
+      expect(fimDoPeriodo(DateTime(2026, 1, 31), 'mensal', 1), DateTime(2026, 2, 27)); // fevereiro mais curto
+      expect(fimDoPeriodo(DateTime(2026, 11, 10), 'mensal', 3), DateTime(2027, 2, 9));
+      expect(fimDoPeriodo(i, 'continuo', 5), isNull);
+      expect(fimDoPeriodo(i, 'diario', null), isNull);
+      expect(fimDoPeriodo(i, 'diario', 0), isNull);
+    });
+
+    test('grava periodo e duracao; resumo mostra "uso continuo" ou "uso por N ... (ate data)"', () async {
+      final b = _novoBanco();
+      addTearDown(b.close);
+      final cont = (await b.medicamentoPorId(await b.inserirMedicamento(nome: 'A', dose: '1', horarios: '08:00', inicio: DateTime(2026, 10, 1))))!;
+      expect(cont.periodoUso, 'continuo');
+      expect(resumoPeriodoUso(cont), 'Uso contínuo');
+      final fim = fimDoPeriodo(DateTime(2026, 10, 1), 'semanal', 2);
+      final id = await b.inserirMedicamento(
+          nome: 'B', dose: '1', horarios: '08:00', inicio: DateTime(2026, 10, 1), fim: fim, periodoUso: 'semanal', duracaoUso: 2);
+      final m = (await b.medicamentoPorId(id))!;
+      expect(m.periodoUso, 'semanal');
+      expect(m.duracaoUso, 2);
+      expect(resumoPeriodoUso(m), 'Uso por 2 semanas (até 14/10/2026)');
+      expect(tomaNoDia(m, DateTime(2026, 10, 14)), isTrue);
+      expect(tomaNoDia(m, DateTime(2026, 10, 15)), isFalse);
+    });
+
+    testWidgets('formulario: continuo nao pede tempo; semanal pede e calcula o termino', (tester) async {
+      tester.view.physicalSize = const Size(900, 5200);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final banco = _novoBanco();
+      await tester.pumpWidget(_app(
+          banco,
+          Scaffold(
+              body: Builder(
+                  builder: (c) => TextButton(
+                      onPressed: () => abrirFormularioMedicamento(c, hoje: DateTime(2026, 10, 28)), child: const Text('abrir'))))));
+      await tester.tap(find.text('abrir'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(const Key('campo_nome_med')), 'Amoxicilina');
+      await tester.enterText(find.byKey(const Key('campo_dose_med')), '500 mg');
+      expect(find.byKey(const Key('campo_periodo_med')), findsOneWidget);
+      expect(find.byKey(const Key('campo_duracao_med')), findsNothing); // contínuo por padrão
+
+      await tester.tap(find.byKey(const Key('campo_periodo_med')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Semanal (por semanas)').last);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('campo_duracao_med')), findsOneWidget);
+      await tester.enterText(find.byKey(const Key('campo_duracao_med')), '');
+      await tester.tap(find.byKey(const Key('botao_salvar_med')));
+      await tester.pumpAndSettle();
+      expect(await banco.listarMedicamentos(), isEmpty); // sem o tempo, nao salva
+
+      await tester.enterText(find.byKey(const Key('campo_duracao_med')), '2');
+      await tester.pump();
+      expect(find.text('Termina em ${formatarData(DateTime(2026, 11, 10))}'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('botao_salvar_med')));
+      await tester.pumpAndSettle();
+      final m = (await banco.listarMedicamentos()).single;
+      expect(m.periodoUso, 'semanal');
+      expect(m.duracaoUso, 2);
+      expect(m.fim, DateTime(2026, 11, 10));
       await encerrar(tester);
     });
   });

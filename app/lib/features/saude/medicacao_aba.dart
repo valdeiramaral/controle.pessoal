@@ -162,6 +162,7 @@ class MedicacaoAba extends ConsumerWidget {
       if ([m.tipoMedicamento, m.fabricante].any((x) => (x ?? '').isNotEmpty))
         [if (tiposMedicamento[m.tipoMedicamento] != null) tiposMedicamento[m.tipoMedicamento]!, if ((m.fabricante ?? '').isNotEmpty) m.fabricante!].join(' · '),
       if (m.ativo) resumoFrequencia(m) else 'Não estou tomando',
+      if (m.ativo && m.frequencia != 'necessario') resumoPeriodoUso(m),
       if ((m.posologia ?? '').isNotEmpty) 'Posologia: ${m.posologia}',
       if ((m.tratamento ?? '').isNotEmpty) 'Para: ${m.tratamento}',
     ];

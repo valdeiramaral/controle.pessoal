@@ -104,6 +104,57 @@ List<DateTime> dosesDoDia(Medicamento m, DateTime dia) {
   return [for (final h in lerHorarios(m.horarios)) DateTime(d.year, d.month, d.day, h.$1, h.$2)];
 }
 
+/// Periodo de uso do medicamento: continuo (sem data final) ou por um tempo, contado em dias, semanas ou meses.
+const periodosUso = <String, String>{
+  'continuo': 'Contínuo',
+  'diario': 'Diário (por dias)',
+  'semanal': 'Semanal (por semanas)',
+  'mensal': 'Mensal (por meses)',
+};
+
+/// Unidade do tempo de uso: "dia/dias", "semana/semanas", "mês/meses".
+String unidadeDoPeriodo(String periodo, int n) => switch (periodo) {
+      'diario' => n == 1 ? 'dia' : 'dias',
+      'semanal' => n == 1 ? 'semana' : 'semanas',
+      'mensal' => n == 1 ? 'mês' : 'meses',
+      _ => '',
+    };
+
+/// Ultimo dia de uso: o inicio conta como primeiro dia. Continuo (ou sem duracao) = null.
+/// Ex.: 7 dias a partir de 1/10 termina em 7/10; 1 mes a partir de 15/1 termina em 14/2.
+DateTime? fimDoPeriodo(DateTime inicio, String periodo, int? duracao) {
+  if (duracao == null || duracao < 1) return null;
+  final i = soDia(inicio);
+  switch (periodo) {
+    case 'diario':
+      return DateTime(i.year, i.month, i.day + duracao - 1);
+    case 'semanal':
+      return DateTime(i.year, i.month, i.day + 7 * duracao - 1);
+    case 'mensal':
+      final total = i.month - 1 + duracao;
+      final ano = i.year + total ~/ 12;
+      final mes = total % 12 + 1;
+      final ultimo = DateTime(ano, mes + 1, 0).day;
+      final prox = DateTime(ano, mes, i.day > ultimo ? ultimo : i.day);
+      return DateTime(prox.year, prox.month, prox.day - 1);
+    default:
+      return null;
+  }
+}
+
+/// "Uso contínuo" ou "Uso por 7 dias (até 07/10/2026)".
+String resumoPeriodoUso(Medicamento m) {
+  if (m.periodoUso == 'continuo' || m.duracaoUso == null) {
+    return m.fim == null ? 'Uso contínuo' : 'Até ${_dataCurta(m.fim!)}';
+  }
+  final n = m.duracaoUso!;
+  final fim = fimDoPeriodo(m.inicio, m.periodoUso, n);
+  return 'Uso por $n ${unidadeDoPeriodo(m.periodoUso, n)}${fim == null ? '' : ' (até ${_dataCurta(fim)})'}';
+}
+
+String _dataCurta(DateTime d) =>
+    '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+
 /// "Todos os dias · 08:00, 20:00".
 String resumoFrequencia(Medicamento m) {
   final horas = lerHorarios(m.horarios).map(formatarHorario).join(', ');

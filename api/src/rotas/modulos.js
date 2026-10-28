@@ -81,7 +81,7 @@ export default async function rotasModulos(app) {
       if (vistos.has(l.usuario_id)) return 'Há o mesmo usuário mais de uma vez.';
       vistos.add(l.usuario_id);
       l.ativa = l.ativa ?? true;
-      l.fixo = l.fixo ?? false;
+      l.fixo = l.fixo ?? true;
       l.vitalicio = l.vitalicio ?? true;
       if (l.vitalicio) { l.inicio = null; l.fim = null; continue; }
       if (!l.inicio || !l.fim) return 'Informe a data de início e a data final, ou marque como vitalício.';
@@ -217,6 +217,9 @@ export default async function rotasModulos(app) {
            FROM controle.modulo m
           WHERE m.ativo AND (m.exibir_no_menu OR m.codigo = ANY($3::text[]))
             AND ($2 OR controle.modulo_liberado($1, m.codigo))
+            -- liberado mas com "fixo no menu" desmarcado para este usuario: fica oculto do menu
+            AND NOT EXISTS (SELECT 1 FROM controle.liberacao_modulo l
+                             WHERE l.modulo_codigo = m.codigo AND l.usuario_id = $1 AND l.concedida AND NOT l.fixo)
           ORDER BY m.ordem, m.nome`, [req.usuarioId, todos, MODULOS_COM_TELA])).rows,
     }), { admin: todos });
   });

@@ -773,14 +773,17 @@ describe('cadastro de modulos', () => {
     assert.equal((await com('POST', '/modulos', token, { nome: 'Academia & Treino' })).statusCode, 409);
 
     // "fixo" e escolhido na liberacao de cada usuario (fixa o modulo no topo do menu dele)
-    assert.equal(r.json().liberacoes.every((l) => l.fixo === false), true);
-    const fixoDe = async (t) => (await get('/meus-modulos', t)).json().itens.find((m) => m.codigo === 'academia_treino')?.fixo;
-    assert.equal(await fixoDe(ta), false);
+    assert.equal(r.json().liberacoes.every((l) => l.fixo === true), true); // por padrao aparece no menu
+    const noMenuA = async () => (await get('/meus-modulos', ta)).json().itens.some((m) => m.codigo === 'academia_treino');
+    assert.equal(await noMenuA(), true);
+    assert.equal((await com('PUT', '/modulos/academia_treino', token, {
+      liberacoes: [{ usuario_id: idA, fixo: false }, { usuario_id: idB, vitalicio: false, inicio: iso(-1), fim: iso(30) }],
+    })).statusCode, 200);
+    assert.equal(await noMenuA(), false); // liberado, mas oculto do menu
     assert.equal((await com('PUT', '/modulos/academia_treino', token, {
       liberacoes: [{ usuario_id: idA, fixo: true }, { usuario_id: idB, vitalicio: false, inicio: iso(-1), fim: iso(30) }],
     })).statusCode, 200);
-    assert.equal(await fixoDe(ta), true);
-    assert.equal(await fixoDe(tb), false);
+    assert.equal(await noMenuA(), true);
 
     // (os modulos de fabrica com tela entram no menu pelo cadastro; aqui so interessa o modulo criado no teste)
     const COM_TELA = ['painel', 'financas', 'saude', 'agenda'];

@@ -184,6 +184,9 @@ class Medicamentos extends Table with ColunasSync {
   DateTimeColumn get validade => dateTime().nullable()();
   TextColumn get posologia => text().nullable()(); // como a receita manda tomar (texto livre)
   TextColumn get informacoes => text().nullable()(); // breve informacao sobre o medicamento
+  // Periodo de uso (schema v7): a data final (fim) e calculada a partir daqui.
+  TextColumn get periodoUso => text().withDefault(const Constant('continuo'))(); // continuo | diario | semanal | mensal
+  IntColumn get duracaoUso => integer().nullable()(); // quantos dias/semanas/meses (nao continuo)
   @override
   Set<Column> get primaryKey => {id};
 }

@@ -51,7 +51,7 @@ Future<List<Map<String, dynamic>>> _abrir(WidgetTester tester, ModuloAdmin m) as
 }
 
 void main() {
-  testWidgets('o cadastro nao tem "fixo para todos"; o fixo e escolhido na liberacao de cada usuario', (tester) async {
+  testWidgets('o cadastro nao tem "fixo para todos"; o fixo no menu e escolhido na liberacao de cada usuario (vem marcado)', (tester) async {
     final m = ModuloAdmin(
       codigo: 'academia',
       nome: 'Academia',
@@ -69,7 +69,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(enviados.single.containsKey('no_pacote'), false);
     final lib = (enviados.single['liberacoes'] as List).single as Map<String, dynamic>;
-    expect(lib['fixo'], true);
+    expect(lib['fixo'], false); // veio ligado; o toque desmarcou
   });
 
   testWidgets('liberacao por usuario: vitalicio esconde as datas; validade exige inicio e fim; desativar', (tester) async {
