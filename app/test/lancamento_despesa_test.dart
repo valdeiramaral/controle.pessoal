@@ -330,7 +330,7 @@ void main() {
           ArquivoParaAnexar(nome: 'foto.png', bytes: png, tipoMime: 'image/png'),
         ],
       );
-      final anexos = await banco.observarAnexos(ids.first).first;
+      final anexos = await banco.listarAnexos(ids.first);
       final pdf = anexos.firstWhere((a) => a.nomeArquivo == 'fatura.pdf');
       final img = anexos.firstWhere((a) => a.nomeArquivo == 'foto.png');
 
@@ -389,7 +389,7 @@ void main() {
       expect(l.dataPagamento, isNotNull);
       expect(find.byKey(const Key('detalhe_pagamento')), findsOneWidget);
       expect(tester.widget<Text>(find.byKey(const Key('detalhe_forma'))).data, 'PIX');
-      expect((await banco.observarAnexos(ids.first).first).map((a) => a.nomeArquivo), ['foto.png']);
+      expect((await banco.listarAnexos(ids.first)).map((a) => a.nomeArquivo), ['foto.png']);
       expect(tester.widget<Text>(find.byKey(const Key('detalhe_valor'))).data!.contains('250,00'), isTrue);
 
       // Excluir (sem serie): confirma e volta.
@@ -397,7 +397,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('confirmar_exclusao_lancamento')));
       await tester.pumpAndSettle();
-      expect(await banco.observarLancamentos().first, isEmpty);
+      expect(await banco.listarLancamentos(), isEmpty);
       expect(find.byKey(const Key('detalhe_descricao')), findsNothing);
       expect(tester.takeException(), isNull);
       await encerrar(tester);

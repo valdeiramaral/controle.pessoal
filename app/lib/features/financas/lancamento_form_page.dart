@@ -102,7 +102,7 @@ class _LancamentoFormPageState extends ConsumerState<LancamentoFormPage> {
         .toList();
     final categorias = await (banco.select(banco.categorias)..where((c) => c.excluidoEm.isNull())).get();
     final l = widget.lancamento;
-    final existentes = l == null ? <Anexo>[] : await banco.observarAnexos(l.id).first;
+    final existentes = l == null ? <Anexo>[] : await banco.listarAnexos(l.id);
     final seguintes = l == null ? 0 : await banco.contarSeguintesDaSerie(l);
     if (!mounted) return;
     setState(() {

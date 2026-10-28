@@ -359,6 +359,16 @@ class Banco extends _$Banco {
     return alvos.length;
   }
 
+  /// Consulta unica (sem stream) dos anexos ativos de um lancamento.
+  Future<List<Anexo>> listarAnexos(String lancamentoId) => (select(anexos)
+        ..where((a) => a.lancamentoId.equals(lancamentoId) & a.excluidoEm.isNull())
+        ..orderBy([(a) => OrderingTerm.asc(a.criadoEm)]))
+      .get();
+
+  /// Consulta unica (sem stream) dos lancamentos ativos.
+  Future<List<Lancamento>> listarLancamentos() =>
+      (select(lancamentos)..where((l) => l.excluidoEm.isNull())..orderBy([(l) => OrderingTerm.desc(l.dia)])).get();
+
   /// Anexos ativos de um lancamento (sem o conteudo, so a lista).
   Stream<List<Anexo>> observarAnexos(String lancamentoId) => (select(anexos)
         ..where((a) => a.lancamentoId.equals(lancamentoId) & a.excluidoEm.isNull())
