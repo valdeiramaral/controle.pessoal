@@ -73,13 +73,16 @@ A **Data de vencimento** (despesa ou receita) é o campo do lançamento. Ao marc
 Regras de saldo: lançamento pago movimenta o caixa pelo **valor pago** (se registrado) na **conta do pagamento**; pagamento parcial ainda não altera saldos (só a quitação total). O dashboard continua posicionando o lançamento no mês do vencimento. **Desfazer pagamento** volta a pendente e limpa esses dados. Marcar o quadradinho da lista registra pagamento total, hoje, sem detalhes. Banco local `schemaVersion 4`.
 
 ## Saúde (`features/saude/`, regras em `core/saude_calculo.dart`)
-A tela **Saúde** tem duas abas: **Medicação** e **Consultas e exames**. Banco local `schemaVersion 5` (tabelas `medicamento` ampliada e `agendamento_saude` nova).
+A tela **Saúde** tem duas abas: **Medicação** e **Consultas e exames**. Banco local `schemaVersion 6` (v5: tabelas `medicamento` ampliada e `agendamento_saude` nova).
 
 ### Medicação
 - **Hoje:** doses programadas do dia em ordem de horário, cada uma com **Tomei** (registra o horário real e desconta do estoque), **Pular** e **Desfazer** (devolve ao estoque). Dose pendente depois do horário aparece como *Atrasada*. Medicamentos "somente quando necessário" têm o botão **Registrar dose**. Ao tomar e o estoque chegar ao mínimo, aparece o aviso de estoque baixo.
 - **Meus medicamentos:** nome, dose, formato, frequência/horários, tratamento, estoque (com dias restantes estimados; vermelho quando baixo) e *Não estou tomando* para os suspensos. Tocar abre o formulário.
 - **Formulário** (`medicamento_form_page.dart`), em três blocos:
   1. *Detalhes:* **Nome**, **Dose** (ex.: 100 mg), **Formato** (comprimido, cápsula, líquido, gotas, injeção, pomada, spray, adesivo, pó, outro), **Tratamento** (para que serve) e **Instruções**.
+  - *Sobre o medicamento* (`core/catalogo_medicamentos.dart`): ao digitar o nome, o app sugere medicamentos comuns (cerca de 55, sem acento e por prefixo) e, se reconhecer o nome (também apelidos como AAS e nomes comerciais conhecidos, ou "Paracetamol 750 mg"), preenche uma **breve informação** (para que serve, cuidados principais). O texto fica editável e nunca é sobrescrito se a pessoa já escreveu algo. Funciona sem internet; é apoio geral e **não substitui a bula nem o médico**. Nome fora do catálogo: o campo fica em branco para preencher.
+  - *Identificação:* **Classificação (Anvisa)** — *Referência*, *Genérico* ou *Similar* (com explicação de cada uma) —, **Fabricante/laboratório** e **Validade**. Na lista, a validade aparece como *Validade: dd/mm/aaaa*, em vermelho como *Vence em N dias* (30 dias ou menos) e *VENCIDO em …* depois da data (vale até o fim do dia informado).
+  - *Posologia da receita:* texto livre com como o médico mandou tomar (ex.: "1 comprimido de 8 em 8 horas, por 7 dias"); aparece na lista. A programação de horários e lembretes continua nos campos estruturados abaixo.
   2. *Quando você toma:* **Começar**, **Terminar** (opcional), **Frequência** (*todos os dias*, *dias da semana*, *a cada N dias*, *somente quando necessário*), **Horários** (até 12, por seletor de hora) e **Quantidade por tomada** (unidades descontadas do estoque a cada dose).
   3. *Estoque:* **Estoque atual**, **Lembrete de reabastecer** e **Lembrar quando restarem N** unidades.
 - **Suspender:** pede confirmação ("O medicamento será alterado para *Não estou tomando*. Você não receberá mais lembretes"), cancela os lembretes e tira o medicamento das doses de hoje e do painel Hoje. **Voltar a tomar** reativa e refaz os lembretes. **Excluir** remove o medicamento.

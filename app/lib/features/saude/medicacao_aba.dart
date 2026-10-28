@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../core/formatos.dart';
 import '../../core/saude_calculo.dart';
 import '../../data/local/banco.dart';
 import 'medicamento_form_page.dart';
@@ -75,7 +76,7 @@ class MedicacaoAba extends ConsumerWidget {
                   padding: EdgeInsets.fromLTRB(16, 4, 16, 12),
                   child: Text('Nenhum medicamento cadastrado. Toque em + para adicionar.', key: Key('sem_medicamentos')),
                 ),
-              for (final m in meds) _tileMedicamento(context, m),
+              for (final m in meds) _tileMedicamento(context, m, agora),
             ],
           );
         },
@@ -153,15 +154,20 @@ class MedicacaoAba extends ConsumerWidget {
     }
   }
 
-  Widget _tileMedicamento(BuildContext context, Medicamento m) {
+  Widget _tileMedicamento(BuildContext context, Medicamento m, DateTime agora) {
     final baixo = estoqueBaixo(m);
     final dias = diasDeEstoque(m);
     final linhas = <String>[
       '${m.dose} · ${formatosMedicamento[m.formato] ?? m.formato}',
+      if ([m.tipoMedicamento, m.fabricante].any((x) => (x ?? '').isNotEmpty))
+        [if (tiposMedicamento[m.tipoMedicamento] != null) tiposMedicamento[m.tipoMedicamento]!, if ((m.fabricante ?? '').isNotEmpty) m.fabricante!].join(' · '),
       if (m.ativo) resumoFrequencia(m) else 'Não estou tomando',
+      if ((m.posologia ?? '').isNotEmpty) 'Posologia: ${m.posologia}',
       if ((m.tratamento ?? '').isNotEmpty) 'Para: ${m.tratamento}',
     ];
     final cor = Theme.of(context).colorScheme;
+    final validade = situacaoValidade(m, agora);
+    final diasValidade = diasParaVencer(m, agora);
     return ListTile(
       key: Key('med_${m.id}'),
       isThreeLine: true,
@@ -171,6 +177,16 @@ class MedicacaoAba extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(linhas.join('\n')),
+          if (m.validade != null)
+            Text(
+              validade == 'vencido'
+                  ? 'VENCIDO em ${formatarData(m.validade!)}'
+                  : (validade == 'vence_logo'
+                      ? 'Vence em ${diasValidade == 0 ? 'hoje' : '$diasValidade dias'} (${formatarData(m.validade!)})'
+                      : 'Validade: ${formatarData(m.validade!)}'),
+              key: Key('validade_${m.id}'),
+              style: TextStyle(color: validade == 'ok' ? null : cor.error, fontWeight: validade == 'ok' ? null : FontWeight.w700),
+            ),
           if (m.estoque != null)
             Text(
               baixo

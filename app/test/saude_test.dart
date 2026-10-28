@@ -1,3 +1,4 @@
+import 'package:controle_pessoal/core/catalogo_medicamentos.dart';
 import 'package:controle_pessoal/core/saude_calculo.dart';
 import 'package:controle_pessoal/core/tema.dart';
 import 'package:controle_pessoal/data/local/banco.dart';
@@ -266,7 +267,7 @@ void main() {
 
   group('saude: telas', () {
     testWidgets('cadastra medicamento com posologia e estoque; valida campos obrigatorios', (tester) async {
-      tester.view.physicalSize = const Size(900, 3200);
+      tester.view.physicalSize = const Size(900, 5200);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
       final banco = _novoBanco();
@@ -324,7 +325,7 @@ void main() {
     });
 
     testWidgets('suspender pede confirmacao e marca "nao estou tomando"; voltar a tomar reativa', (tester) async {
-      tester.view.physicalSize = const Size(900, 3200);
+      tester.view.physicalSize = const Size(900, 5200);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
       final banco = _novoBanco();
@@ -423,7 +424,7 @@ void main() {
     });
 
     testWidgets('agenda um exame periodico (trimestral) com previa e grava a serie', (tester) async {
-      tester.view.physicalSize = const Size(900, 3200);
+      tester.view.physicalSize = const Size(900, 5200);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
       final banco = _novoBanco();
@@ -515,6 +516,167 @@ void main() {
       await tester.pumpAndSettle();
       expect(await banco.agendamentoPorId(consulta.id), isNull);
       expect(find.text('Próximos (1)'), findsOneWidget); // voltou para a lista, so o exame
+      await encerrar(tester);
+    });
+  });
+
+  group('medicamento: identificacao e informacoes', () {
+    test('catalogo: reconhece nome, apelido e "nome + dosagem"; sugere por prefixo sem acento', () {
+      expect(infoDoMedicamento('Paracetamol 750 mg')?.nome, 'Paracetamol');
+      expect(infoDoMedicamento('paracetamol')?.informacao, contains('antitérmico'));
+      expect(infoDoMedicamento('AAS')?.nome, 'Ácido acetilsalicílico');
+      expect(infoDoMedicamento('Dorflex')?.nome, 'Dipirona');
+      expect(infoDoMedicamento('Remédio Inventado'), isNull);
+      expect(infoDoMedicamento('Pa'), isNull);
+      expect(sugerirMedicamentos('P'), isEmpty);
+      expect(sugerirMedicamentos('parac').map((m) => m.nome), contains('Paracetamol'));
+      expect(sugerirMedicamentos('acido').map((m) => m.nome), containsAll(['Ácido acetilsalicílico', 'Ácido fólico']));
+      expect(sugerirMedicamentos('a').length, 0);
+      final nomes = catalogoMedicamentos.map((m) => m.nome).toList();
+      expect(nomes.toSet().length, nomes.length); // sem repetidos
+      expect(catalogoMedicamentos.every((m) => m.informacao.length > 20), isTrue);
+    });
+
+    test('grava e atualiza tipo, fabricante, validade, posologia e informacoes', () async {
+      final b = _novoBanco();
+      final id = await b.inserirMedicamento(
+        nome: 'Losartana',
+        dose: '50 mg',
+        horarios: '08:00',
+        tipoMedicamento: 'generico',
+        fabricante: 'EMS',
+        validade: DateTime(2027, 3, 31),
+        posologia: '1 comprimido pela manhã',
+        informacoes: 'Anti-hipertensivo.',
+      );
+      var m = (await b.medicamentoPorId(id))!;
+      expect([m.tipoMedicamento, m.fabricante, m.posologia, m.informacoes], ['generico', 'EMS', '1 comprimido pela manhã', 'Anti-hipertensivo.']);
+      expect(m.validade, DateTime(2027, 3, 31));
+      await b.atualizarMedicamento(id,
+          nome: 'Losartana',
+          dose: '50 mg',
+          horarios: '08:00',
+          formato: 'comprimido',
+          quantidade: 1,
+          frequencia: 'diaria',
+          diasSemana: '',
+          intervaloDias: 1,
+          inicio: DateTime(2026, 10, 1),
+          lembreteReabastecer: true,
+          tipoMedicamento: 'referencia',
+          fabricante: 'Merck');
+      m = (await b.medicamentoPorId(id))!;
+      expect(m.tipoMedicamento, 'referencia');
+      expect(m.fabricante, 'Merck');
+      expect(m.validade, isNull);
+      expect(m.posologia, isNull);
+    });
+
+    test('validade: vencido, vence em ate 30 dias, ok e sem validade', () async {
+      final b = _novoBanco();
+      Future<Medicamento> com(DateTime? v) async {
+        final id = await b.inserirMedicamento(nome: 'X', dose: '1', horarios: '08:00', validade: v);
+        return (await b.medicamentoPorId(id))!;
+      }
+
+      final hoje = DateTime(2026, 10, 28, 15);
+      final vencido = await com(DateTime(2026, 10, 20));
+      expect(situacaoValidade(vencido, hoje), 'vencido');
+      expect(diasParaVencer(vencido, hoje), -8);
+      final hojeVence = await com(DateTime(2026, 10, 28));
+      expect(situacaoValidade(hojeVence, hoje), 'vence_logo'); // vale ate o fim do dia
+      expect(diasParaVencer(hojeVence, hoje), 0);
+      expect(situacaoValidade(await com(DateTime(2026, 11, 27)), hoje), 'vence_logo'); // 30 dias
+      expect(situacaoValidade(await com(DateTime(2026, 11, 28)), hoje), 'ok'); // 31 dias
+      expect(situacaoValidade(await com(null), hoje), isNull);
+    });
+
+    testWidgets('formulario: nome conhecido preenche a informacao; sugestao; salva classificacao, fabricante e posologia', (tester) async {
+      tester.view.physicalSize = const Size(900, 5200);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final banco = _novoBanco();
+      await tester.pumpWidget(_app(
+          banco,
+          Scaffold(
+              body: Builder(
+                  builder: (c) => TextButton(
+                      onPressed: () => abrirFormularioMedicamento(c, hoje: DateTime(2026, 10, 28)), child: const Text('abrir'))))));
+      await tester.tap(find.text('abrir'));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byKey(const Key('campo_nome_med')), 'Parac');
+      await tester.pump();
+      expect(find.byKey(const Key('sugestao_med_0')), findsOneWidget);
+      await tester.tap(find.byKey(const Key('sugestao_med_0')));
+      await tester.pumpAndSettle();
+      expect(tester.widget<TextFormField>(find.byKey(const Key('campo_nome_med'))).controller!.text, 'Paracetamol');
+      expect(tester.widget<TextFormField>(find.byKey(const Key('campo_informacoes_med'))).controller!.text, contains('Analgésico e antitérmico'));
+      expect(find.text(avisoInformacao), findsOneWidget);
+
+      await tester.enterText(find.byKey(const Key('campo_dose_med')), '750 mg');
+      await tester.tap(find.byKey(const Key('campo_tipo_medicamento')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Genérico').last);
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(const Key('campo_fabricante_med')), 'EMS');
+      await tester.enterText(find.byKey(const Key('campo_posologia_med')), '1 comprimido de 8 em 8 horas, por 7 dias');
+      await tester.tap(find.byKey(const Key('botao_salvar_med')));
+      await tester.pumpAndSettle();
+
+      final m = (await banco.listarMedicamentos()).single;
+      expect(m.nome, 'Paracetamol');
+      expect(m.tipoMedicamento, 'generico');
+      expect(m.fabricante, 'EMS');
+      expect(m.posologia, '1 comprimido de 8 em 8 horas, por 7 dias');
+      expect(m.informacoes, contains('Analgésico e antitérmico'));
+      await encerrar(tester);
+    });
+
+    testWidgets('informacao escrita pela pessoa nao e apagada ao mudar o nome', (tester) async {
+      tester.view.physicalSize = const Size(900, 5200);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final banco = _novoBanco();
+      await tester.pumpWidget(_app(
+          banco,
+          Scaffold(
+              body: Builder(
+                  builder: (c) => TextButton(
+                      onPressed: () => abrirFormularioMedicamento(c, hoje: DateTime(2026, 10, 28)), child: const Text('abrir'))))));
+      await tester.tap(find.text('abrir'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(const Key('campo_informacoes_med')), 'Anotação minha');
+      await tester.enterText(find.byKey(const Key('campo_nome_med')), 'Paracetamol');
+      await tester.pump();
+      expect(tester.widget<TextFormField>(find.byKey(const Key('campo_informacoes_med'))).controller!.text, 'Anotação minha');
+      await encerrar(tester);
+    });
+
+    testWidgets('lista mostra classificacao, fabricante, posologia e alerta de validade', (tester) async {
+      tester.view.physicalSize = const Size(900, 2400);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final banco = _novoBanco();
+      final vencido = await banco.inserirMedicamento(
+        nome: 'Antigo',
+        dose: '10 mg',
+        horarios: '08:00',
+        tipoMedicamento: 'similar',
+        fabricante: 'Medley',
+        posologia: '1 ao dia',
+        validade: DateTime(2026, 10, 20),
+      );
+      final logo = await banco.inserirMedicamento(nome: 'Quase', dose: '5 mg', horarios: '09:00', validade: DateTime(2026, 11, 10));
+      final ok = await banco.inserirMedicamento(nome: 'Novo', dose: '5 mg', horarios: '10:00', validade: DateTime(2027, 6, 1));
+      await tester.pumpWidget(_app(banco, Scaffold(body: MedicacaoAba(agora: DateTime(2026, 10, 28, 9)))));
+      await tester.pumpAndSettle();
+
+      expect(tester.widget<Text>(find.byKey(Key('validade_$vencido'))).data, 'VENCIDO em 20/10/2026');
+      expect(tester.widget<Text>(find.byKey(Key('validade_$logo'))).data, 'Vence em 13 dias (10/11/2026)');
+      expect(tester.widget<Text>(find.byKey(Key('validade_$ok'))).data, 'Validade: 01/06/2027');
+      expect(find.textContaining('Similar · Medley'), findsOneWidget);
+      expect(find.textContaining('Posologia: 1 ao dia'), findsOneWidget);
       await encerrar(tester);
     });
   });

@@ -63,7 +63,7 @@ class Banco extends _$Banco {
   Banco.paraTeste(super.e);
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -111,6 +111,14 @@ class Banco extends _$Banco {
             await m.addColumn(medicamentos, medicamentos.ativo);
             await m.addColumn(medicamentos, medicamentos.lembreteReabastecer);
             await m.createTable(agendamentosSaude);
+          }
+          if (de < 6) {
+            // v6: tipo (referencia/generico/similar), fabricante, validade, posologia e informacoes do medicamento.
+            await m.addColumn(medicamentos, medicamentos.tipoMedicamento);
+            await m.addColumn(medicamentos, medicamentos.fabricante);
+            await m.addColumn(medicamentos, medicamentos.validade);
+            await m.addColumn(medicamentos, medicamentos.posologia);
+            await m.addColumn(medicamentos, medicamentos.informacoes);
           }
         },
       );
@@ -713,6 +721,11 @@ class Banco extends _$Banco {
     int? estoque,
     int? estoqueMinimo,
     bool lembreteReabastecer = true,
+    String? tipoMedicamento,
+    String? fabricante,
+    DateTime? validade,
+    String? posologia,
+    String? informacoes,
   }) async {
     final id = _uuid.v4();
     await into(medicamentos).insert(MedicamentosCompanion.insert(
@@ -732,6 +745,11 @@ class Banco extends _$Banco {
       estoque: Value(estoque),
       estoqueMinimo: Value(estoqueMinimo),
       lembreteReabastecer: Value(lembreteReabastecer),
+      tipoMedicamento: Value(tipoMedicamento),
+      fabricante: Value(fabricante),
+      validade: Value(validade),
+      posologia: Value(posologia),
+      informacoes: Value(informacoes),
     ));
     return id;
   }
@@ -754,6 +772,11 @@ class Banco extends _$Banco {
     int? estoque,
     int? estoqueMinimo,
     required bool lembreteReabastecer,
+    String? tipoMedicamento,
+    String? fabricante,
+    DateTime? validade,
+    String? posologia,
+    String? informacoes,
   }) =>
       (update(medicamentos)..where((t) => t.id.equals(id))).write(MedicamentosCompanion(
         nome: Value(nome),
@@ -771,6 +794,11 @@ class Banco extends _$Banco {
         estoque: Value(estoque),
         estoqueMinimo: Value(estoqueMinimo),
         lembreteReabastecer: Value(lembreteReabastecer),
+        tipoMedicamento: Value(tipoMedicamento),
+        fabricante: Value(fabricante),
+        validade: Value(validade),
+        posologia: Value(posologia),
+        informacoes: Value(informacoes),
         atualizadoEm: Value(DateTime.now()),
       ));
 

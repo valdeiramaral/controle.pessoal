@@ -144,6 +144,35 @@ int? diasDeEstoque(Medicamento m) {
 bool estoqueBaixo(Medicamento m) =>
     m.ativo && m.lembreteReabastecer && m.estoque != null && m.estoqueMinimo != null && m.estoque! <= m.estoqueMinimo!;
 
+const tiposMedicamento = <String, String>{
+  'referencia': 'Referência',
+  'generico': 'Genérico',
+  'similar': 'Similar',
+};
+
+/// Explicacao curta de cada classificacao (Anvisa).
+const explicacaoTipoMedicamento = 'Referência: marca original, a que serviu de base para os demais. '
+    'Genérico: mesmo princípio ativo, vendido pelo nome da substância, intercambiável com o de referência. '
+    'Similar: mesmo princípio ativo, vendido com nome de marca própria.';
+
+const diasAvisoValidade = 30;
+
+/// 'vencido', 'vence_logo' (ate 30 dias) ou 'ok'; null sem validade informada.
+String? situacaoValidade(Medicamento m, DateTime hoje) {
+  final v = m.validade;
+  if (v == null) return null;
+  final dias = diasParaVencer(m, hoje)!;
+  if (v.isBefore(soDia(hoje))) return 'vencido';
+  return dias <= diasAvisoValidade ? 'vence_logo' : 'ok';
+}
+
+/// Dias de hoje ate a validade (negativo se ja venceu); null sem validade. A validade vale ate o fim do dia informado.
+int? diasParaVencer(Medicamento m, DateTime hoje) {
+  final v = m.validade;
+  if (v == null) return null;
+  return DateTime.utc(v.year, v.month, v.day).difference(DateTime.utc(hoje.year, hoje.month, hoje.day)).inDays;
+}
+
 // ----------------------------- Agendamentos -----------------------------
 
 const tiposAgendamento = <String, String>{

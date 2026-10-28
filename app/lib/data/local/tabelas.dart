@@ -178,6 +178,12 @@ class Medicamentos extends Table with ColunasSync {
   IntColumn get intervaloDias => integer().withDefault(const Constant(1))();
   BoolColumn get ativo => boolean().withDefault(const Constant(true))(); // false = "nao estou tomando"
   BoolColumn get lembreteReabastecer => boolean().withDefault(const Constant(true))();
+  // Identificacao (schema v6):
+  TextColumn get tipoMedicamento => text().nullable()(); // referencia | generico | similar (classificacao da Anvisa)
+  TextColumn get fabricante => text().nullable()(); // fabricante/laboratorio
+  DateTimeColumn get validade => dateTime().nullable()();
+  TextColumn get posologia => text().nullable()(); // como a receita manda tomar (texto livre)
+  TextColumn get informacoes => text().nullable()(); // breve informacao sobre o medicamento
   @override
   Set<Column> get primaryKey => {id};
 }

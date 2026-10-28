@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/catalogo_medicamentos.dart';
 import '../../core/formatos.dart';
 import '../../core/lembretes_saude.dart';
 import '../../core/saude_calculo.dart';
@@ -33,6 +34,12 @@ class _MedicamentoFormPageState extends ConsumerState<MedicamentoFormPage> {
   final _intervalo = TextEditingController(text: '2');
   final _estoque = TextEditingController();
   final _estoqueMinimo = TextEditingController();
+  final _fabricante = TextEditingController();
+  final _posologia = TextEditingController();
+  final _informacoes = TextEditingController();
+  String? _infoAuto; // ultima informacao preenchida sozinha pelo catalogo
+  String? _tipoMed; // referencia | generico | similar
+  DateTime? _validade;
   String _formato = 'comprimido';
   String _frequencia = 'diaria';
   final _dias = <int>{};
@@ -67,12 +74,44 @@ class _MedicamentoFormPageState extends ConsumerState<MedicamentoFormPage> {
       _inicio = soDia(m.inicio);
       _fim = m.fim == null ? null : soDia(m.fim!);
       _lembrete = m.lembreteReabastecer;
+      _tipoMed = tiposMedicamento.containsKey(m.tipoMedicamento) ? m.tipoMedicamento : null;
+      _fabricante.text = m.fabricante ?? '';
+      _validade = m.validade == null ? null : soDia(m.validade!);
+      _posologia.text = m.posologia ?? '';
+      _informacoes.text = m.informacoes ?? '';
     }
+  }
+
+  /// Ao digitar o nome, preenche a informacao breve se o remedio for conhecido (sem apagar o que a pessoa escreveu).
+  void _nomeMudou(String texto) {
+    final info = infoDoMedicamento(texto)?.informacao;
+    final vazio = _informacoes.text.trim().isEmpty || _informacoes.text == _infoAuto;
+    if (vazio) {
+      _informacoes.text = info ?? '';
+      _infoAuto = info;
+    }
+    setState(() {});
+  }
+
+  void _usarSugestao(InfoMedicamento m) {
+    _nome.text = m.nome;
+    _nome.selection = TextSelection.collapsed(offset: m.nome.length);
+    _nomeMudou(m.nome);
+  }
+
+  Future<void> _escolherValidade() async {
+    final d = await showDatePicker(
+      context: context,
+      initialDate: _validade ?? _inicio,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+    );
+    if (d != null) setState(() => _validade = soDia(d));
   }
 
   @override
   void dispose() {
-    for (final c in [_nome, _dose, _tratamento, _instrucoes, _quantidade, _intervalo, _estoque, _estoqueMinimo]) {
+    for (final c in [_nome, _dose, _tratamento, _instrucoes, _quantidade, _intervalo, _estoque, _estoqueMinimo, _fabricante, _posologia, _informacoes]) {
       c.dispose();
     }
     super.dispose();
@@ -131,6 +170,7 @@ class _MedicamentoFormPageState extends ConsumerState<MedicamentoFormPage> {
     final minimo = _lembrete ? int.tryParse(_estoqueMinimo.text.trim()) : null;
     final tratamento = _tratamento.text.trim().isEmpty ? null : _tratamento.text.trim();
     final instrucoes = _instrucoes.text.trim().isEmpty ? null : _instrucoes.text.trim();
+    String? opcional(TextEditingController c) => c.text.trim().isEmpty ? null : c.text.trim();
     try {
       final String id;
       if (_editando) {
@@ -153,6 +193,11 @@ class _MedicamentoFormPageState extends ConsumerState<MedicamentoFormPage> {
           estoque: estoque,
           estoqueMinimo: minimo,
           lembreteReabastecer: _lembrete,
+          tipoMedicamento: _tipoMed,
+          fabricante: opcional(_fabricante),
+          validade: _validade,
+          posologia: opcional(_posologia),
+          informacoes: opcional(_informacoes),
         );
       } else {
         id = await banco.inserirMedicamento(
@@ -171,6 +216,11 @@ class _MedicamentoFormPageState extends ConsumerState<MedicamentoFormPage> {
           estoque: estoque,
           estoqueMinimo: minimo,
           lembreteReabastecer: _lembrete,
+          tipoMedicamento: _tipoMed,
+          fabricante: opcional(_fabricante),
+          validade: _validade,
+          posologia: opcional(_posologia),
+          informacoes: opcional(_informacoes),
         );
       }
       final salvo = await banco.medicamentoPorId(id);
@@ -237,7 +287,8 @@ class _MedicamentoFormPageState extends ConsumerState<MedicamentoFormPage> {
         child: Text(texto, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
       );
 
-  Widget _campoData(Key chave, String rotulo, DateTime? valor, VoidCallback aoTocar, {VoidCallback? limpar}) => InkWell(
+  Widget _campoData(Key chave, String rotulo, DateTime? valor, VoidCallback aoTocar,
+          {VoidCallback? limpar, String vazio = 'Sem data de término'}) => InkWell(
         key: chave,
         onTap: aoTocar,
         child: InputDecorator(
@@ -247,7 +298,7 @@ class _MedicamentoFormPageState extends ConsumerState<MedicamentoFormPage> {
                 ? IconButton(icon: const Icon(Icons.close), tooltip: 'Remover', onPressed: limpar)
                 : const Icon(Icons.calendar_today_outlined),
           ),
-          child: Text(valor == null ? 'Sem data de término' : formatarData(valor)),
+          child: Text(valor == null ? vazio : formatarData(valor)),
         ),
       );
 
@@ -280,8 +331,27 @@ class _MedicamentoFormPageState extends ConsumerState<MedicamentoFormPage> {
                   controller: _nome,
                   textCapitalization: TextCapitalization.sentences,
                   decoration: const InputDecoration(labelText: 'Nome', helperText: 'Ex.: Ácido acetilsalicílico'),
+                  onChanged: _nomeMudou,
                   validator: (v) => (v ?? '').trim().length < 2 ? 'Informe o nome' : null,
                 ),
+                Builder(builder: (context) {
+                  final sugestoes = sugerirMedicamentos(_nome.text).where((m) => m.nome != _nome.text.trim()).toList();
+                  if (sugestoes.isEmpty) return const SizedBox.shrink();
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Wrap(
+                      spacing: 8,
+                      children: [
+                        for (var i = 0; i < sugestoes.length; i++)
+                          ActionChip(
+                            key: Key('sugestao_med_$i'),
+                            label: Text(sugestoes[i].nome),
+                            onPressed: () => _usarSugestao(sugestoes[i]),
+                          ),
+                      ],
+                    ),
+                  );
+                }),
                 const SizedBox(height: 12),
                 TextFormField(
                   key: const Key('campo_dose_med'),
@@ -311,7 +381,62 @@ class _MedicamentoFormPageState extends ConsumerState<MedicamentoFormPage> {
                   maxLength: 300,
                   decoration: const InputDecoration(labelText: 'Instruções (opcional)', helperText: 'Ex.: Tomar após o almoço, com água'),
                 ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  key: const Key('campo_informacoes_med'),
+                  controller: _informacoes,
+                  maxLines: 4,
+                  maxLength: 600,
+                  decoration: const InputDecoration(
+                    labelText: 'Sobre o medicamento',
+                    helperText: avisoInformacao,
+                    helperMaxLines: 3,
+                    alignLabelWithHint: true,
+                  ),
+                ),
+                _secao('Identificação'),
+                DropdownButtonFormField<String?>(
+                  key: const Key('campo_tipo_medicamento'),
+                  initialValue: _tipoMed,
+                  decoration: const InputDecoration(
+                    labelText: 'Classificação (Anvisa)',
+                    helperText: explicacaoTipoMedicamento,
+                    helperMaxLines: 5,
+                  ),
+                  items: [
+                    const DropdownMenuItem<String?>(value: null, child: Text('Não informado')),
+                    for (final e in tiposMedicamento.entries) DropdownMenuItem<String?>(value: e.key, child: Text(e.value)),
+                  ],
+                  onChanged: (v) => setState(() => _tipoMed = v),
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  key: const Key('campo_fabricante_med'),
+                  controller: _fabricante,
+                  textCapitalization: TextCapitalization.words,
+                  decoration: const InputDecoration(labelText: 'Fabricante/laboratório (opcional)', helperText: 'Ex.: EMS, Eurofarma, Medley'),
+                ),
+                const SizedBox(height: 12),
+                _campoData(const Key('campo_validade_med'), 'Validade (opcional)', _validade, _escolherValidade,
+                    limpar: () => setState(() => _validade = null), vazio: 'Não informada'),
+                if (_validade != null && _validade!.isBefore(soDia(widget.hoje ?? DateTime.now())))
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Text('Medicamento vencido. Não use e descarte conforme orientação do farmacêutico.',
+                        key: const Key('aviso_vencido_form'), style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                  ),
                 _secao('Quando você toma'),
+                TextFormField(
+                  key: const Key('campo_posologia_med'),
+                  controller: _posologia,
+                  maxLines: 2,
+                  decoration: const InputDecoration(
+                    labelText: 'Posologia da receita (opcional)',
+                    helperText: 'Como o médico mandou tomar. Ex.: 1 comprimido de 8 em 8 horas, por 7 dias',
+                    helperMaxLines: 2,
+                  ),
+                ),
+                const SizedBox(height: 12),
                 _campoData(const Key('campo_inicio_med'), 'Começar', _inicio, () => _escolherData(inicio: true)),
                 const SizedBox(height: 12),
                 _campoData(const Key('campo_fim_med'), 'Terminar', _fim, () => _escolherData(inicio: false),
