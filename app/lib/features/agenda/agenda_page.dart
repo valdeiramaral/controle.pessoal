@@ -5,7 +5,9 @@ import '../nav/menu_lateral.dart';
 
 import '../../core/formatos.dart';
 import '../../core/notificacoes.dart';
+import '../../core/tarefas_calculo.dart';
 import '../../data/local/banco.dart';
+import 'quadro_aba.dart';
 import 'tarefa_form_page.dart';
 import 'tarefas_aba.dart';
 
@@ -20,7 +22,7 @@ class AgendaPage extends ConsumerStatefulWidget {
 }
 
 class _AgendaPageState extends ConsumerState<AgendaPage> with SingleTickerProviderStateMixin {
-  late final TabController _abas = TabController(length: 2, vsync: this)..addListener(() => setState(() {}));
+  late final TabController _abas = TabController(length: 3, vsync: this)..addListener(() => setState(() {}));
 
   @override
   void dispose() {
@@ -67,31 +69,66 @@ class _AgendaPageState extends ConsumerState<AgendaPage> with SingleTickerProvid
   @override
   Widget build(BuildContext context) {
     final banco = ref.watch(bancoProvider);
-    final tarefas = _abas.index == 0;
+    final aba = _abas.index; // 0 quadro | 1 tarefas | 2 compromissos
     return Scaffold(
       appBar: BarraPagina(title: Text(widget.titulo)),
       body: Column(children: [
         TabBar(
           controller: _abas,
           tabs: const [
+            Tab(key: Key('aba_quadro'), icon: Icon(Icons.view_week_outlined), text: 'Quadro'),
             Tab(key: Key('aba_tarefas'), icon: Icon(Icons.task_alt_outlined), text: 'Tarefas'),
             Tab(key: Key('aba_compromissos'), icon: Icon(Icons.event_outlined), text: 'Compromissos'),
           ],
         ),
         Expanded(
           child: TabBarView(controller: _abas, children: [
+            const QuadroAba(),
             const TarefasAba(),
             _compromissos(banco),
           ]),
         ),
       ]),
       floatingActionButton: FloatingActionButton(
-        key: Key(tarefas ? 'fab_nova_tarefa' : 'fab_novo_compromisso'),
-        tooltip: tarefas ? 'Nova tarefa' : 'Novo compromisso',
-        onPressed: () => tarefas ? abrirFormularioTarefa(context) : _novoEvento(context, banco),
+        key: Key(aba == 2 ? 'fab_novo_compromisso' : aba == 1 ? 'fab_nova_tarefa' : 'fab_novo_quadro'),
+        tooltip: aba == 2 ? 'Novo compromisso' : aba == 1 ? 'Nova tarefa' : 'Novo',
+        onPressed: () => aba == 2
+            ? _novoEvento(context, banco)
+            : aba == 1
+                ? abrirFormularioTarefa(context)
+                : _escolherNovo(context, banco),
         child: const Icon(Icons.add),
       ),
     );
+  }
+
+  /// No quadro, o + pergunta o que cadastrar: tarefa ou compromisso.
+  Future<void> _escolherNovo(BuildContext context, Banco banco) async {
+    final r = await showModalBottomSheet<String>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          ListTile(
+            key: const Key('novo_tarefa'),
+            leading: const Icon(Icons.task_alt_outlined, color: corTarefaQuadro),
+            title: const Text('Nova tarefa'),
+            onTap: () => Navigator.pop(ctx, 'tarefa'),
+          ),
+          ListTile(
+            key: const Key('novo_compromisso'),
+            leading: const Icon(Icons.event_outlined, color: corCompromissoQuadro),
+            title: const Text('Novo compromisso'),
+            onTap: () => Navigator.pop(ctx, 'compromisso'),
+          ),
+        ]),
+      ),
+    );
+    if (!context.mounted || r == null) return;
+    if (r == 'tarefa') {
+      await abrirFormularioTarefa(context);
+    } else {
+      await _novoEvento(context, banco);
+    }
   }
 
   Future<void> _novoEvento(BuildContext context, Banco banco) async {

@@ -63,3 +63,13 @@ List<GrupoDiaTarefas> agruparTarefasPorDia(List<Tarefa> tarefas) {
             })),
   ];
 }
+
+/// Segunda-feira da semana de [d] (a semana do quadro vai de segunda a domingo).
+DateTime inicioDaSemana(DateTime d) {
+  final dia = DateTime(d.year, d.month, d.day);
+  return DateTime(dia.year, dia.month, dia.day - (dia.weekday - DateTime.monday));
+}
+
+/// Cores do quadro: tarefas em verde e compromissos em azul.
+const corTarefaQuadro = Color(0xFF2E9E5B);
+const corCompromissoQuadro = Color(0xFF2F6FDE);

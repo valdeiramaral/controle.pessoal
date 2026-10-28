@@ -8,15 +8,17 @@ import '../../core/tarefas_calculo.dart';
 import '../../data/local/banco.dart';
 
 /// Abre o cadastro de tarefa (nova ou edicao).
-Future<void> abrirFormularioTarefa(BuildContext context, {Tarefa? tarefa, DateTime? hoje}) =>
-    Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => TarefaFormPage(tarefa: tarefa, hoje: hoje)));
+Future<void> abrirFormularioTarefa(BuildContext context, {Tarefa? tarefa, DateTime? hoje, DateTime? prazoInicial}) =>
+    Navigator.of(context)
+        .push(MaterialPageRoute<void>(builder: (_) => TarefaFormPage(tarefa: tarefa, hoje: hoje, prazoInicial: prazoInicial)));
 
 /// Cadastro da tarefa: projeto, nome, descricao, prioridade (padrao Media, com tag colorida),
 /// data, estimativa, responsavel, etapa, dados complementares e o que fazer depois de salvar.
 class TarefaFormPage extends ConsumerStatefulWidget {
-  const TarefaFormPage({super.key, this.tarefa, this.hoje});
+  const TarefaFormPage({super.key, this.tarefa, this.hoje, this.prazoInicial});
 
   final Tarefa? tarefa;
+  final DateTime? prazoInicial; // nova tarefa ja com a data (ex.: o "+" da coluna do dia no quadro)
   final DateTime? hoje; // para testes
 
   @override
@@ -59,6 +61,10 @@ class _TarefaFormPageState extends ConsumerState<TarefaFormPage> {
       _responsavel.text = t.responsavel ?? '';
       _observacoes.text = t.observacoes ?? '';
       _tags.text = tagsDoTexto(t.tags).join(', ');
+    }
+    if (t == null && widget.prazoInicial != null) {
+      final p = widget.prazoInicial!;
+      _prazo = DateTime(p.year, p.month, p.day);
     }
     ref.read(bancoProvider).projetosDeTarefas().then((p) {
       if (mounted) setState(() => _projetos = p);

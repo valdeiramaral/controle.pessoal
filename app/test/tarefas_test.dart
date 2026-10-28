@@ -1,6 +1,7 @@
 import 'package:controle_pessoal/core/tarefas_calculo.dart';
 import 'package:controle_pessoal/core/tema.dart';
 import 'package:controle_pessoal/data/local/banco.dart';
+import 'package:controle_pessoal/features/agenda/quadro_aba.dart';
 import 'package:controle_pessoal/features/agenda/tarefa_form_page.dart';
 import 'package:controle_pessoal/features/agenda/tarefas_aba.dart';
 import 'package:drift/native.dart';
@@ -72,6 +73,52 @@ void main() {
       final g = agruparTarefasPorDia(await b.listarTarefas());
       expect(g.map((x) => x.dia), [DateTime(2026, 10, 29), DateTime(2026, 10, 30), null]);
       expect(g[1].itens.map((t) => t.titulo), ['A alta', 'B baixa']);
+    });
+  });
+
+  group('quadro da semana', () {
+    test('inicioDaSemana: segunda-feira', () {
+      expect(inicioDaSemana(DateTime(2026, 10, 28)), DateTime(2026, 10, 26)); // quarta
+      expect(inicioDaSemana(DateTime(2026, 10, 26)), DateTime(2026, 10, 26)); // segunda
+      expect(inicioDaSemana(DateTime(2026, 11, 1)), DateTime(2026, 10, 26)); // domingo
+      expect(inicioDaSemana(DateTime(2026, 11, 2)), DateTime(2026, 11, 2));
+    });
+
+    testWidgets('tarefas em verde e compromissos em azul, no dia certo; navega entre as semanas', (tester) async {
+      tester.view.physicalSize = const Size(2000, 1400);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final banco = _novoBanco();
+      final t = await banco.inserirTarefa(titulo: 'Pintar muro', prazo: DateTime(2026, 10, 29), prioridade: 'alta');
+      final e = await banco.inserirEvento(titulo: 'Dentista', inicio: DateTime(2026, 10, 29, 10, 30));
+      await banco.inserirTarefa(titulo: 'Semana seguinte', prazo: DateTime(2026, 11, 3));
+      await tester.pumpWidget(_app(banco, Scaffold(body: QuadroAba(agora: DateTime(2026, 10, 28)))));
+      await tester.pumpAndSettle();
+
+      expect(find.text('26/10/2026 a 01/11/2026'), findsOneWidget);
+      expect(find.text('Quinta-feira'), findsOneWidget);
+      final quinta = find.byKey(const Key('quadro_dia_3'));
+      expect(find.descendant(of: quinta, matching: find.byKey(Key('quadro_tarefa_$t'))), findsOneWidget);
+      expect(find.descendant(of: quinta, matching: find.byKey(Key('quadro_evento_$e'))), findsOneWidget);
+      expect(find.text('10:30'), findsOneWidget);
+      expect(tester.widget<Card>(find.byKey(Key('quadro_tarefa_$t'))).color!.toARGB32() & 0xFFFFFF, corTarefaQuadro.toARGB32() & 0xFFFFFF);
+      expect(tester.widget<Card>(find.byKey(Key('quadro_evento_$e'))).color!.toARGB32() & 0xFFFFFF, corCompromissoQuadro.toARGB32() & 0xFFFFFF);
+      expect(find.text('Semana seguinte'), findsNothing);
+
+      await tester.tap(find.byKey(const Key('quadro_proxima')));
+      await tester.pumpAndSettle();
+      expect(find.text('02/11/2026 a 08/11/2026'), findsOneWidget);
+      expect(find.text('Semana seguinte'), findsOneWidget);
+      expect(find.text('Pintar muro'), findsNothing);
+      await tester.tap(find.byKey(const Key('quadro_hoje')));
+      await tester.pumpAndSettle();
+      expect(find.text('26/10/2026 a 01/11/2026'), findsOneWidget);
+
+      // concluir pelo cartao
+      await tester.tap(find.byKey(Key('quadro_concluir_$t')));
+      await tester.pumpAndSettle();
+      expect((await banco.tarefaPorId(t))!.etapa, 'concluida');
+      await encerrar(tester);
     });
   });
 
