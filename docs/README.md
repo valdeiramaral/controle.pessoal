@@ -1,4 +1,4 @@
-# Documentação do projeto — Central Pessoal
+# Documentação do projeto — Central Vida Pessoal
 
 Índice de toda a documentação. Os arquivos marcados *(gerado)* são produzidos a partir do código/banco e devem ser regenerados após mudanças (ver `08-operacao-backup.md`).
 

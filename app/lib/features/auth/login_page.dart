@@ -73,7 +73,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     final formulario = _formulario(context, tema, mensagem);
     return Scaffold(
       body: FundoAuth(
-        larguraMax: largo ? 940 : 440,
+        larguraMax: largo ? 780 : 400,
         filho: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -86,7 +86,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     Expanded(
                       child: Container(
                         color: Colors.white,
-                        padding: const EdgeInsets.fromLTRB(36, 30, 36, 26),
+                        padding: const EdgeInsets.fromLTRB(28, 24, 28, 20),
                         child: Material(type: MaterialType.transparency, child: Theme(data: temaAzul(context), child: formulario)),
                       ),
                     ),
@@ -94,16 +94,16 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                 ),
               )
             else ...[
-              const Align(child: MarcaApp(tamanho: 60)),
-              const SizedBox(height: 16),
-              Text('Central Pessoal',
+              const Align(child: MarcaApp(tamanho: 48)),
+              const SizedBox(height: 10),
+              Text('Central Vida Pessoal',
                   textAlign: TextAlign.center,
-                  style: tema.textTheme.headlineMedium
+                  style: tema.textTheme.headlineSmall
                       ?.copyWith(fontWeight: FontWeight.w700, letterSpacing: -0.5, color: Colors.white)),
-              const SizedBox(height: 6),
-              Text('Sua vida, sob controle! Sua Evolução pessoal, financeira e bem-estar.',
-                  textAlign: TextAlign.center, style: tema.textTheme.bodyMedium?.copyWith(color: Colors.white70)),
-              const SizedBox(height: 24),
+              const SizedBox(height: 4),
+              Text('A Central da sua Vida! Organize sua vida. Alcance seus objetivos.',
+                  textAlign: TextAlign.center, style: tema.textTheme.bodySmall?.copyWith(color: Colors.white70)),
+              const SizedBox(height: 16),
               CartaoAuth(filho: formulario),
             ],
           ],
@@ -124,7 +124,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                 ? null
                 : () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const CadastroPage())),
           ),
-          const SizedBox(height: 22),
+          const SizedBox(height: 16),
           TextFormField(
             key: const Key('campo_email'),
             controller: _email,
@@ -134,7 +134,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             decoration: decoracaoCampo(context, 'E-mail', Icons.mail_outline),
             validator: validarEmail,
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 10),
           TextFormField(
             key: const Key('campo_senha'),
             controller: _senha,
@@ -154,13 +154,12 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             ),
             validator: validarSenhaLogin,
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 2),
           CheckboxListTile(
             key: const Key('campo_lembrar'),
             value: _lembrar,
             onChanged: _enviando ? null : (v) => setState(() => _lembrar = v ?? false),
             title: const Text('Lembrar de mim'),
-            subtitle: const Text('Não precisa digitar de novo'),
             controlAffinity: ListTileControlAffinity.leading,
             contentPadding: EdgeInsets.zero,
             dense: true,
@@ -169,7 +168,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             const SizedBox(height: 8),
             CaixaMensagem(texto: mensagem),
           ],
-          const SizedBox(height: 16),
+          const SizedBox(height: 10),
           KeyedSubtree(
             key: const Key('botao_entrar'),
             child: BotaoPrincipal(texto: 'Entrar', enviando: _enviando, aoPressionar: _entrar),
@@ -221,7 +220,7 @@ class _PainelMarca extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     Widget item(String texto) => Padding(
-          padding: const EdgeInsets.only(bottom: 14),
+          padding: const EdgeInsets.only(bottom: 10),
           child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Container(
               margin: const EdgeInsets.only(top: 5),
@@ -230,11 +229,11 @@ class _PainelMarca extends StatelessWidget {
               decoration: const BoxDecoration(shape: BoxShape.circle, color: Color(0xFF3DD6C0)),
             ),
             const SizedBox(width: 12),
-            Expanded(child: Text(texto, style: const TextStyle(color: Colors.white, fontSize: 14, height: 1.3))),
+            Expanded(child: Text(texto, style: const TextStyle(color: Colors.white, fontSize: 13, height: 1.3))),
           ]),
         );
     return Container(
-      padding: const EdgeInsets.fromLTRB(36, 34, 36, 26),
+      padding: const EdgeInsets.fromLTRB(26, 24, 26, 18),
       decoration: const BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
@@ -246,26 +245,54 @@ class _PainelMarca extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(children: [
-            Theme(data: temaAzul(context), child: const MarcaApp(tamanho: 46)),
-            const SizedBox(width: 14),
+            Theme(data: temaAzul(context), child: const MarcaApp(tamanho: 38)),
+            const SizedBox(width: 12),
             const Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('Central Pessoal',
-                    style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w800)),
+                Text('Central Vida Pessoal',
+                    style: TextStyle(color: Colors.white, fontSize: 21, fontWeight: FontWeight.w800)),
                 SizedBox(height: 2),
-                Text('Sua vida, sob controle! Sua Evolução pessoal, financeira e bem-estar.',
-                    style: TextStyle(color: Colors.white70, fontSize: 13)),
+                Text('A Central da sua Vida! Organize sua vida. Alcance seus objetivos.',
+                    style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.25)),
               ]),
             ),
           ]),
-          const SizedBox(height: 30),
-          item('O Central Pessoal é uma plataforma completa para gerenciamento da vida pessoal. Controle finanças, saúde, hábitos, metas, tarefas, compromissos, hobbies e muito mais em um único ambiente intuitivo e seguro.'),
+          const SizedBox(height: 20),
+          const _Recursos(),
+          item('Central Vida Pessoal é uma plataforma completa para gerenciamento da vida pessoal. Controle finanças, saúde, hábitos, metas, tarefas, compromissos, hobbies e muito mais em um único ambiente intuitivo e seguro.'),
           item('Funciona mesmo sem internet; entrando na conta, o administrador libera seus módulos'),
-          const SizedBox(height: 30),
-          const Divider(color: Colors.white24),
           const SizedBox(height: 8),
+          const Divider(color: Colors.white24),
+          const SizedBox(height: 6),
           const Text('Seus dados ficam protegidos pela sua conta.',
               style: TextStyle(color: Colors.white54, fontSize: 12)),
+        ],
+      ),
+    );
+  }
+}
+
+/// Lista compacta dos recursos, logo apos a descricao do app (duas colunas).
+class _Recursos extends StatelessWidget {
+  const _Recursos();
+
+  static const itens = ['Finanças', 'Saúde', 'Hobbies', 'Tarefas', 'Metas', 'Documentos', 'Controle geral da vida'];
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      key: const Key('lista_recursos'),
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Wrap(
+        spacing: 12,
+        runSpacing: 6,
+        children: [
+          for (final t in itens)
+            Row(mainAxisSize: MainAxisSize.min, children: [
+              const Icon(Icons.check_circle, size: 15, color: Color(0xFF3DD6C0)),
+              const SizedBox(width: 6),
+              Text(t, style: const TextStyle(color: Colors.white, fontSize: 13)),
+            ]),
         ],
       ),
     );

@@ -8,7 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   testWidgets('renderiza um widget basico', (tester) async {
     await tester.pumpWidget(
-        const MaterialApp(home: Scaffold(body: Text('Central Pessoal'))));
-    expect(find.text('Central Pessoal'), findsOneWidget);
+        const MaterialApp(home: Scaffold(body: Text('Central Vida Pessoal'))));
+    expect(find.text('Central Vida Pessoal'), findsOneWidget);
   });
 }

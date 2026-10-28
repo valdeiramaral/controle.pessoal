@@ -1,11 +1,11 @@
 {
-    "name": "Central Pessoal",
-    "short_name": "Central Pessoal",
+    "name": "Central Vida Pessoal",
+    "short_name": "Central Vida Pessoal",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "Sua vida, sob controle! Sua evolução pessoal, financeira e bem-estar.",
+    "description": "A Central da sua Vida! Organize sua vida. Alcance seus objetivos.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

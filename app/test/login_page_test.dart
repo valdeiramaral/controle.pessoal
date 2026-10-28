@@ -103,8 +103,12 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(_app((r) async => http.Response('{}', 200)));
-    expect(find.text('Central Pessoal'), findsOneWidget);
+    expect(find.text('Central Vida Pessoal'), findsOneWidget);
     expect(find.textContaining('plataforma completa para gerenciamento da vida pessoal'), findsOneWidget);
+    expect(find.byKey(const Key('lista_recursos')), findsOneWidget);
+    for (final t in ['Finanças', 'Saúde', 'Hobbies', 'Tarefas', 'Metas', 'Documentos', 'Controle geral da vida']) {
+      expect(find.text(t), findsOneWidget);
+    }
     expect(find.byKey(const Key('campo_email')), findsOneWidget);
     await tester.tap(find.text('Criar conta'));
     await tester.pumpAndSettle();

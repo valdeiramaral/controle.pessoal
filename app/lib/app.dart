@@ -22,7 +22,7 @@ class App extends ConsumerWidget {
     final aparencia = ref.watch(aparenciaProvider);
     final cor = aparencia.corSistema;
     return MaterialApp(
-      title: 'Central Pessoal',
+      title: 'Central Vida Pessoal',
       debugShowCheckedModeBanner: false,
       theme: temaApp(brilho: Brightness.light, cor: cor),
       darkTheme: temaApp(brilho: Brightness.dark, cor: cor),
