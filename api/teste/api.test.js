@@ -772,7 +772,9 @@ describe('cadastro de modulos', () => {
     assert.equal(r.json().liberacoes.length, 2);
     assert.equal((await com('POST', '/modulos', token, { nome: 'Academia & Treino' })).statusCode, 409);
 
-    const menu = async (t) => (await get('/meus-modulos', t)).json().itens.map((m) => m.codigo);
+    // (os modulos de fabrica com tela entram no menu pelo cadastro; aqui so interessa o modulo criado no teste)
+    const COM_TELA = ['painel', 'financas', 'saude', 'agenda'];
+    const menu = async (t) => (await get('/meus-modulos', t)).json().itens.map((m) => m.codigo).filter((c) => !COM_TELA.includes(c));
     assert.deepEqual(await menu(ta), ['academia_treino']);
     assert.deepEqual(await menu(tb), ['academia_treino']);
     assert.deepEqual(await menu(tc), []); // nao liberado
@@ -815,11 +817,19 @@ describe('cadastro de modulos', () => {
     assert.ok(idD);
     assert.equal((await com('PUT', '/modulos/academia_treino', token, { no_pacote: false })).json().no_pacote, false);
     assert.deepEqual(await menu(await entrar('lib-d@exemplo.com')), []);
-    // modulos de fabrica: o pacote tambem e configuravel
+    // modulos de fabrica: nada e fixo por padrao, e o menu obedece ao cadastro (fixo, plano ou usuario)
     const lista0 = (await com('GET', '/modulos', token)).json().itens;
-    assert.equal(lista0.find((m) => m.codigo === 'financas').no_pacote, true);
-    assert.equal((await com('PUT', '/modulos/saude', token, { no_pacote: false })).json().no_pacote, false);
-    await com('PUT', '/modulos/saude', token, { no_pacote: true });
+    const saude0 = lista0.find((m) => m.codigo === 'saude');
+    assert.equal(lista0.find((m) => m.codigo === 'financas').no_pacote, false);
+    assert.equal(saude0.no_pacote, false);
+    const noMenu = async (t, c) => (await get('/meus-modulos', t)).json().itens.some((m) => m.codigo === c);
+    const tD = await entrar('lib-d@exemplo.com');
+    assert.equal((await com('PUT', '/modulos/saude', token, { planos: [], no_pacote: false })).statusCode, 200);
+    assert.equal(await noMenu(tD, 'saude'), false); // sem plano e sem ser fixo
+    assert.equal(await noMenu(token, 'saude'), true); // SuperUsuario ve todos
+    assert.equal((await com('PUT', '/modulos/saude', token, { no_pacote: true })).json().no_pacote, true);
+    assert.equal(await noMenu(tD, 'saude'), true); // fixo para todos os usuarios
+    assert.equal((await com('PUT', '/modulos/saude', token, { no_pacote: false, planos: saude0.planos })).statusCode, 200);
 
     // modulo inativo some do menu de todos
     await com('PUT', '/modulos/academia_treino', token, { ativo: false });

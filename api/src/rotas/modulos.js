@@ -4,8 +4,11 @@ import { codigoDoNome } from './acesso.js';
 // Cadastro de modulos: so o SuperUsuario cria, libera e desativa. Cada modulo pode ser liberado para
 // varios usuarios (e/ou por plano); a liberacao de cada usuario pode ser vitalicia ou valer entre duas
 // datas. Passada a data final (ou desativada a liberacao), o usuario deixa de ter acesso ao modulo.
-// Cada modulo pode ser marcado como "incluido no pacote" (vale para todos, sem liberacao): quem decide
-// e o SuperUsuario. Os de fabrica (financas, saude...) nao podem ser excluidos nem desativados.
+// Cada modulo pode ser marcado como "fixo para todos os usuarios" (no_pacote: vale para todos, sem liberacao):
+// quem decide e o SuperUsuario, modulo a modulo; nada e fixo por padrao. Os de fabrica (financas, saude...)
+// nao podem ser excluidos nem desativados.
+// Modulos de fabrica que tem tela propria no app e por isso entram no menu como os cadastrados.
+const MODULOS_COM_TELA = ['painel', 'financas', 'saude', 'agenda'];
 // Chaves dos icones (o app desenha cada uma; veja app/lib/core/icones_modulo.dart).
 export const ICONES = [
   'extension', 'folder', 'star', 'build', 'chart', 'people', 'flag', 'bookmark', 'label', 'lock',
@@ -208,8 +211,9 @@ export default async function rotasModulos(app) {
       itens: (await c.query(
         `SELECT m.codigo, m.nome, m.descricao, m.icone
            FROM controle.modulo m
-          WHERE m.ativo AND m.exibir_no_menu AND ($2 OR controle.modulo_liberado($1, m.codigo))
-          ORDER BY m.ordem, m.nome`, [req.usuarioId, todos])).rows,
+          WHERE m.ativo AND (m.exibir_no_menu OR m.codigo = ANY($3::text[]))
+            AND ($2 OR controle.modulo_liberado($1, m.codigo))
+          ORDER BY m.ordem, m.nome`, [req.usuarioId, todos, MODULOS_COM_TELA])).rows,
     }), { admin: todos });
   });
 }

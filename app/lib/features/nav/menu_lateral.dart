@@ -15,8 +15,8 @@ import 'modulos_menu.dart';
 /// Abaixo desta largura o menu fica sempre suspenso (some e abre por cima).
 const larguraMinimaMenuFixo = 760.0;
 
-/// Menu recolhido (so icones) quando fixo.
-final menuRecolhidoProvider = StateProvider<bool>((_) => false);
+/// Menu recolhido (so icones) quando fixo. Sempre inicia recolhido.
+final menuRecolhidoProvider = StateProvider<bool>((_) => true);
 
 /// Preferencia, em telas largas, por deixar o menu suspenso em vez de fixo.
 final menuSuspensoProvider = StateProvider<bool>((_) => false);
@@ -90,16 +90,15 @@ class MenuLateral extends ConsumerWidget {
     }
 
     // Modulos de fabrica + os cadastrados pelo administrador (aparecem aqui assim que criados).
-    final extras = ref.watch(modulosMenuProvider).valueOrNull ?? const [];
+    final itens = modulosDoMenu(ref.watch(modulosMenuProvider));
     // O menu e sempre escuro, entao os icones usam o tom claro (shade300) de cada cor.
-    final modulos = <(IconData, String, Color)>[
-      (Icons.today_outlined, 'Hoje', Colors.amber.shade300),
-      (Icons.account_balance_wallet_outlined, 'Finanças', Colors.lightGreen.shade300),
-      (Icons.favorite_border, 'Saúde', Colors.pink.shade200),
-      (Icons.event_outlined, 'Agenda', Colors.lightBlue.shade300),
-      for (final m in extras)
-        (iconeDoModulo(m.icone), m.nome, corBaseDoModulo(m.icone).shade300),
-    ];
+    final modulos = <(IconData, String, Color)>[];
+    for (final m in itens) {
+      final nativo = aparenciaDoModuloNativo(m.codigo);
+      modulos.add(nativo != null
+          ? (nativo.$1, m.nome, nativo.$2.shade300)
+          : (iconeDoModulo(m.icone), m.nome, corBaseDoModulo(m.icone).shade300));
+    }
     final admin = <(IconData, String, Widget, Color)>[
       if (logado && s.pode('acesso.usuario.ver'))
         (Icons.manage_accounts_outlined, 'Usuários e acessos', const UsuariosPage(), Colors.teal.shade200),

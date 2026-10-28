@@ -296,7 +296,7 @@ class ModuloAdmin {
   final bool ativo;
   final bool liberadoParaTodos;
 
-  /// Incluido no pacote do app: vale para todos, sem liberacao nem validade (o SuperUsuario decide).
+  /// Modulo fixo para todos os usuarios (coluna no_pacote): vale para todos, sem liberacao nem validade (o SuperUsuario decide).
   final bool noPacote;
   final String icone;
 
@@ -741,7 +741,7 @@ class ClienteApi {
       case 'modulo_ja_existe':
         return 'Já existe um módulo com este nome.';
       case 'modulo_de_pacote':
-        return 'Este módulo faz parte do pacote do app e não precisa de liberação.';
+        return 'Este módulo é fixo para todos os usuários e não precisa de liberação.';
       case 'modulo_de_sistema':
         return 'Este módulo é de fábrica: não pode ser excluído nem desativado.';
       case 'modulo_em_uso':

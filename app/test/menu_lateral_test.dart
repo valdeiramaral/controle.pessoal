@@ -26,6 +26,7 @@ EstadoSessao _logado(List<String> permissoes) => EstadoSessao(
 Widget _app(EstadoSessao estado, Widget home) => ProviderScope(
       overrides: [
         armazenamentoSessaoProvider.overrideWithValue(ArmazenamentoMemoria()),
+        menuRecolhidoProvider.overrideWith((_) => false), // o app inicia recolhido; aqui os rotulos precisam aparecer
         sessaoProvider.overrideWith(() => _SessaoFalsa(estado)),
       ],
       child: MaterialApp(theme: temaApp(), home: home),
@@ -46,7 +47,7 @@ void main() {
       Scaffold(body: Row(children: [MenuLateral(indice: 0, aoIr: (i) => escolhido = i), const Expanded(child: SizedBox())])),
     ));
     await tester.pumpAndSettle();
-    for (final t in ['Hoje', 'Finanças', 'Saúde', 'Agenda', 'Usuários e acessos', 'Perfis e grupos', 'Meus dados', 'Aparência', 'Sair']) {
+    for (final t in ['Agenda do Dia', 'Finanças', 'Saúde', 'Agenda', 'Usuários e acessos', 'Perfis e grupos', 'Meus dados', 'Aparência', 'Sair']) {
       expect(find.text(t), findsOneWidget, reason: t);
     }
     await tester.tap(find.text('Finanças'));
@@ -71,7 +72,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Usuários e acessos'), findsNothing);
     expect(find.text('Perfis e grupos'), findsNothing);
-    expect(find.text('Hoje'), findsOneWidget);
+    expect(find.text('Agenda do Dia'), findsOneWidget);
   });
 
   testWidgets('em tela estreita a barra mostra o botao do menu suspenso; em tela larga, nao', (tester) async {

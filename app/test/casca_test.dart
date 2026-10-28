@@ -33,7 +33,17 @@ void main() {
     final banco = Banco.paraTeste(NativeDatabase.memory());
     addTearDown(banco.close);
     final cliente = MockClient((r) async => http.Response.bytes(
-          utf8.encode(jsonEncode({'total': 0, 'pagina': 1, 'itens': []})), 200,
+          utf8.encode(jsonEncode({
+            'total': 0,
+            'pagina': 1,
+            'itens': r.url.path == '/meus-modulos'
+                ? [
+                    for (final f in [('painel', 'Agenda do Dia'), ('financas', 'Finanças'), ('saude', 'Saúde'), ('agenda', 'Agenda')])
+                      {'codigo': f.$1, 'nome': f.$2, 'descricao': null, 'icone': 'extension'},
+                  ]
+                : [],
+          })),
+          200,
           headers: {'content-type': 'application/json'}));
 
     await tester.pumpWidget(ProviderScope(
@@ -41,6 +51,7 @@ void main() {
         bancoProvider.overrideWithValue(banco),
         clienteApiProvider.overrideWithValue(ClienteApi(baseUrl: 'http://api.teste', cliente: cliente)),
         armazenamentoSessaoProvider.overrideWithValue(ArmazenamentoMemoria()),
+        menuRecolhidoProvider.overrideWith((_) => false), // o app inicia recolhido; aqui os rotulos precisam aparecer
         sessaoProvider.overrideWith(() => _SessaoFalsa(EstadoSessao(
               FaseSessao.logado,
               token: 't',
@@ -93,7 +104,13 @@ void main() {
       }
       if (r.url.path == '/modulos') return json(200, {'itens': modulos});
       if (r.url.path == '/meus-modulos') {
-        return json(200, {'itens': [for (final m in modulos) {'codigo': m['codigo'], 'nome': m['nome'], 'descricao': null, 'icone': m['icone']}]});
+        return json(200, {
+          'itens': [
+            for (final f in [('painel', 'Agenda do Dia'), ('financas', 'Finanças'), ('saude', 'Saúde'), ('agenda', 'Agenda')])
+              {'codigo': f.$1, 'nome': f.$2, 'descricao': null, 'icone': 'extension'},
+            for (final m in modulos) {'codigo': m['codigo'], 'nome': m['nome'], 'descricao': null, 'icone': m['icone']},
+          ]
+        });
       }
       if (r.url.path == '/catalogo') return json(200, {'planos': [], 'modulos': [], 'perfis': []});
       return json(200, {});
@@ -104,6 +121,7 @@ void main() {
         bancoProvider.overrideWithValue(banco),
         clienteApiProvider.overrideWithValue(ClienteApi(baseUrl: 'http://api.teste', cliente: cliente)),
         armazenamentoSessaoProvider.overrideWithValue(ArmazenamentoMemoria()),
+        menuRecolhidoProvider.overrideWith((_) => false), // o app inicia recolhido; aqui os rotulos precisam aparecer
         sessaoProvider.overrideWith(() => _SessaoFalsa(EstadoSessao(
               FaseSessao.logado,
               token: 't',

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'data/api/cliente_api.dart';
 import 'features/agenda/agenda_page.dart';
 import 'features/auth/login_page.dart';
 import 'core/tema.dart';
@@ -81,13 +82,6 @@ class _CascaState extends ConsumerState<Casca> {
     super.dispose();
   }
 
-  static const _paginas = <Widget>[
-    HojePage(),
-    FinancasPage(),
-    SaudePage(),
-    AgendaPage(),
-  ];
-
   void _ir(int i, {bool fecharMenu = false}) {
     // Volta da tela de cadastro (se houver) e troca de modulo.
     chaveConteudo.currentState?.popUntil((r) => r.isFirst);
@@ -132,11 +126,9 @@ class _CascaState extends ConsumerState<Casca> {
                 key: chaveConteudo,
                 onGenerateRoute: (_) => MaterialPageRoute<void>(
                   builder: (_) => Consumer(builder: (context, ref, _) {
-                    final extras = ref.watch(modulosMenuProvider).valueOrNull ?? const [];
-                    final paginas = <Widget>[
-                      ..._paginas,
-                      for (final m in extras) ModuloGenericoPage(key: ValueKey(m.codigo), modulo: m),
-                    ];
+                    final itens = modulosDoMenu(ref.watch(modulosMenuProvider));
+                    if (itens.isEmpty) return const _SemModulos();
+                    final paginas = <Widget>[for (final m in itens) _paginaDoModulo(m)];
                     return ValueListenableBuilder<int>(
                       valueListenable: _indice,
                       builder: (_, i, __) => IndexedStack(index: i < paginas.length ? i : 0, children: paginas),
@@ -150,4 +142,30 @@ class _CascaState extends ConsumerState<Casca> {
       ),
     );
   }
+}
+
+/// Tela do modulo: as que ja existem no app, ou a tela generica do modulo cadastrado.
+Widget _paginaDoModulo(ModuloMenu m) => switch (m.codigo) {
+      'painel' => const HojePage(key: ValueKey('painel')),
+      'financas' => const FinancasPage(key: ValueKey('financas')),
+      'saude' => const SaudePage(key: ValueKey('saude')),
+      'agenda' => const AgendaPage(key: ValueKey('agenda')),
+      _ => ModuloGenericoPage(key: ValueKey(m.codigo), modulo: m),
+    };
+
+/// Usuario sem nenhum modulo liberado (ou ainda carregando).
+class _SemModulos extends StatelessWidget {
+  const _SemModulos();
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        appBar: const BarraPagina(title: Text('Central Vida Pessoal')),
+        body: const Center(
+          child: Padding(
+            padding: EdgeInsets.all(24),
+            child: Text('Nenhum módulo liberado para você ainda. Fale com o administrador.',
+                key: Key('sem_modulos'), textAlign: TextAlign.center),
+          ),
+        ),
+      );
 }

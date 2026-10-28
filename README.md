@@ -163,6 +163,8 @@ Menu da conta → **Perfis e grupos** (aparece para quem tem `acesso.perfil.gere
 
 Menu lateral → **Administração → Módulos** (permissão `administracao.modulo.gerenciar`). O administrador cria um módulo com nome, descrição, ícone, posição e liberação (para todos, ou só pelos planos escolhidos). Ao salvar, o módulo **aparece no menu** de quem tem acesso e abre uma tela própria (os recursos dele chegam nas próximas versões). Módulos de fábrica (Finanças, Saúde, Agenda...) podem ser renomeados, mas não excluídos nem desativados. Liberar ou bloquear para um usuário específico continua em *Usuários e acessos*.
 
+**Módulos fixos são opcionais.** Nenhum módulo é fixo automaticamente: cada um (inclusive Agenda do Dia, Finanças, Saúde e Agenda) tem a chave **"Fixo para todos os usuários"** no cadastro. O menu mostra só o que o usuário tem por módulo fixo, liberação do plano ou liberação individual/grupo; o SuperUsuário vê todos os ativos. Sem internet ou com a API fora do ar, o app usa os 4 módulos básicos. A **Agenda do Dia** (antes "Hoje") é a tela inicial após o login e o menu lateral sempre inicia recolhido. Banco já criado: `Get-Content banco/migracoes/2026-10-29_modulos_fixos_opcionais.sql -Raw | docker compose exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"'`
+
 API: `GET|POST /modulos`, `GET|PUT|DELETE /modulos/:codigo` e `GET /meus-modulos` (os módulos do menu do usuário logado).
 
 Banco já criado (sem apagar dados), no PowerShell: `Get-Content banco/migracoes/2026-10-26_modulo_menu.sql -Raw | docker compose exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"'`

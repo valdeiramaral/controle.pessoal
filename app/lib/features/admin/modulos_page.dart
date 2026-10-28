@@ -71,7 +71,7 @@ class _ModulosPageState extends ConsumerState<ModulosPage> {
         subtitle: Text([
           if (m.sistema) 'de fábrica',
           if (m.noPacote)
-            'incluído no pacote'
+            'fixo para todos os usuários'
           else ...[
             '${m.liberacoes.length} usuário(s) liberado(s) · $vigentes vigente(s)',
             if (m.planos.isNotEmpty) 'planos: ${m.planos.join(', ')}',
@@ -114,8 +114,8 @@ class _ModulosPageState extends ConsumerState<ModulosPage> {
                   child: ListView(
                     padding: const EdgeInsets.fromLTRB(12, 8, 12, 96),
                     children: [
-                      _titulo(context, 'Incluídos no pacote',
-                          'Fazem parte do app e valem para todos os usuários: não precisam de liberação.'),
+                      _titulo(context, 'Fixos para todos os usuários',
+                          'Aparecem no menu de todos os usuários, sem liberação. Você escolhe no cadastro de cada módulo.'),
                       for (final m in _itens.where((m) => m.noPacote)) _cartao(context, m),
                       _titulo(context, 'Com liberação',
                           'Só quem você liberar (por usuário, com validade ou vitalício) ou pelo plano.'),

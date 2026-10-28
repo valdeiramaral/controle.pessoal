@@ -364,7 +364,7 @@ CREATE INDEX ix_indicador_sync      ON indicador      (usuario_id, atualizado_em
 CREATE INDEX ix_documento_sync      ON documento      (usuario_id, atualizado_em);
 CREATE INDEX ix_lembrete_sync       ON lembrete       (usuario_id, atualizado_em);
 
--- Telas: tela Hoje, extrato, agenda.
+-- Telas: Agenda do Dia (tela principal), extrato, agenda.
 CREATE INDEX ix_lancamento_data     ON lancamento (usuario_id, data) WHERE excluido_em IS NULL;
 CREATE INDEX ix_lancamento_pendente ON lancamento (usuario_id, data) WHERE status = 'pendente' AND excluido_em IS NULL;
 CREATE INDEX ix_evento_inicio       ON evento     (usuario_id, inicio) WHERE excluido_em IS NULL;
@@ -395,7 +395,7 @@ CREATE TABLE modulo (
   liberado_para_todos boolean NOT NULL DEFAULT false,
   icone               text    NOT NULL DEFAULT 'extension',  -- nome do icone no app
   exibir_no_menu      boolean NOT NULL DEFAULT false,        -- true = modulo cadastrado pelo SuperUsuario
-  no_pacote           boolean NOT NULL DEFAULT false         -- true = faz parte do pacote: vale para todos, sem liberacao
+  no_pacote           boolean NOT NULL DEFAULT false         -- true = modulo fixo para todos os usuarios (sem liberacao)
 );
 
 CREATE TABLE permissao (
@@ -410,8 +410,8 @@ INSERT INTO modulo (codigo, nome, descricao, ordem, liberado_para_todos) VALUES
   ('licencas',      'Licenças e cobrança',      'Planos, licenças e pagamentos por Pix e cartão',            3, true),
   ('financas',      'Finanças',                 'Contas, lançamentos, orçamentos e metas',                   4, false),
   ('saude',         'Saúde',                    'Medicamentos, consultas, indicadores e documentos',         5, false),
-  ('agenda',        'Agenda e compromissos',    'Eventos, tarefas e lembretes',                              6, false),
-  ('painel',        'Painel Hoje e relatórios', 'Resumo do dia e relatórios',                                7, false),
+  ('agenda',        'Agenda',                   'Compromissos, eventos, tarefas e lembretes',                6, false),
+  ('painel',        'Agenda do Dia',            'Resumo do dia e relatórios',                                7, false),
   ('sincronizacao', 'Sincronização',            'Envio e recebimento de dados entre aparelho e servidor',    8, false),
   ('administracao', 'Administração',            'Cadastro de módulos e liberação para usuários',             9, true);
 
@@ -438,7 +438,7 @@ INSERT INTO permissao (codigo, modulo_codigo, nome) VALUES
   ('agenda.evento.ver',             'agenda',        'Ver compromissos'),
   ('agenda.evento.editar',          'agenda',        'Gerenciar compromissos'),
   ('agenda.tarefa.gerenciar',       'agenda',        'Gerenciar tarefas'),
-  ('painel.hoje.ver',               'painel',        'Ver o painel Hoje'),
+  ('painel.hoje.ver',               'painel',        'Ver a Agenda do Dia'),
   ('painel.relatorio.exportar',     'painel',        'Exportar relatórios'),
   ('sincronizacao.sincronizar',     'sincronizacao', 'Sincronizar dados'),
   ('administracao.modulo.gerenciar',   'administracao', 'Cadastrar e editar módulos'),
@@ -575,8 +575,7 @@ INSERT INTO liberacao_modulo (modulo_codigo, plano_codigo)
   SELECT m.codigo, p.codigo
     FROM modulo m, plano p
    WHERE m.codigo IN ('financas', 'saude', 'agenda', 'painel', 'sincronizacao');
--- ...e fazem parte do pacote (o SuperUsuario pode mudar isso no cadastro de modulos).
-UPDATE modulo SET no_pacote = true WHERE codigo IN ('financas', 'saude', 'agenda', 'painel', 'sincronizacao');
+-- Nenhum modulo e "fixo para todos" de partida: o SuperUsuario marca no cadastro de modulos (no_pacote).
 
 CREATE TABLE licenca (
   id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),

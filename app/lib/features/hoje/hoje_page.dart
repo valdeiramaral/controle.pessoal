@@ -120,7 +120,7 @@ class _HojePageState extends ConsumerState<HojePage> {
     final banco = ref.watch(bancoProvider);
     return Scaffold(
       appBar: BarraPagina(
-        title: Text('Hoje · ${formatarData(DateTime.now())}'),
+        title: Text('Agenda do Dia · ${formatarData(DateTime.now())}'),
       ),
       body: StreamBuilder<List<Evento>>(
         stream: banco.observarEventosEntre(_deAplicado, _ateAplicado),

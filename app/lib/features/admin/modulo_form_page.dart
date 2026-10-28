@@ -321,8 +321,8 @@ class _ModuloFormPageState extends ConsumerState<ModuloFormPage> {
                   SwitchListTile(
                     key: const Key('campo_no_pacote'),
                     contentPadding: EdgeInsets.zero,
-                    title: const Text('Incluído no pacote'),
-                    subtitle: const Text('Vale para todos os usuários, sem liberação e sem data de validade.'),
+                    title: const Text('Fixo para todos os usuários'),
+                    subtitle: const Text('Aparece no menu de todos os usuários, sem liberação e sem data de validade. Desligado: só quem for liberado.'),
                     value: _noPacote,
                     onChanged: pode ? (v) => setState(() => _noPacote = v) : null,
                   ),
@@ -335,8 +335,8 @@ class _ModuloFormPageState extends ConsumerState<ModuloFormPage> {
                           Icon(Icons.inventory_2_outlined, color: corIcone(context, Colors.teal)),
                           const SizedBox(width: 12),
                           const Expanded(
-                            child: Text('Este módulo faz parte do pacote do app: todos os usuários já têm acesso. '
-                                'Desligue "Incluído no pacote" para liberar só por plano ou para usuários escolhidos.'),
+                            child: Text('Este módulo é fixo: aparece no menu de todos os usuários. '
+                                'Desligue "Fixo para todos os usuários" para liberar só por plano ou para usuários escolhidos.'),
                           ),
                         ]),
                       ),

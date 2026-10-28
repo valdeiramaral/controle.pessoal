@@ -29,6 +29,7 @@ void main() {
     final container = ProviderContainer(overrides: [
       bancoProvider.overrideWithValue(banco),
       armazenamentoSessaoProvider.overrideWithValue(ArmazenamentoMemoria()),
+        menuRecolhidoProvider.overrideWith((_) => false), // o app inicia recolhido; aqui os rotulos precisam aparecer
       sessaoProvider.overrideWith(() => _SessaoFalsa(
           const EstadoSessao(FaseSessao.logado, token: 't', usuario: u, perfil: PerfilApi(usuario: u)))),
     ]);
@@ -39,7 +40,7 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
-    for (final modulo in ['Hoje', 'Finanças', 'Saúde', 'Agenda']) {
+    for (final modulo in ['Agenda do Dia', 'Finanças', 'Saúde', 'Agenda']) {
       await tester.tap(find.descendant(of: find.byType(MenuLateral), matching: find.text(modulo)));
       await tester.pumpAndSettle();
       expect(find.text('Bia Souza'), findsOneWidget, reason: modulo);

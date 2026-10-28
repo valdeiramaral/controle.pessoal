@@ -383,8 +383,9 @@ def main():
           novo() + "INSERT INTO liberacao_modulo (modulo_codigo, usuario_id, concedida) VALUES ('financas', %s, false);\n"
                    "SELECT modulo_liberado(%s, 'financas')::text || (SELECT count(*) FROM permissoes_do_usuario(%s) p WHERE p LIKE 'financas.%%');"
                    % (ID, ID, ID), valor="false0")
-    teste("modulo do pacote vale para todos sem liberacao",
-          novo() + "DELETE FROM liberacao_modulo WHERE plano_codigo='gratuito' AND modulo_codigo='saude';\n"
+    teste("modulo fixo para todos (no_pacote) vale sem liberacao",
+          novo() + "UPDATE modulo SET no_pacote=true WHERE codigo='saude';\n"
+                   "DELETE FROM liberacao_modulo WHERE plano_codigo='gratuito' AND modulo_codigo='saude';\n"
                    "SELECT modulo_liberado(%s, 'saude');" % ID, valor="t")
     teste("fora do pacote e sem liberacao o modulo fecha",
           novo() + "UPDATE modulo SET no_pacote=false WHERE codigo='saude';\n"

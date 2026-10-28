@@ -12,7 +12,7 @@
 ## Módulos
 1. Módulos de fábrica (`NOT exibir_no_menu`) não podem ser excluídos nem desativados.
 2. Módulos personalizados: criados/alterados/excluídos só pelo SuperUsuário; aparecem em `/meus-modulos` apenas se `modulo_liberado` (SuperUsuário vê todos).
-3. **No pacote** (`no_pacote`): válido para todos, salvo bloqueio explícito por usuário. O SuperUsuário define quais módulos fazem parte do pacote.
+3. **Fixo para todos os usuários** (`no_pacote`): válido para todos, salvo bloqueio explícito por usuário. Opcional em qualquer módulo (nenhum é fixo por padrão); o SuperUsuário marca no cadastro do módulo.
 4. **Liberação** (`liberacao_modulo`) por usuário, grupo ou plano, com `ativa`.
 5. **Vitalício:** datas ignoradas. **Não vitalício:** `inicio` e `fim` obrigatórios, `fim > inicio` (fim enviado como 23:59:59 local). Depois do fim, o acesso é perdido.
 6. `liberado_para_todos` libera sem exigir concessão.
@@ -21,7 +21,7 @@
 modo ∈ claro | escuro | sistema; escala de fonte 0,8–1,6; cor ∈ azul | verde | roxo | laranja | rosa | turquesa. Salvo via `PUT /me/preferencias`.
 
 ## Tela e interface
-Nome, e-mail e **Sair** aparecem ao lado da conta em todas as telas. Tela inicial "Hoje" em abas com filtros de período e indicadores.
+Nome, e-mail e **Sair** aparecem ao lado da conta em todas as telas. Tela inicial "Agenda do Dia" (antes "Hoje") em abas com filtros de período e indicadores.
 
 ## Dados
 Todas as tabelas de dados do usuário têm `id` (UUID do aparelho), `usuario_id`, `criado_em`, `atualizado_em`, `excluido_em`. Detalhes de cada objeto em `05-banco-objetos.md`; rotas em `04-api-rotas.md`.
