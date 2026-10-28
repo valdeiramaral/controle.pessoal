@@ -83,6 +83,22 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Despesa antiga'), findsOneWidget);
     expect(find.text('Receita antiga'), findsOneWidget);
+
+    // tocar no nome nao abre nada; alterar e excluir ficam nos icones
+    await tester.tap(find.text('Despesa antiga'));
+    await tester.pumpAndSettle();
+    expect(find.text('Despesa antiga'), findsOneWidget);
+    expect(find.byType(FinancasPage), findsOneWidget);
+    final todos = await banco.select(banco.lancamentos).get();
+    final antiga = todos.firstWhere((l) => l.descricao == 'Despesa antiga');
+    expect(find.byKey(Key('editar_${antiga.id}')), findsOneWidget);
+    await tester.tap(find.byKey(Key('excluir_${antiga.id}')));
+    await tester.pumpAndSettle();
+    expect(find.text('Excluir lançamento?'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('confirmar_exclusao_lancamento')));
+    await tester.pumpAndSettle();
+    expect(find.text('Despesa antiga'), findsNothing);
+    expect(find.text('Receita antiga'), findsOneWidget);
     await encerrar(tester);
   });
 }

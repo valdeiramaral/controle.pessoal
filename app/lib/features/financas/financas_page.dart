@@ -49,42 +49,68 @@ class FinancasPage extends ConsumerWidget {
     return t[0].toUpperCase() + t.substring(1);
   }
 
+  /// Pergunta antes de excluir; em serie, pergunta se vale so para este ou tambem para os seguintes.
+  Future<void> _excluir(BuildContext context, Banco banco, Lancamento l) async {
+    final seguintes = await banco.contarSeguintesDaSerie(l);
+    if (!context.mounted) return;
+    final r = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Excluir lançamento?'),
+        content: Text(seguintes > 0
+            ? '"${l.descricao}" faz parte de uma série com mais $seguintes lançamento(s) depois dele.'
+            : '"${l.descricao}" será excluído, junto com seus anexos.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+          if (seguintes > 0)
+            TextButton(key: const Key('excluir_este_e_seguintes'), onPressed: () => Navigator.pop(ctx, 'seguintes'), child: const Text('Este e os seguintes')),
+          FilledButton(
+              key: const Key('confirmar_exclusao_lancamento'),
+              onPressed: () => Navigator.pop(ctx, 'este'),
+              child: Text(seguintes > 0 ? 'Só este' : 'Excluir')),
+        ],
+      ),
+    );
+    if (r == null) return;
+    await banco.excluirLancamentoDaSerie(l, seguintes: r == 'seguintes');
+  }
+
   Widget _item(BuildContext context, Banco banco, Lancamento l) {
     final receita = l.tipo == 'receita';
-    return Dismissible(
-      key: ValueKey(l.id),
-      direction: DismissDirection.endToStart,
-      background: Container(
-        color: Colors.red,
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 16),
-        child: const Icon(Icons.delete_outline, color: Colors.white),
-      ),
-      onDismissed: (_) => banco.excluirLancamentoDaSerie(l),
-      child: ListTile(
-        key: Key('lancamento_${l.id}'),
-        onTap: () => abrirDetalheLancamento(context, l.id),
-        // Sem quadradinho: um icone abre o registro da baixa (despesa) ou do recebimento (receita).
-        leading: l.status == 'pago'
-            ? IconButton(
-                key: Key('baixa_${l.id}'),
-                tooltip: receita ? 'Recebido' : 'Pago',
-                icon: const Icon(Icons.check_circle, color: Colors.green),
-                onPressed: () => abrirDetalheLancamento(context, l.id),
-              )
-            : IconButton(
-                key: Key('baixa_${l.id}'),
-                tooltip: receita ? 'Lançar recebimento' : 'Lançar baixa',
-                icon: Icon(receita ? Icons.attach_money : Icons.price_check, color: receita ? Colors.green : Colors.red),
-                onPressed: () => abrirFormularioLancamento(context, lancamento: l, registrarPagamento: true),
-              ),
-        title: Text(l.descricao),
-        subtitle: _SubtituloLancamento(l, banco),
-        trailing: Text(
-          '${receita ? '+' : '-'} ${formatarCentavos(l.valorCentavos)}',
-          style: TextStyle(color: receita ? Colors.green : Colors.red),
+    final cor = receita ? Colors.green : Colors.red;
+    // Tocar no nome nao faz nada: baixa, edicao e exclusao ficam nos icones.
+    return ListTile(
+      key: Key('lancamento_${l.id}'),
+      leading: l.status == 'pago'
+          ? IconButton(
+              key: Key('baixa_${l.id}'),
+              tooltip: receita ? 'Recebido (ver detalhes)' : 'Pago (ver detalhes)',
+              icon: const Icon(Icons.check_circle, color: Colors.green),
+              onPressed: () => abrirDetalheLancamento(context, l.id),
+            )
+          : IconButton(
+              key: Key('baixa_${l.id}'),
+              tooltip: receita ? 'Lançar recebimento' : 'Lançar baixa',
+              icon: Icon(receita ? Icons.attach_money : Icons.price_check, color: cor),
+              onPressed: () => abrirFormularioLancamento(context, lancamento: l, registrarPagamento: true),
+            ),
+      title: Text(l.descricao),
+      subtitle: _SubtituloLancamento(l, banco),
+      trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+        Text('${receita ? '+' : '-'} ${formatarCentavos(l.valorCentavos)}', style: TextStyle(color: cor)),
+        IconButton(
+          key: Key('editar_${l.id}'),
+          tooltip: 'Alterar',
+          icon: const Icon(Icons.edit_outlined),
+          onPressed: () => abrirFormularioLancamento(context, lancamento: l),
         ),
-      ),
+        IconButton(
+          key: Key('excluir_${l.id}'),
+          tooltip: 'Excluir',
+          icon: const Icon(Icons.delete_outline),
+          onPressed: () => _excluir(context, banco, l),
+        ),
+      ]),
     );
   }
 
