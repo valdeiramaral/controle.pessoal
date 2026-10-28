@@ -44,6 +44,7 @@ const propriedades = {
       properties: {
         usuario_id: { type: 'string', format: 'uuid' },
         ativa: { type: 'boolean' },
+        fixo: { type: 'boolean' },
         vitalicio: { type: 'boolean' },
         inicio: { type: ['string', 'null'], format: 'date-time' },
         fim: { type: ['string', 'null'], format: 'date-time' },
@@ -64,7 +65,7 @@ export default async function rotasModulos(app) {
                       WHERE l.modulo_codigo = m.codigo AND l.plano_codigo IS NOT NULL AND l.concedida), '{}') AS planos,
            coalesce((SELECT json_agg(json_build_object(
                        'usuario_id', l.usuario_id, 'usuario_nome', u.nome, 'usuario_email', u.email,
-                       'ativa', l.ativa, 'vitalicio', l.vitalicio, 'inicio', l.inicio, 'fim', l.fim,
+                       'ativa', l.ativa, 'fixo', l.fixo, 'vitalicio', l.vitalicio, 'inicio', l.inicio, 'fim', l.fim,
                        'vigente', (l.ativa AND (l.vitalicio OR ((l.inicio IS NULL OR l.inicio <= now())
                                                                AND (l.fim IS NULL OR l.fim > now()))))
                      ) ORDER BY u.nome)
@@ -80,6 +81,7 @@ export default async function rotasModulos(app) {
       if (vistos.has(l.usuario_id)) return 'Há o mesmo usuário mais de uma vez.';
       vistos.add(l.usuario_id);
       l.ativa = l.ativa ?? true;
+      l.fixo = l.fixo ?? false;
       l.vitalicio = l.vitalicio ?? true;
       if (l.vitalicio) { l.inicio = null; l.fim = null; continue; }
       if (!l.inicio || !l.fim) return 'Informe a data de início e a data final, ou marque como vitalício.';
@@ -100,8 +102,8 @@ export default async function rotasModulos(app) {
       [codigo, ids]);
     for (const l of lista) {
       await c.query(
-        `INSERT INTO controle.liberacao_modulo (modulo_codigo, usuario_id, ativa, vitalicio, inicio, fim)
-         VALUES ($1, $2, $3, $4, $5, $6)`, [codigo, l.usuario_id, l.ativa, l.vitalicio, l.inicio, l.fim]);
+        `INSERT INTO controle.liberacao_modulo (modulo_codigo, usuario_id, ativa, vitalicio, inicio, fim, fixo)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`, [codigo, l.usuario_id, l.ativa, l.vitalicio, l.inicio, l.fim, l.fixo]);
     }
   };
 
@@ -209,7 +211,9 @@ export default async function rotasModulos(app) {
     const todos = await app.ehSuperusuario(req.usuarioId);
     return comUsuario(pool, req.usuarioId, async (c) => ({
       itens: (await c.query(
-        `SELECT m.codigo, m.nome, m.descricao, m.icone
+        `SELECT m.codigo, m.nome, m.descricao, m.icone,
+                EXISTS (SELECT 1 FROM controle.liberacao_modulo l
+                         WHERE l.modulo_codigo = m.codigo AND l.usuario_id = $1 AND l.concedida AND l.ativa AND l.fixo) AS fixo
            FROM controle.modulo m
           WHERE m.ativo AND (m.exibir_no_menu OR m.codigo = ANY($3::text[]))
             AND ($2 OR controle.modulo_liberado($1, m.codigo))

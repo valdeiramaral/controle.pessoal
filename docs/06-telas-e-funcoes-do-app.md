@@ -9,7 +9,7 @@
 | `saude` | Medicação (posologia, doses do dia, estoque), consultas e exames (únicos ou periódicos), indicadores, documentos |
 | `agenda` | Eventos, tarefas, lembretes |
 | `aparencia` | Claro/Escuro/Sistema, tamanho da letra, cor do sistema |
-| `admin` | Usuários, perfis, grupos, permissões, planos, cadastro de módulos (fixo para todos, liberação por usuário, validade/vitalício, ícones com busca) |
+| `admin` | Usuários, perfis, grupos, permissões, planos, cadastro de módulos (liberação por usuário com "fixo no menu", liberação por usuário, validade/vitalício, ícones com busca) |
 | `modulos` | Menu dinâmico a partir de `/meus-modulos` |
 
 Testes em `app/test/` (19 arquivos). Execução: `testar.bat`.

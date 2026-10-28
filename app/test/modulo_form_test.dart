@@ -51,21 +51,25 @@ Future<List<Map<String, dynamic>>> _abrir(WidgetTester tester, ModuloAdmin m) as
 }
 
 void main() {
-  testWidgets('modulo do pacote: sem liberacao; o SuperUsuario pode tirar do pacote', (tester) async {
-    const m = ModuloAdmin(codigo: 'financas', nome: 'Finanças', ordem: 1, sistema: true, noPacote: true);
+  testWidgets('o cadastro nao tem "fixo para todos"; o fixo e escolhido na liberacao de cada usuario', (tester) async {
+    final m = ModuloAdmin(
+      codigo: 'academia',
+      nome: 'Academia',
+      ordem: 10,
+      liberacoes: const [LiberacaoModulo(usuarioId: 'u1', nome: 'Bia')],
+    );
     final enviados = await _abrir(tester, m);
-    expect(find.byKey(const Key('aviso_pacote')), findsOneWidget);
-    expect(find.byKey(const Key('botao_add_usuario')), findsNothing);
-
-    await tester.tap(find.byKey(const Key('campo_no_pacote')));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const Key('aviso_pacote')), findsNothing);
+    expect(find.byKey(const Key('campo_no_pacote')), findsNothing);
+    expect(find.text('Fixo para todos os usuários'), findsNothing);
     expect(find.byKey(const Key('botao_add_usuario')), findsOneWidget);
 
+    await tocarRolando(tester, find.byKey(const Key('fixo_u1')));
+    await tester.pumpAndSettle();
     await tocarRolando(tester, find.byKey(const Key('botao_salvar')));
     await tester.pumpAndSettle();
-    expect(enviados.single['no_pacote'], false);
-    expect(enviados.single['liberacoes'], isEmpty);
+    expect(enviados.single.containsKey('no_pacote'), false);
+    final lib = (enviados.single['liberacoes'] as List).single as Map<String, dynamic>;
+    expect(lib['fixo'], true);
   });
 
   testWidgets('liberacao por usuario: vitalicio esconde as datas; validade exige inicio e fim; desativar', (tester) async {

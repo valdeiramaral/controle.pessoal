@@ -25,14 +25,22 @@ const modulosNativosPadrao = <ModuloMenu>[
   ModuloMenu(codigo: 'agenda', nome: 'Agenda'),
 ];
 
-/// Os modulos com tela propria primeiro (na ordem de sempre), depois os demais na ordem do servidor.
-List<ModuloMenu> ordenarModulos(List<ModuloMenu> lista) => [
-      for (final c in modulosComTela) ...lista.where((m) => m.codigo == c),
-      ...lista.where((m) => !modulosComTela.contains(m.codigo)),
-    ];
+/// Ordem do menu: a Agenda do Dia primeiro (e a tela inicial); depois os modulos marcados como "fixo"
+/// para o usuario; depois os demais (os com tela propria na ordem de sempre, e os outros na ordem do servidor).
+List<ModuloMenu> ordenarModulos(List<ModuloMenu> lista) {
+  final resto = [
+    for (final c in modulosComTela) ...lista.where((m) => m.codigo == c),
+    ...lista.where((m) => !modulosComTela.contains(m.codigo)),
+  ];
+  return [
+    ...resto.where((m) => m.codigo == 'painel'),
+    ...resto.where((m) => m.codigo != 'painel' && m.fixo),
+    ...resto.where((m) => m.codigo != 'painel' && !m.fixo),
+  ];
+}
 
 /// Modulos do menu do usuario: os que o administrador cadastrou e liberou para ele
-/// ("fixo para todos os usuarios", por plano ou por usuario). O SuperUsuario ve todos os ativos.
+/// (por plano ou por usuario; a liberacao por usuario pode fixar o modulo no topo). O SuperUsuario ve todos os ativos.
 /// Use `ref.invalidate(modulosMenuProvider)` depois de mudar o cadastro.
 final modulosMenuProvider = FutureProvider<List<ModuloMenu>>((ref) async {
   final s = ref.watch(sessaoProvider);

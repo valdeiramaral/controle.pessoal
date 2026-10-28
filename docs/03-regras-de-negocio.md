@@ -12,7 +12,7 @@
 ## Módulos
 1. Módulos de fábrica (`NOT exibir_no_menu`) não podem ser excluídos nem desativados.
 2. Módulos personalizados: criados/alterados/excluídos só pelo SuperUsuário; aparecem em `/meus-modulos` apenas se `modulo_liberado` (SuperUsuário vê todos).
-3. **Fixo para todos os usuários** (`no_pacote`): válido para todos, salvo bloqueio explícito por usuário. Opcional em qualquer módulo (nenhum é fixo por padrão); o SuperUsuário marca no cadastro do módulo.
+3. **Fixo no menu** (`liberacao_modulo.fixo`): escolhido na liberação do módulo para cada usuário; fixa o módulo no topo do menu dele. Não existe módulo fixo para todos automaticamente.
 4. **Liberação** (`liberacao_modulo`) por usuário, grupo ou plano, com `ativa`.
 5. **Vitalício:** datas ignoradas. **Não vitalício:** `inicio` e `fim` obrigatórios, `fim > inicio` (fim enviado como 23:59:59 local). Depois do fim, o acesso é perdido.
 6. `liberado_para_todos` libera sem exigir concessão.

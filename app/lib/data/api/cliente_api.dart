@@ -296,7 +296,7 @@ class ModuloAdmin {
   final bool ativo;
   final bool liberadoParaTodos;
 
-  /// Modulo fixo para todos os usuarios (coluna no_pacote): vale para todos, sem liberacao nem validade (o SuperUsuario decide).
+  /// Coluna legada no_pacote (valia para todos); o cadastro nao a usa mais: o "fixo" agora e escolhido por usuario na liberacao.
   final bool noPacote;
   final String icone;
 
@@ -333,6 +333,7 @@ class LiberacaoModulo {
     required this.nome,
     this.email,
     this.ativa = true,
+    this.fixo = false,
     this.vitalicio = true,
     this.inicio,
     this.fim,
@@ -343,6 +344,9 @@ class LiberacaoModulo {
   final String nome;
   final String? email;
   final bool ativa;
+
+  /// Modulo fixado no topo do menu deste usuario.
+  final bool fixo;
   final bool vitalicio;
   final DateTime? inicio;
   final DateTime? fim;
@@ -355,6 +359,7 @@ class LiberacaoModulo {
         nome: j['usuario_nome'] as String? ?? '',
         email: j['usuario_email'] as String?,
         ativa: j['ativa'] as bool? ?? true,
+        fixo: j['fixo'] as bool? ?? false,
         vitalicio: j['vitalicio'] as bool? ?? true,
         inicio: DateTime.tryParse((j['inicio'] as String?) ?? '')?.toLocal(),
         fim: DateTime.tryParse((j['fim'] as String?) ?? '')?.toLocal(),
@@ -364,18 +369,22 @@ class LiberacaoModulo {
 
 /// Modulo que aparece no menu do usuario logado.
 class ModuloMenu {
-  const ModuloMenu({required this.codigo, required this.nome, this.descricao, this.icone = 'extension'});
+  const ModuloMenu({required this.codigo, required this.nome, this.descricao, this.icone = 'extension', this.fixo = false});
 
   final String codigo;
   final String nome;
   final String? descricao;
   final String icone;
 
+  /// Fixado no topo do menu deste usuario (definido ao liberar o modulo para ele).
+  final bool fixo;
+
   factory ModuloMenu.deJson(Map<String, dynamic> j) => ModuloMenu(
         codigo: j['codigo'] as String,
         nome: j['nome'] as String,
         descricao: j['descricao'] as String?,
         icone: j['icone'] as String? ?? 'extension',
+        fixo: j['fixo'] as bool? ?? false,
       );
 }
 
@@ -741,7 +750,7 @@ class ClienteApi {
       case 'modulo_ja_existe':
         return 'Já existe um módulo com este nome.';
       case 'modulo_de_pacote':
-        return 'Este módulo é fixo para todos os usuários e não precisa de liberação.';
+        return 'Este módulo vale para todos os usuários e não precisa de liberação.';
       case 'modulo_de_sistema':
         return 'Este módulo é de fábrica: não pode ser excluído nem desativado.';
       case 'modulo_em_uso':

@@ -70,12 +70,8 @@ class _ModulosPageState extends ConsumerState<ModulosPage> {
         title: Text(m.nome),
         subtitle: Text([
           if (m.sistema) 'de fábrica',
-          if (m.noPacote)
-            'fixo para todos os usuários'
-          else ...[
-            '${m.liberacoes.length} usuário(s) liberado(s) · $vigentes vigente(s)',
-            if (m.planos.isNotEmpty) 'planos: ${m.planos.join(', ')}',
-          ],
+          '${m.liberacoes.length} usuário(s) liberado(s) · $vigentes vigente(s)',
+          if (m.planos.isNotEmpty) 'planos: ${m.planos.join(', ')}',
         ].join(' · ')),
         trailing: m.ativo
             ? const Icon(Icons.chevron_right)
@@ -114,14 +110,10 @@ class _ModulosPageState extends ConsumerState<ModulosPage> {
                   child: ListView(
                     padding: const EdgeInsets.fromLTRB(12, 8, 12, 96),
                     children: [
-                      _titulo(context, 'Fixos para todos os usuários',
-                          'Aparecem no menu de todos os usuários, sem liberação. Você escolhe no cadastro de cada módulo.'),
-                      for (final m in _itens.where((m) => m.noPacote)) _cartao(context, m),
-                      _titulo(context, 'Com liberação',
-                          'Só quem você liberar (por usuário, com validade ou vitalício) ou pelo plano.'),
-                      if (_itens.where((m) => !m.noPacote).isEmpty)
-                        const Padding(padding: EdgeInsets.all(12), child: Text('Nenhum módulo com liberação.')),
-                      for (final m in _itens.where((m) => !m.noPacote)) _cartao(context, m),
+                      _titulo(context, 'Módulos',
+                          'Só quem você liberar (por usuário, com validade ou vitalício, fixo ou não no menu) ou pelo plano.'),
+                      if (_itens.isEmpty) const Padding(padding: EdgeInsets.all(12), child: Text('Nenhum módulo cadastrado.')),
+                      for (final m in _itens) _cartao(context, m),
                     ],
                   ),
                 ),

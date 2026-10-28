@@ -772,6 +772,16 @@ describe('cadastro de modulos', () => {
     assert.equal(r.json().liberacoes.length, 2);
     assert.equal((await com('POST', '/modulos', token, { nome: 'Academia & Treino' })).statusCode, 409);
 
+    // "fixo" e escolhido na liberacao de cada usuario (fixa o modulo no topo do menu dele)
+    assert.equal(r.json().liberacoes.every((l) => l.fixo === false), true);
+    const fixoDe = async (t) => (await get('/meus-modulos', t)).json().itens.find((m) => m.codigo === 'academia_treino')?.fixo;
+    assert.equal(await fixoDe(ta), false);
+    assert.equal((await com('PUT', '/modulos/academia_treino', token, {
+      liberacoes: [{ usuario_id: idA, fixo: true }, { usuario_id: idB, vitalicio: false, inicio: iso(-1), fim: iso(30) }],
+    })).statusCode, 200);
+    assert.equal(await fixoDe(ta), true);
+    assert.equal(await fixoDe(tb), false);
+
     // (os modulos de fabrica com tela entram no menu pelo cadastro; aqui so interessa o modulo criado no teste)
     const COM_TELA = ['painel', 'financas', 'saude', 'agenda'];
     const menu = async (t) => (await get('/meus-modulos', t)).json().itens.map((m) => m.codigo).filter((c) => !COM_TELA.includes(c));

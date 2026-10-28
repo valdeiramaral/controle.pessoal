@@ -151,7 +151,7 @@ void main() {
 
     expect(postado!['nome'], 'Academia');
     expect(postado!['icone'], 'fitness');
-    expect(postado!['no_pacote'], false);
+    expect(postado!.containsKey('no_pacote'), false);
     final lib = (postado!['liberacoes'] as List).single as Map<String, dynamic>;
     expect(lib['usuario_id'], 'u1');
     expect(lib['vitalicio'], true);

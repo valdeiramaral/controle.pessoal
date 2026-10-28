@@ -30,7 +30,6 @@ class _ModuloFormPageState extends ConsumerState<ModuloFormPage> {
   final _buscaIcone = TextEditingController();
   String _filtroIcone = '';
   late bool _ativo = widget.modulo?.ativo ?? true;
-  late bool _noPacote = widget.modulo?.noPacote ?? false;
   late Set<String> _planos = {...?widget.modulo?.planos};
   List<OpcaoCatalogo> _planosDisponiveis = const [];
   late List<_Lib> _libs = [for (final l in widget.modulo?.liberacoes ?? const <LiberacaoModulo>[]) _Lib.de(l)];
@@ -68,7 +67,7 @@ class _ModuloFormPageState extends ConsumerState<ModuloFormPage> {
 
   Future<void> _salvar() async {
     if (!_form.currentState!.validate()) return;
-    for (final l in _noPacote ? const <_Lib>[] : _libs) {
+    for (final l in _libs) {
       if (!l.vitalicio && (l.inicio == null || l.fim == null)) {
         setState(() => _erro = 'Informe o início e o fim da validade de ${l.nome}, ou marque como vitalício.');
         return;
@@ -92,11 +91,8 @@ class _ModuloFormPageState extends ConsumerState<ModuloFormPage> {
         'nome': _nome.text.trim(),
         'descricao': desc,
         'icone': _icone,
-        'no_pacote': _noPacote,
-        if (!_noPacote) ...{
-          'planos': (_planos.toList()..sort()),
-          'liberacoes': [for (final l in _libs) l.paraJson()],
-        },
+        'planos': (_planos.toList()..sort()),
+        'liberacoes': [for (final l in _libs) l.paraJson()],
         if (ordem != null) 'ordem': ordem,
         if (!_sistema) 'ativo': _ativo,
       };
@@ -237,6 +233,15 @@ class _ModuloFormPageState extends ConsumerState<ModuloFormPage> {
             onChanged: pode ? (v) => setState(() => l.ativa = v) : null,
           ),
           SwitchListTile(
+            key: Key('fixo_${l.usuarioId}'),
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Fixo no menu'),
+            subtitle: const Text('O módulo fica fixado no topo do menu deste usuário.'),
+            value: l.fixo,
+            onChanged: pode ? (v) => setState(() => l.fixo = v) : null,
+          ),
+          SwitchListTile(
             key: Key('vitalicio_${l.usuarioId}'),
             dense: true,
             contentPadding: EdgeInsets.zero,
@@ -318,30 +323,7 @@ class _ModuloFormPageState extends ConsumerState<ModuloFormPage> {
                   const SizedBox(height: 8),
                   const SizedBox(height: 8),
                   Text('Liberação', style: tema.textTheme.titleMedium),
-                  SwitchListTile(
-                    key: const Key('campo_no_pacote'),
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Fixo para todos os usuários'),
-                    subtitle: const Text('Aparece no menu de todos os usuários, sem liberação e sem data de validade. Desligado: só quem for liberado.'),
-                    value: _noPacote,
-                    onChanged: pode ? (v) => setState(() => _noPacote = v) : null,
-                  ),
-                  if (_noPacote)
-                    Card(
-                      key: const Key('aviso_pacote'),
-                      child: Padding(
-                        padding: const EdgeInsets.all(14),
-                        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Icon(Icons.inventory_2_outlined, color: corIcone(context, Colors.teal)),
-                          const SizedBox(width: 12),
-                          const Expanded(
-                            child: Text('Este módulo é fixo: aparece no menu de todos os usuários. '
-                                'Desligue "Fixo para todos os usuários" para liberar só por plano ou para usuários escolhidos.'),
-                          ),
-                        ]),
-                      ),
-                    )
-                  else ...[
+                  ...[
                     if (_planosDisponiveis.isNotEmpty) ...[
                       Text('Planos que liberam este módulo', style: tema.textTheme.titleSmall),
                       const SizedBox(height: 8),
@@ -411,18 +393,20 @@ class _Lib {
     required this.nome,
     this.email,
     this.ativa = true,
+    this.fixo = false,
     this.vitalicio = true,
     this.inicio,
     this.fim,
   });
 
   factory _Lib.de(LiberacaoModulo l) => _Lib(
-      usuarioId: l.usuarioId, nome: l.nome, email: l.email, ativa: l.ativa, vitalicio: l.vitalicio, inicio: l.inicio, fim: l.fim);
+      usuarioId: l.usuarioId, nome: l.nome, email: l.email, ativa: l.ativa, fixo: l.fixo, vitalicio: l.vitalicio, inicio: l.inicio, fim: l.fim);
 
   final String usuarioId;
   final String nome;
   final String? email;
   bool ativa;
+  bool fixo;
   bool vitalicio;
   DateTime? inicio;
   DateTime? fim;
@@ -431,6 +415,7 @@ class _Lib {
   Map<String, dynamic> paraJson() => {
         'usuario_id': usuarioId,
         'ativa': ativa,
+        'fixo': fixo,
         'vitalicio': vitalicio,
         if (!vitalicio && inicio != null) 'inicio': DateTime(inicio!.year, inicio!.month, inicio!.day).toUtc().toIso8601String(),
         if (!vitalicio && fim != null) 'fim': DateTime(fim!.year, fim!.month, fim!.day, 23, 59, 59).toUtc().toIso8601String(),
