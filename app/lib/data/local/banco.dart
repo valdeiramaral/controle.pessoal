@@ -63,7 +63,7 @@ class Banco extends _$Banco {
   Banco.paraTeste(super.e);
 
   @override
-  int get schemaVersion => 8;
+  int get schemaVersion => 9;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -135,6 +135,20 @@ class Banco extends _$Banco {
             await m.addColumn(tarefas, tarefas.responsavel);
             await m.addColumn(tarefas, tarefas.observacoes);
             await m.addColumn(tarefas, tarefas.tags);
+          }
+          if (de < 9) {
+            // v9: comentarios/conclusao da tarefa e cadastro completo do compromisso.
+            await m.addColumn(tarefas, tarefas.comentarios);
+            await m.addColumn(tarefas, tarefas.concluidoEm);
+            await m.addColumn(eventos, eventos.projeto);
+            await m.addColumn(eventos, eventos.prioridade);
+            await m.addColumn(eventos, eventos.participantes);
+            await m.addColumn(eventos, eventos.observacoes);
+            await m.addColumn(eventos, eventos.comentarios);
+            await m.addColumn(eventos, eventos.tags);
+            await m.addColumn(eventos, eventos.lembreteMinutos);
+            await m.addColumn(eventos, eventos.status);
+            await m.addColumn(eventos, eventos.concluidoEm);
           }
         },
       );
@@ -686,6 +700,18 @@ class Banco extends _$Banco {
     required String titulo,
     required DateTime inicio,
     String tipo = 'pessoal',
+    DateTime? fim,
+    bool diaInteiro = false,
+    String? local,
+    String? notas,
+    String? link,
+    String? projeto,
+    String prioridade = 'media',
+    String? participantes,
+    String? observacoes,
+    String? comentarios,
+    String tags = '',
+    int lembreteMinutos = 30,
   }) async {
     final id = _uuid.v4();
     await into(eventos).insert(EventosCompanion.insert(
@@ -693,8 +719,84 @@ class Banco extends _$Banco {
       titulo: titulo,
       inicio: inicio,
       tipo: Value(tipo),
+      fim: Value(fim),
+      diaInteiro: Value(diaInteiro),
+      local: Value(local),
+      notas: Value(notas),
+      link: Value(link),
+      projeto: Value(projeto),
+      prioridade: Value(prioridade),
+      participantes: Value(participantes),
+      observacoes: Value(observacoes),
+      comentarios: Value(comentarios),
+      tags: Value(tags),
+      lembreteMinutos: Value(lembreteMinutos),
     ));
     return id;
+  }
+
+  Future<Evento?> compromissoPorId(String id) =>
+      (select(eventos)..where((e) => e.id.equals(id) & e.excluidoEm.isNull())).getSingleOrNull();
+
+  Future<void> atualizarCompromisso(
+    String id, {
+    required String titulo,
+    required DateTime inicio,
+    DateTime? fim,
+    bool diaInteiro = false,
+    String? local,
+    String? notas,
+    String? link,
+    String? projeto,
+    required String prioridade,
+    String? participantes,
+    String? observacoes,
+    String? comentarios,
+    String tags = '',
+    required int lembreteMinutos,
+  }) =>
+      (update(eventos)..where((e) => e.id.equals(id))).write(EventosCompanion(
+        titulo: Value(titulo),
+        inicio: Value(inicio),
+        fim: Value(fim),
+        diaInteiro: Value(diaInteiro),
+        local: Value(local),
+        notas: Value(notas),
+        link: Value(link),
+        projeto: Value(projeto),
+        prioridade: Value(prioridade),
+        participantes: Value(participantes),
+        observacoes: Value(observacoes),
+        comentarios: Value(comentarios),
+        tags: Value(tags),
+        lembreteMinutos: Value(lembreteMinutos),
+        atualizadoEm: Value(DateTime.now()),
+      ));
+
+  /// Marca o compromisso como realizado, guardando observacoes e comentarios.
+  Future<void> concluirCompromisso(String id, {String? observacoes, String? comentarios}) =>
+      (update(eventos)..where((e) => e.id.equals(id))).write(EventosCompanion(
+        status: const Value('realizado'),
+        observacoes: Value(observacoes),
+        comentarios: Value(comentarios),
+        concluidoEm: Value(DateTime.now()),
+        atualizadoEm: Value(DateTime.now()),
+      ));
+
+  Future<void> reabrirCompromisso(String id) => (update(eventos)..where((e) => e.id.equals(id))).write(EventosCompanion(
+        status: const Value('agendado'),
+        concluidoEm: const Value(null),
+        atualizadoEm: Value(DateTime.now()),
+      ));
+
+  /// Projetos ja usados em tarefas e compromissos (para sugerir ao cadastrar).
+  Future<List<String>> projetosUsados() async {
+    final nomes = <String>{
+      for (final t in await listarTarefas()) if ((t.projeto ?? '').trim().isNotEmpty) t.projeto!.trim(),
+      for (final e in await (select(eventos)..where((x) => x.excluidoEm.isNull())).get())
+        if ((e.projeto ?? '').trim().isNotEmpty) e.projeto!.trim(),
+    };
+    return nomes.toList()..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
   }
 
   // ----------------------------- Tarefas -----------------------------
@@ -712,7 +814,7 @@ class Banco extends _$Banco {
   Future<Tarefa?> tarefaPorId(String id) =>
       (select(tarefas)..where((t) => t.id.equals(id) & t.excluidoEm.isNull())).getSingleOrNull();
 
-  /// Projetos ja usados nas tarefas (para sugerir ao cadastrar).
+  /// Projetos ja usados nas tarefas.
   Future<List<String>> projetosDeTarefas() async {
     final todas = await listarTarefas();
     final nomes = <String>{for (final t in todas) if ((t.projeto ?? '').trim().isNotEmpty) t.projeto!.trim()};
@@ -730,6 +832,7 @@ class Banco extends _$Banco {
     String estimativaUnidade = 'minutos',
     String? responsavel,
     String? observacoes,
+    String? comentarios,
     String tags = '',
   }) async {
     final id = _uuid.v4();
@@ -746,6 +849,7 @@ class Banco extends _$Banco {
       estimativaUnidade: Value(estimativaUnidade),
       responsavel: Value(responsavel),
       observacoes: Value(observacoes),
+      comentarios: Value(comentarios),
       tags: Value(tags),
     ));
     return id;
@@ -763,6 +867,7 @@ class Banco extends _$Banco {
     required String estimativaUnidade,
     String? responsavel,
     String? observacoes,
+    String? comentarios,
     String tags = '',
   }) =>
       (update(tarefas)..where((t) => t.id.equals(id))).write(TarefasCompanion(
@@ -777,15 +882,28 @@ class Banco extends _$Banco {
         estimativaUnidade: Value(estimativaUnidade),
         responsavel: Value(responsavel),
         observacoes: Value(observacoes),
+        comentarios: Value(comentarios),
         tags: Value(tags),
         atualizadoEm: Value(DateTime.now()),
       ));
 
-  /// Muda so a etapa (concluir a tarefa ou reabri-la).
+  /// Muda so a etapa (reabrir a tarefa, por exemplo).
   Future<void> definirEtapaTarefa(String id, String etapa) =>
       (update(tarefas)..where((t) => t.id.equals(id))).write(TarefasCompanion(
         etapa: Value(etapa),
         status: Value(etapa == 'concluida' ? 'concluida' : 'aberta'),
+        concluidoEm: Value(etapa == 'concluida' ? DateTime.now() : null),
+        atualizadoEm: Value(DateTime.now()),
+      ));
+
+  /// Conclui a tarefa guardando as observacoes e os comentarios informados na conclusao.
+  Future<void> concluirTarefa(String id, {String? observacoes, String? comentarios}) =>
+      (update(tarefas)..where((t) => t.id.equals(id))).write(TarefasCompanion(
+        etapa: const Value('concluida'),
+        status: const Value('concluida'),
+        observacoes: Value(observacoes),
+        comentarios: Value(comentarios),
+        concluidoEm: Value(DateTime.now()),
         atualizadoEm: Value(DateTime.now()),
       ));
 

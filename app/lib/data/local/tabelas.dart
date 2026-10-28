@@ -72,6 +72,16 @@ class Eventos extends Table with ColunasSync {
   TextColumn get notas => text().nullable()();
   TextColumn get origem => text().withDefault(const Constant('local'))();
   TextColumn get idExterno => text().nullable()();
+  // Cadastro completo do compromisso (schema v9):
+  TextColumn get projeto => text().nullable()();
+  TextColumn get prioridade => text().withDefault(const Constant('media'))(); // alta | media | baixa
+  TextColumn get participantes => text().nullable()();
+  TextColumn get observacoes => text().nullable()();
+  TextColumn get comentarios => text().nullable()(); // anotados ao concluir
+  TextColumn get tags => text().withDefault(const Constant(''))();
+  IntColumn get lembreteMinutos => integer().withDefault(const Constant(30))(); // 0 = sem lembrete
+  TextColumn get status => text().withDefault(const Constant('agendado'))(); // agendado | realizado
+  DateTimeColumn get concluidoEm => dateTime().nullable()();
   @override
   Set<Column> get primaryKey => {id};
 }
@@ -92,6 +102,8 @@ class Tarefas extends Table with ColunasSync {
   TextColumn get responsavel => text().nullable()();
   TextColumn get observacoes => text().nullable()();
   TextColumn get tags => text().withDefault(const Constant(''))(); // "casa,urgente"
+  TextColumn get comentarios => text().nullable()(); // anotados ao concluir (schema v9)
+  DateTimeColumn get concluidoEm => dateTime().nullable()();
   @override
   Set<Column> get primaryKey => {id};
 }

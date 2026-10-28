@@ -73,3 +73,13 @@ DateTime inicioDaSemana(DateTime d) {
 /// Cores do quadro: tarefas em verde e compromissos em azul.
 const corTarefaQuadro = Color(0xFF2E9E5B);
 const corCompromissoQuadro = Color(0xFF2F6FDE);
+
+/// Lembrete do compromisso: minutos antes do inicio (0 = sem lembrete).
+const lembretesCompromisso = <int, String>{
+  0: 'Sem lembrete',
+  5: '5 minutos antes',
+  15: '15 minutos antes',
+  30: '30 minutos antes',
+  60: '1 hora antes',
+  1440: '1 dia antes',
+};

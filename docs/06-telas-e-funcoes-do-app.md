@@ -97,12 +97,14 @@ A tela **Saúde** tem duas abas: **Medicação** e **Consultas e exames**. Banco
 
 Limitação: os campos novos de `medicamento` e a tabela `agendamento_saude` são só locais por enquanto (a sincronização com o PostgreSQL não está ativa). Valores numéricos de estoque são inteiros (unidades).
 
-## Tarefas (módulo Agenda)
+## Tarefas e compromissos (módulo Agenda)
 
-O módulo **Agenda** (com o nome que tiver no cadastro de módulos) tem três abas: **Quadro**, **Tarefas** e **Compromissos**. Regras em `core/tarefas_calculo.dart`; telas em `features/agenda/` (`tarefas_aba.dart`, `tarefa_form_page.dart`); testes em `app/test/tarefas_test.dart`.
+O módulo **Agenda** (com o nome que tiver no cadastro de módulos) mostra só o **quadro da semana** (`quadro_aba.dart`): segunda a domingo, uma coluna por dia, com setas para mudar de semana e o botão *Hoje*. As **tarefas aparecem em verde** e os **compromissos em azul**, na mesma tela (legenda no topo). Regras em `core/tarefas_calculo.dart`; formulários em `tarefa_form_page.dart` e `compromisso_form_page.dart`; testes em `app/test/tarefas_test.dart`.
 
-- **Quadro** (primeira aba, `quadro_aba.dart`): a semana de segunda a domingo, uma coluna por dia, com setas para mudar de semana e o botão *Hoje*. Na mesma tela aparecem as **tarefas em verde** e os **compromissos em azul** (com a legenda no topo). O **+** de cada coluna abre uma nova tarefa já com a data daquele dia; tocar numa tarefa abre o cadastro dela, e o ícone do cartão conclui/reabre. Tarefas sem data não aparecem no quadro (ficam na aba Tarefas). O **+** geral do quadro pergunta se é tarefa ou compromisso.
-- **Cadastro da tarefa** (botão **+** na aba Tarefas): *Projeto* (opcional, sugere os já usados), *Nome* (obrigatório; Enter salva), *Descrição*, *Prioridade*, *Data*, *Estimativa* (número + minutos/horas/dias), *Responsável* (opcional), *Etapa* (A fazer, Em andamento, Aguardando, Concluída; sem escolher = A fazer) e *Dados complementares* (observações e tags). Embaixo, **Após salvar**: *Fechar* (padrão), *Ver tarefa* (reabre a tarefa salva) ou *Adicionar nova* (limpa o formulário e mantém a tela).
-- **Prioridade**: o sistema define **Média** por padrão e você pode escolher outra. A tarefa ganha uma tag colorida: **Alta = vermelha**, **Média = laranja**, **Baixa = verde** (faixa na lateral do cartão e etiqueta).
-- **Lista**: agrupada por dia do prazo, em ordem crescente (atrasadas, hoje, amanhã…, e *Sem data* por último); no dia, prioridade alta primeiro. Tem busca, filtro por prioridade e chave *Concluídas*. Cada cartão tem o ícone de **concluir/reabrir**, **Alterar** e **Excluir** (com confirmação).
-- Banco local: tabela `tarefas` (schema v8 acrescenta descrição, projeto, etapa, estimativa, unidade, responsável, observações e tags).
+- **Cadastrar:** o **+** de cada coluna (e o **+** geral) pergunta se é **tarefa** ou **compromisso** e já abre na data do dia. Tocar num cartão abre o cadastro para alterar; dentro do cadastro há o ícone de **Excluir** (com confirmação).
+- **Cadastro da tarefa:** *Projeto* (opcional, sugere os já usados), *Nome* (obrigatório; Enter salva), *Descrição*, *Prioridade*, *Data*, *Estimativa* (número + minutos/horas/dias), *Responsável*, *Etapa* (A fazer, Em andamento, Aguardando, Concluída) e *Dados complementares* (observações, comentários e tags). Embaixo, **Após salvar**: *Fechar*, *Ver tarefa* ou *Adicionar nova*.
+- **Cadastro do compromisso** (igual ao da tarefa): *Projeto*, *Nome*, *Descrição*, *Prioridade*, *Data*, *Início* e *Término* (ou *Dia inteiro*), *Local*, *Participantes*, *Lembrete* (sem, 5, 15, 30 min, 1 h ou 1 dia antes; o padrão é 30 min) e *Dados complementares* (observações, comentários, link e tags), com o mesmo **Após salvar**.
+- **Prioridade:** o sistema define **Média** por padrão e você pode escolher outra. Tag colorida: **Alta = vermelha**, **Média = laranja**, **Baixa = verde** (etiqueta no cartão).
+- **Concluir:** o ícone do cartão abre uma janela para informar **observações** e **comentários** antes de concluir a tarefa (ou marcar o compromisso como realizado). Tocar de novo no ícone reabre. A data e hora da conclusão ficam gravadas.
+- Tarefas sem data não aparecem no quadro.
+- **Banco local:** tabelas `tarefas` e `eventos` (schemas v8 e v9 só **acrescentam colunas**; os dados já gravados são mantidos).

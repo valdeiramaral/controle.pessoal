@@ -5,6 +5,8 @@ import 'package:intl/intl.dart';
 import '../../core/formatos.dart';
 import '../../core/tarefas_calculo.dart';
 import '../../data/local/banco.dart';
+import 'compromisso_form_page.dart';
+import 'concluir_dialogo.dart';
 import 'tarefa_form_page.dart';
 
 /// Quadro da semana (segunda a domingo): uma coluna por dia com as tarefas (verde) e os compromissos (azul).
@@ -34,6 +36,56 @@ class _QuadroAbaState extends ConsumerState<QuadroAba> {
         const SizedBox(width: 6),
         Text(texto),
       ]);
+
+  /// Concluir pede observacoes e comentarios; reabrir e direto.
+  Future<void> _concluirTarefa(Banco banco, Tarefa t) async {
+    if (t.etapa == 'concluida') {
+      await banco.definirEtapaTarefa(t.id, etapaPadraoTarefa);
+      return;
+    }
+    final d = await pedirDadosDeConclusao(context, titulo: t.titulo, observacoes: t.observacoes, comentarios: t.comentarios);
+    if (d == null) return;
+    await banco.concluirTarefa(t.id, observacoes: d.observacoes, comentarios: d.comentarios);
+  }
+
+  Future<void> _concluirCompromisso(Banco banco, Evento e) async {
+    if (e.status == 'realizado') {
+      await banco.reabrirCompromisso(e.id);
+      return;
+    }
+    final d = await pedirDadosDeConclusao(context, titulo: e.titulo, observacoes: e.observacoes, comentarios: e.comentarios);
+    if (d == null) return;
+    await banco.concluirCompromisso(e.id, observacoes: d.observacoes, comentarios: d.comentarios);
+  }
+
+  /// O "+" do dia (ou do botao geral): escolhe entre tarefa e compromisso, ja na data.
+  Future<void> _novoNoDia(DateTime dia) async {
+    final r = await showModalBottomSheet<String>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          ListTile(
+            key: const Key('novo_tarefa'),
+            leading: const Icon(Icons.task_alt_outlined, color: corTarefaQuadro),
+            title: const Text('Nova tarefa'),
+            onTap: () => Navigator.pop(ctx, 'tarefa'),
+          ),
+          ListTile(
+            key: const Key('novo_compromisso'),
+            leading: const Icon(Icons.event_outlined, color: corCompromissoQuadro),
+            title: const Text('Novo compromisso'),
+            onTap: () => Navigator.pop(ctx, 'compromisso'),
+          ),
+        ]),
+      ),
+    );
+    if (!mounted || r == null) return;
+    if (r == 'tarefa') {
+      await abrirFormularioTarefa(context, prazoInicial: dia, hoje: widget.agora);
+    } else {
+      await abrirFormularioCompromisso(context, dataInicial: dia, hoje: widget.agora);
+    }
+  }
 
   Widget _cartaoTarefa(Banco banco, Tarefa t) {
     final concluida = t.etapa == 'concluida';
@@ -75,7 +127,7 @@ class _QuadroAbaState extends ConsumerState<QuadroAba> {
               visualDensity: VisualDensity.compact,
               tooltip: concluida ? 'Reabrir' : 'Concluir',
               icon: Icon(concluida ? Icons.check_circle : Icons.radio_button_unchecked, size: 20, color: corTarefaQuadro),
-              onPressed: () => banco.definirEtapaTarefa(t.id, concluida ? etapaPadraoTarefa : 'concluida'),
+              onPressed: () => _concluirTarefa(banco, t),
             ),
           ]),
         ),
@@ -83,23 +135,52 @@ class _QuadroAbaState extends ConsumerState<QuadroAba> {
     );
   }
 
-  Widget _cartaoCompromisso(Evento e) => Card(
-        key: Key('quadro_evento_${e.id}'),
-        margin: const EdgeInsets.only(bottom: 8),
-        color: corCompromissoQuadro.withValues(alpha: 0.14),
-        clipBehavior: Clip.antiAlias,
+  Widget _cartaoCompromisso(Banco banco, Evento e) {
+    final realizado = e.status == 'realizado';
+    return Card(
+      key: Key('quadro_evento_${e.id}'),
+      margin: const EdgeInsets.only(bottom: 8),
+      color: corCompromissoQuadro.withValues(alpha: realizado ? 0.06 : 0.14),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => abrirFormularioCompromisso(context, evento: e, hoje: widget.agora),
         child: Container(
           decoration: const BoxDecoration(border: Border(left: BorderSide(color: corCompromissoQuadro, width: 5))),
-          padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(e.titulo, style: const TextStyle(fontWeight: FontWeight.w600)),
-            Text(
-              e.diaInteiro ? 'Dia inteiro' : DateFormat('HH:mm').format(e.inicio),
-              style: Theme.of(context).textTheme.bodySmall,
+          padding: const EdgeInsets.fromLTRB(8, 6, 4, 6),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(e.titulo,
+                    style: TextStyle(fontWeight: FontWeight.w600, decoration: realizado ? TextDecoration.lineThrough : null)),
+                Text(
+                  [
+                    e.diaInteiro ? 'Dia inteiro' : DateFormat('HH:mm').format(e.inicio),
+                    if ((e.local ?? '').isNotEmpty) e.local!,
+                    if ((e.projeto ?? '').isNotEmpty) e.projeto!,
+                  ].join(' · '),
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                const SizedBox(height: 3),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 0),
+                  decoration: BoxDecoration(color: corDaPrioridade(e.prioridade), borderRadius: BorderRadius.circular(8)),
+                  child: Text(prioridadesTarefa[e.prioridade] ?? e.prioridade,
+                      style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w600)),
+                ),
+              ]),
+            ),
+            IconButton(
+              key: Key('quadro_concluir_evento_${e.id}'),
+              visualDensity: VisualDensity.compact,
+              tooltip: realizado ? 'Reabrir' : 'Concluir',
+              icon: Icon(realizado ? Icons.check_circle : Icons.radio_button_unchecked, size: 20, color: corCompromissoQuadro),
+              onPressed: () => _concluirCompromisso(banco, e),
             ),
           ]),
         ),
-      );
+      ),
+    );
+  }
 
   Widget _coluna(int i, List<Tarefa> tarefas, List<Evento> eventos) {
     final dia = _dia(i);
@@ -129,14 +210,14 @@ class _QuadroAbaState extends ConsumerState<QuadroAba> {
           IconButton(
             key: Key('quadro_novo_$i'),
             visualDensity: VisualDensity.compact,
-            tooltip: 'Nova tarefa neste dia',
+            tooltip: 'Nova tarefa ou compromisso neste dia',
             icon: const Icon(Icons.add_circle_outline),
-            onPressed: () => abrirFormularioTarefa(context, prazoInicial: dia),
+            onPressed: () => _novoNoDia(dia),
           ),
         ]),
         Text(formatarData(dia), style: tema.textTheme.bodySmall),
         const SizedBox(height: 8),
-        for (final e in eventosDoDia) _cartaoCompromisso(e),
+        for (final e in eventosDoDia) _cartaoCompromisso(banco, e),
         for (final t in ordenadas) _cartaoTarefa(banco, t),
         if (eventosDoDia.isEmpty && ordenadas.isEmpty)
           Text('Nada neste dia', style: tema.textTheme.bodySmall?.copyWith(color: tema.hintColor)),

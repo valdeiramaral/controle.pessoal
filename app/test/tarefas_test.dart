@@ -3,7 +3,7 @@ import 'package:controle_pessoal/core/tema.dart';
 import 'package:controle_pessoal/data/local/banco.dart';
 import 'package:controle_pessoal/features/agenda/quadro_aba.dart';
 import 'package:controle_pessoal/features/agenda/tarefa_form_page.dart';
-import 'package:controle_pessoal/features/agenda/tarefas_aba.dart';
+import 'package:controle_pessoal/features/agenda/compromisso_form_page.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -114,10 +114,97 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('26/10/2026 a 01/11/2026'), findsOneWidget);
 
-      // concluir pelo cartao
+      // concluir pede observacoes e comentarios
       await tester.tap(find.byKey(Key('quadro_concluir_$t')));
       await tester.pumpAndSettle();
-      expect((await banco.tarefaPorId(t))!.etapa, 'concluida');
+      expect(find.byKey(const Key('conclusao_observacoes')), findsOneWidget);
+      await tester.tap(find.byKey(const Key('conclusao_cancelar')));
+      await tester.pumpAndSettle();
+      expect((await banco.tarefaPorId(t))!.etapa, 'a_fazer'); // cancelou: nada muda
+      await tester.tap(find.byKey(Key('quadro_concluir_$t')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(const Key('conclusao_observacoes')), 'Usei tinta extra');
+      await tester.enterText(find.byKey(const Key('conclusao_comentarios')), 'Ficou bom');
+      await tester.tap(find.byKey(const Key('conclusao_confirmar')));
+      await tester.pumpAndSettle();
+      final feita = (await banco.tarefaPorId(t))!;
+      expect([feita.etapa, feita.status, feita.observacoes, feita.comentarios], ['concluida', 'concluida', 'Usei tinta extra', 'Ficou bom']);
+      expect(feita.concluidoEm, isNotNull);
+
+      // o compromisso tambem conclui com observacoes e comentarios
+      await tester.tap(find.byKey(Key('quadro_concluir_evento_$e')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(const Key('conclusao_comentarios')), 'Retorno em 6 meses');
+      await tester.tap(find.byKey(const Key('conclusao_confirmar')));
+      await tester.pumpAndSettle();
+      final ev = (await banco.compromissoPorId(e))!;
+      expect([ev.status, ev.comentarios], ['realizado', 'Retorno em 6 meses']);
+      // reabrir e direto
+      await tester.tap(find.byKey(Key('quadro_concluir_evento_$e')));
+      await tester.pumpAndSettle();
+      expect((await banco.compromissoPorId(e))!.status, 'agendado');
+      await encerrar(tester);
+    });
+
+    testWidgets('o + do dia oferece tarefa ou compromisso, ja na data da coluna', (tester) async {
+      tester.view.physicalSize = const Size(2000, 1400);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final banco = _novoBanco();
+      await tester.pumpWidget(_app(banco, Scaffold(body: QuadroAba(agora: DateTime(2026, 10, 28)))));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('quadro_novo_3'))); // quinta-feira 29/10
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('novo_tarefa')), findsOneWidget);
+      expect(find.byKey(const Key('novo_compromisso')), findsOneWidget);
+      await tester.tap(find.byKey(const Key('novo_compromisso')));
+      await tester.pumpAndSettle();
+      expect(find.text('Novo compromisso'), findsOneWidget);
+      expect(find.text('29/10/2026'), findsOneWidget);
+      await tester.enterText(find.byKey(const Key('campo_nome_compromisso')), 'Reunião');
+      await tester.tap(find.byKey(const Key('botao_salvar_compromisso')));
+      await tester.pumpAndSettle();
+      final lista = await banco.select(banco.eventos).get();
+      expect(lista.single.titulo, 'Reunião');
+      expect(lista.single.inicio, DateTime(2026, 10, 29, 9, 0));
+      expect([lista.single.prioridade, lista.single.status, lista.single.lembreteMinutos], ['media', 'agendado', 30]);
+      expect(find.byKey(Key('quadro_evento_${lista.single.id}')), findsOneWidget);
+      await encerrar(tester);
+    });
+
+    testWidgets('cadastro de compromisso: igual ao de tarefa (prioridade Media, dados complementares) e valida horarios', (tester) async {
+      tester.view.physicalSize = const Size(900, 2800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final banco = _novoBanco();
+      await tester.pumpWidget(_app(
+          banco,
+          Scaffold(
+              body: Builder(
+                  builder: (c) => TextButton(
+                      onPressed: () => abrirFormularioCompromisso(c, hoje: DateTime(2026, 10, 28)), child: const Text('abrir'))))));
+      await tester.tap(find.text('abrir'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('tag_prioridade_comp_media')), findsOneWidget);
+      await tester.tap(find.byKey(const Key('botao_salvar_compromisso')));
+      await tester.pumpAndSettle();
+      expect(find.text('Informe o nome do compromisso'), findsOneWidget);
+
+      await tester.enterText(find.byKey(const Key('campo_nome_compromisso')), 'Consulta');
+      await tester.enterText(find.byKey(const Key('campo_descricao_compromisso')), 'Rotina anual');
+      await tester.enterText(find.byKey(const Key('campo_local_compromisso')), 'Clínica Central');
+      await tester.enterText(find.byKey(const Key('campo_participantes_compromisso')), 'Maria');
+      await tester.tap(find.byKey(const Key('dados_complementares_compromisso')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(const Key('campo_observacoes_compromisso')), 'Levar exames');
+      await tester.enterText(find.byKey(const Key('campo_comentarios_compromisso')), 'Chegar cedo');
+      await tester.enterText(find.byKey(const Key('campo_tags_compromisso')), 'saúde, anual');
+      await tester.tap(find.byKey(const Key('botao_salvar_compromisso')));
+      await tester.pumpAndSettle();
+      final ev = (await banco.select(banco.eventos).get()).single;
+      expect([ev.titulo, ev.notas, ev.local, ev.participantes, ev.observacoes, ev.comentarios, ev.tags],
+          ['Consulta', 'Rotina anual', 'Clínica Central', 'Maria', 'Levar exames', 'Chegar cedo', 'saúde,anual']);
+      expect(ev.inicio, DateTime(2026, 10, 28, 9, 0));
       await encerrar(tester);
     });
   });
@@ -185,46 +272,6 @@ void main() {
       await tester.tap(find.byKey(const Key('botao_salvar_tarefa')));
       await tester.pumpAndSettle();
       expect((await banco.listarTarefas()).map((t) => t.titulo).toSet(), {'Primeira', 'Segunda'});
-      await encerrar(tester);
-    });
-
-    testWidgets('lista: por dia, tag colorida, filtro por prioridade, concluir some, excluir pede confirmacao', (tester) async {
-      tester.view.physicalSize = const Size(900, 2000);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
-      final banco = _novoBanco();
-      final a = await banco.inserirTarefa(titulo: 'Tarefa alta', prazo: DateTime(2026, 10, 29), prioridade: 'alta');
-      final m = await banco.inserirTarefa(titulo: 'Tarefa media', prazo: DateTime(2026, 10, 29));
-      final bx = await banco.inserirTarefa(titulo: 'Tarefa baixa', prazo: DateTime(2026, 10, 30), prioridade: 'baixa');
-      await tester.pumpWidget(_app(banco, Scaffold(body: TarefasAba(agora: DateTime(2026, 10, 28)))));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Amanhã · 29/10/2026'), findsOneWidget);
-      for (final (id, cor) in [(a, 0xFFD32F2F), (m, 0xFFF57C00), (bx, 0xFF388E3C)]) {
-        final caixa = tester.widget<Container>(find.byKey(Key('prioridade_$id')));
-        expect((caixa.decoration as BoxDecoration).color, Color(cor));
-      }
-      // filtro
-      await tester.tap(find.byKey(const Key('filtro_alta')));
-      await tester.pumpAndSettle();
-      expect(find.text('Tarefa alta'), findsOneWidget);
-      expect(find.text('Tarefa media'), findsNothing);
-      await tester.tap(find.byKey(const Key('filtro_todas')));
-      await tester.pumpAndSettle();
-      // concluir some da lista (aparece em "Concluidas")
-      await tester.tap(find.byKey(Key('concluir_$m')));
-      await tester.pumpAndSettle();
-      expect(find.text('Tarefa media'), findsNothing);
-      await tester.tap(find.byKey(const Key('filtro_concluidas')));
-      await tester.pumpAndSettle();
-      expect(find.text('Tarefa media'), findsOneWidget);
-      // excluir
-      await tester.tap(find.byKey(Key('excluir_tarefa_$bx')));
-      await tester.pumpAndSettle();
-      expect(find.text('Excluir tarefa?'), findsOneWidget);
-      await tester.tap(find.byKey(const Key('confirmar_exclusao_tarefa')));
-      await tester.pumpAndSettle();
-      expect(find.text('Tarefa baixa'), findsNothing);
       await encerrar(tester);
     });
   });

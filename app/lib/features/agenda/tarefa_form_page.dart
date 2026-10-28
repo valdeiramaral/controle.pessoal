@@ -33,6 +33,7 @@ class _TarefaFormPageState extends ConsumerState<TarefaFormPage> {
   final _estimativa = TextEditingController();
   final _responsavel = TextEditingController();
   final _observacoes = TextEditingController();
+  final _comentarios = TextEditingController();
   final _tags = TextEditingController();
   String _prioridade = prioridadePadraoTarefa;
   String _etapa = etapaPadraoTarefa;
@@ -60,20 +61,21 @@ class _TarefaFormPageState extends ConsumerState<TarefaFormPage> {
       _unidade = unidadesEstimativa.containsKey(t.estimativaUnidade) ? t.estimativaUnidade : 'minutos';
       _responsavel.text = t.responsavel ?? '';
       _observacoes.text = t.observacoes ?? '';
+      _comentarios.text = t.comentarios ?? '';
       _tags.text = tagsDoTexto(t.tags).join(', ');
     }
     if (t == null && widget.prazoInicial != null) {
       final p = widget.prazoInicial!;
       _prazo = DateTime(p.year, p.month, p.day);
     }
-    ref.read(bancoProvider).projetosDeTarefas().then((p) {
+    ref.read(bancoProvider).projetosUsados().then((p) {
       if (mounted) setState(() => _projetos = p);
     });
   }
 
   @override
   void dispose() {
-    for (final c in [_projeto, _nome, _descricao, _estimativa, _responsavel, _observacoes, _tags]) {
+    for (final c in [_projeto, _nome, _descricao, _estimativa, _responsavel, _observacoes, _comentarios, _tags]) {
       c.dispose();
     }
     super.dispose();
@@ -89,7 +91,7 @@ class _TarefaFormPageState extends ConsumerState<TarefaFormPage> {
   String? _opcional(TextEditingController c) => c.text.trim().isEmpty ? null : c.text.trim();
 
   void _limpar() {
-    for (final c in [_nome, _descricao, _estimativa, _observacoes, _tags]) {
+    for (final c in [_nome, _descricao, _estimativa, _observacoes, _comentarios, _tags]) {
       c.clear();
     }
     setState(() {
@@ -98,6 +100,23 @@ class _TarefaFormPageState extends ConsumerState<TarefaFormPage> {
       _prazo = null;
       _erro = null;
     });
+  }
+
+  Future<void> _excluir() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Excluir tarefa?'),
+        content: Text('"${widget.tarefa!.titulo}" será excluída.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+          FilledButton(key: const Key('confirmar_exclusao_tarefa'), onPressed: () => Navigator.pop(ctx, true), child: const Text('Excluir')),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    await ref.read(bancoProvider).excluirTarefa(widget.tarefa!.id);
+    if (mounted) Navigator.pop(context);
   }
 
   Future<void> _salvar() async {
@@ -122,6 +141,7 @@ class _TarefaFormPageState extends ConsumerState<TarefaFormPage> {
             estimativaUnidade: _unidade,
             responsavel: _opcional(_responsavel),
             observacoes: _opcional(_observacoes),
+            comentarios: _opcional(_comentarios),
             tags: tags);
       } else {
         id = await banco.inserirTarefa(
@@ -135,6 +155,7 @@ class _TarefaFormPageState extends ConsumerState<TarefaFormPage> {
             estimativaUnidade: _unidade,
             responsavel: _opcional(_responsavel),
             observacoes: _opcional(_observacoes),
+            comentarios: _opcional(_comentarios),
             tags: tags);
       }
       if (!mounted) return;
@@ -178,7 +199,15 @@ class _TarefaFormPageState extends ConsumerState<TarefaFormPage> {
   Widget build(BuildContext context) {
     final tema = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(title: Text(_editando ? 'Editar tarefa' : 'Nova tarefa')),
+      appBar: AppBar(title: Text(_editando ? 'Editar tarefa' : 'Nova tarefa'), actions: [
+        if (_editando)
+          IconButton(
+            key: const Key('excluir_tarefa_form'),
+            tooltip: 'Excluir',
+            icon: const Icon(Icons.delete_outline),
+            onPressed: _excluir,
+          ),
+      ]),
       body: Form(
         key: _form,
         child: ListView(
@@ -303,6 +332,14 @@ class _TarefaFormPageState extends ConsumerState<TarefaFormPage> {
                   minLines: 2,
                   maxLines: 5,
                   decoration: const InputDecoration(labelText: 'Observações', alignLabelWithHint: true),
+                ),
+                const SizedBox(height: 8),
+                TextFormField(
+                  key: const Key('campo_comentarios_tarefa'),
+                  controller: _comentarios,
+                  minLines: 2,
+                  maxLines: 5,
+                  decoration: const InputDecoration(labelText: 'Comentários', alignLabelWithHint: true),
                 ),
                 const SizedBox(height: 8),
                 TextFormField(
