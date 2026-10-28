@@ -3,8 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/aparencia.dart';
 import '../../core/formatos.dart';
+import '../../core/leitura_calculo.dart';
+import '../../core/senha_calculo.dart';
 import '../../data/local/banco.dart';
 import '../nav/menu_lateral.dart';
+import '../nav/modulos_menu.dart';
 
 /// Intervalo (inclusivo) de um atalho de periodo.
 DateTimeRange periodoRapido(String nome, DateTime hoje) {
@@ -33,6 +36,9 @@ DateTimeRange periodoRapido(String nome, DateTime hoje) {
       return DateTimeRange(start: h, end: h.add(const Duration(days: 7)));
   }
 }
+
+/// Modulos que tem aba no painel, na ordem das abas.
+const modulosComAba = ['agenda', 'financas', 'saude', 'leitura', 'biblioteca', 'senha'];
 
 const atalhosPeriodo = [
   'Hoje',
@@ -118,9 +124,28 @@ class _HojePageState extends ConsumerState<HojePage> {
     });
   }
 
+  /// Modulos liberados para o usuario (ate carregar, vale o conjunto padrao). So eles aparecem nas abas e nos indicadores.
+  Set<String> _liberados() => _nomesDosModulos().keys.toSet();
+
+  /// codigo -> nome cadastrado de cada modulo liberado (as abas dos modulos novos usam o nome do cadastro).
+  Map<String, String> _nomesDosModulos() {
+    final a = ref.watch(modulosMenuProvider);
+    final lista = a.hasValue ? a.value! : modulosNativosPadrao;
+    return {for (final m in lista) m.codigo: m.nome};
+  }
+
+  /// Dia [d] dentro do periodo aplicado (inclusive).
+  bool _noPeriodo(DateTime? d) {
+    if (d == null) return false;
+    final ini = DateTime(_deAplicado.year, _deAplicado.month, _deAplicado.day);
+    final fim = DateTime(_ateAplicado.year, _ateAplicado.month, _ateAplicado.day + 1);
+    return !d.isBefore(ini) && d.isBefore(fim);
+  }
+
   @override
   Widget build(BuildContext context) {
     final banco = ref.watch(bancoProvider);
+    final liberados = _liberados();
     return Scaffold(
       appBar: BarraPagina(
         title: Text('${widget.titulo} · ${formatarData(DateTime.now())}'),
@@ -146,9 +171,9 @@ class _HojePageState extends ConsumerState<HojePage> {
                 children: [
                   _filtros(context),
                   const SizedBox(height: 16),
-                  _Indicadores(dados: dados),
+                  _Indicadores(dados: dados, liberados: liberados),
                   const SizedBox(height: 16),
-                  _painelAbas(context, dados),
+                  _painelAbas(context, dados, liberados),
                 ],
               );
             },
@@ -226,9 +251,24 @@ class _HojePageState extends ConsumerState<HojePage> {
     );
   }
 
-  Widget _painelAbas(BuildContext context, _Dados d) {
+  Widget _painelAbas(BuildContext context, _Dados d, Set<String> liberados) {
     final tema = Theme.of(context);
-    const nomes = ['Agenda', 'Contas', 'Remédios', 'Resumo e gráficos'];
+    final nomes0 = _nomesDosModulos();
+    // Uma aba por modulo liberado ao usuario, com o NOME DO MODULO como esta no cadastro.
+    final abas = <(String, String)>[
+      for (final c in modulosComAba)
+        if (liberados.contains(c)) (c, nomes0[c] ?? modulosNativosPadrao.where((m) => m.codigo == c).map((m) => m.nome).firstOrNull ?? c),
+    ];
+    if (abas.isEmpty) {
+      return const Card(
+        child: Padding(
+          padding: EdgeInsets.all(16),
+          child: Text('Nenhum módulo com painel liberado para você.', key: Key('sem_abas')),
+        ),
+      );
+    }
+    final nomes = [for (final a in abas) a.$2];
+    final atual = _aba < abas.length ? _aba : 0;
     return Card(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -247,15 +287,15 @@ class _HojePageState extends ConsumerState<HojePage> {
                       border: Border(
                         bottom: BorderSide(
                           width: 2,
-                          color: _aba == i ? tema.colorScheme.primary : Colors.transparent,
+                          color: atual == i ? tema.colorScheme.primary : Colors.transparent,
                         ),
                       ),
                     ),
                     child: Text(
                       nomes[i],
                       style: tema.textTheme.titleSmall?.copyWith(
-                        color: _aba == i ? tema.colorScheme.primary : tema.colorScheme.onSurfaceVariant,
-                        fontWeight: _aba == i ? FontWeight.w700 : FontWeight.w500,
+                        color: atual == i ? tema.colorScheme.primary : tema.colorScheme.onSurfaceVariant,
+                        fontWeight: atual == i ? FontWeight.w700 : FontWeight.w500,
                       ),
                     ),
                   ),
@@ -265,11 +305,19 @@ class _HojePageState extends ConsumerState<HojePage> {
           const Divider(height: 1),
           Padding(
             padding: const EdgeInsets.all(16),
-            child: switch (_aba) {
-              0 => _abaAgenda(context, d),
-              1 => _abaContas(context, d),
-              2 => _abaRemedios(context, d),
-              _ => _abaResumo(context, d),
+            child: switch (abas[atual].$1) {
+              'agenda' => _abaAgenda(context, d),
+              'financas' => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  _abaContas(context, d),
+                  const SizedBox(height: 16),
+                  const Divider(height: 1),
+                  const SizedBox(height: 16),
+                  _abaResumo(context, d),
+                ]),
+              'saude' => _abaRemedios(context, d),
+              'leitura' => _abaLeitura(context),
+              'biblioteca' => _abaBiblioteca(context),
+              _ => _abaSenha(context),
             },
           ),
         ],
@@ -280,7 +328,8 @@ class _HojePageState extends ConsumerState<HojePage> {
   Widget _titulo(BuildContext context, String t) =>
       Padding(padding: const EdgeInsets.only(bottom: 8), child: Text(t, style: Theme.of(context).textTheme.titleLarge));
 
-  Widget _vazio(String t) => Padding(padding: const EdgeInsets.symmetric(vertical: 12), child: Text(t));
+  Widget _vazio(String t, {String? chave}) =>
+      Padding(padding: const EdgeInsets.symmetric(vertical: 12), child: Text(t, key: chave == null ? null : Key(chave)));
 
   Widget _cabecalho(BuildContext context, List<(String, int)> cols) {
     final estilo = Theme.of(context).textTheme.labelSmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant, letterSpacing: .6);
@@ -299,6 +348,84 @@ class _HojePageState extends ConsumerState<HojePage> {
         child: Row(children: [for (var i = 0; i < cels.length; i++) Expanded(flex: flex[i], child: cels[i])]),
       );
 
+  Widget _abaLeitura(BuildContext context) => StreamBuilder<List<Leitura>>(
+        stream: ref.watch(bancoProvider).observarLeituras(),
+        builder: (context, snap) {
+          // em leitura agora, ou iniciadas/terminadas no periodo
+          final itens = (snap.data ?? const <Leitura>[])
+              .where((l) =>
+                  (_casaTexto(l.titulo) || _casaTexto(l.autor ?? '')) &&
+                  ((l.iniciouEm != null && l.terminouEm == null) || _noPeriodo(l.iniciouEm) || _noPeriodo(l.terminouEm)))
+              .toList();
+          return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            _titulo(context, 'Leituras (${itens.length})'),
+            if (itens.isEmpty)
+              _vazio('Nenhuma leitura em andamento nem no período.', chave: 'vazio_leitura')
+            else ...[
+              _cabecalho(context, const [('Livro', 4), ('Autor', 3), ('Início', 2), ('Fim', 2), ('Situação', 2)]),
+              for (final l in itens)
+                _linha(context, [
+                  Text(l.titulo, style: const TextStyle(fontWeight: FontWeight.w600)),
+                  Text(l.autor ?? '—'),
+                  Text(l.iniciouEm == null ? '—' : formatarData(l.iniciouEm!)),
+                  Text(l.terminouEm == null ? '—' : formatarData(l.terminouEm!)),
+                  Text(situacaoDaLeitura(l.iniciouEm, l.terminouEm)),
+                ], const [4, 3, 2, 2, 2]),
+            ],
+          ]);
+        },
+      );
+
+  Widget _abaBiblioteca(BuildContext context) => StreamBuilder<List<Obra>>(
+        stream: ref.watch(bancoProvider).observarObras(),
+        builder: (context, snap) {
+          final todas = snap.data ?? const <Obra>[];
+          final itens = todas.where((o) => _noPeriodo(o.criadoEm) && (_casaTexto(o.titulo) || _casaTexto('${o.tombo}'))).toList();
+          return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            _titulo(context, 'Obras cadastradas no período (${itens.length})'),
+            Text('Acervo: ${todas.length} obras, ${todas.where((o) => o.noAcervo).length} no acervo.', key: const Key('resumo_biblioteca')),
+            const SizedBox(height: 8),
+            if (itens.isEmpty)
+              _vazio('Nenhuma obra cadastrada no período.', chave: 'vazio_biblioteca')
+            else ...[
+              _cabecalho(context, const [('Tombo', 1), ('Título', 4), ('Editora', 3), ('Situação', 2)]),
+              for (final o in itens)
+                _linha(context, [
+                  Text('${o.tombo}'),
+                  Text(o.titulo, style: const TextStyle(fontWeight: FontWeight.w600)),
+                  Text(o.editoraDescricao ?? '—'),
+                  Text(o.noAcervo ? (o.situacaoDescricao ?? 'No acervo') : 'Fora do acervo'),
+                ], const [1, 4, 3, 2]),
+            ],
+          ]);
+        },
+      );
+
+  /// Cofre de senhas: so nome, categoria e data; senha e notas nunca aparecem aqui.
+  Widget _abaSenha(BuildContext context) => StreamBuilder<List<Credencial>>(
+        stream: ref.watch(bancoProvider).observarCredenciais(),
+        builder: (context, snap) {
+          final itens = (snap.data ?? const <Credencial>[])
+              .where((c) => (_noPeriodo(c.criadoEm) || _noPeriodo(c.atualizadoEm)) && _casaTexto(c.titulo))
+              .toList()
+            ..sort((a, b) => b.atualizadoEm.compareTo(a.atualizadoEm));
+          return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            _titulo(context, 'Itens do cofre criados ou alterados no período (${itens.length})'),
+            if (itens.isEmpty)
+              _vazio('Nenhum item do cofre no período.', chave: 'vazio_senha')
+            else ...[
+              _cabecalho(context, const [('Nome', 4), ('Categoria', 3), ('Modificado', 3)]),
+              for (final c in itens)
+                _linha(context, [
+                  Text(c.titulo, style: const TextStyle(fontWeight: FontWeight.w600)),
+                  Text(tiposSenha[c.tipo] ?? c.tipo),
+                  Text(formatarDataHora(c.atualizadoEm)),
+                ], const [4, 3, 3]),
+            ],
+          ]);
+        },
+      );
+
   Widget _abaAgenda(BuildContext context, _Dados d) {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       _titulo(context, 'Compromissos (${d.eventos.length})'),
@@ -314,6 +441,29 @@ class _HojePageState extends ConsumerState<HojePage> {
             Text(e.local ?? '—'),
           ], const [2, 1, 4, 2]),
       ],
+      const SizedBox(height: 16),
+      StreamBuilder<List<Tarefa>>(
+        stream: ref.watch(bancoProvider).observarTarefas(),
+        builder: (context, snap) {
+          final tarefas = (snap.data ?? const <Tarefa>[])
+              .where((t) => _noPeriodo(t.prazo) && _casaTexto(t.titulo))
+              .toList();
+          return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            _titulo(context, 'Tarefas (${tarefas.length})'),
+            if (tarefas.isEmpty)
+              _vazio('Nenhuma tarefa com prazo no período.', chave: 'vazio_tarefas')
+            else ...[
+              _cabecalho(context, const [('Prazo', 2), ('Tarefa', 5), ('Etapa', 2)]),
+              for (final t in tarefas)
+                _linha(context, [
+                  Text(formatarData(t.prazo!)),
+                  Text(t.titulo, style: const TextStyle(fontWeight: FontWeight.w600)),
+                  Text(t.status == 'concluida' ? 'Concluída' : 'Aberta'),
+                ], const [2, 5, 2]),
+            ],
+          ]);
+        },
+      ),
     ]);
   }
 
@@ -457,9 +607,10 @@ class _Dados {
 }
 
 class _Indicadores extends StatelessWidget {
-  const _Indicadores({required this.dados});
+  const _Indicadores({required this.dados, required this.liberados});
 
   final _Dados dados;
+  final Set<String> liberados;
 
   @override
   Widget build(BuildContext context) {
@@ -486,10 +637,14 @@ class _Indicadores extends StatelessWidget {
           ),
         );
     final itens = [
+      if (liberados.contains('agenda'))
       cartao('compromissos', 'Compromissos', '${dados.eventos.length}', 'no período', Icons.event_outlined, Colors.lightBlue),
+      if (liberados.contains('financas')) ...[
       cartao('abertas', 'Contas em aberto', '${dados.abertas}', 'despesas pendentes no total', Icons.receipt_long_outlined, Colors.amber),
       cartao('atrasadas', 'Atrasadas', '${dados.atrasadas}', 'vencidas e não pagas', Icons.warning_amber_outlined, Colors.red),
       cartao('a_pagar', 'A pagar no período', formatarCentavos(dados.aPagarNoPeriodo), 'despesas pendentes', Icons.payments_outlined, Colors.green),
+      ],
+      if (liberados.contains('saude'))
       cartao('remedios', 'Remédios', '${dados.medicamentos.length}', 'cadastrados', Icons.medication_outlined, Colors.purple),
     ];
     return LayoutBuilder(builder: (context, c) {

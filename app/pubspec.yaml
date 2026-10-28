@@ -22,6 +22,7 @@ dependencies:
   flutter_secure_storage: ^9.2.2
   file_picker: ^8.1.2
   file_saver: ^0.7.0
+  cryptography: ^2.7.0
 
 dev_dependencies:
   flutter_test:

@@ -33,6 +33,9 @@ DateTime _somarMeses(DateTime d, int m) => adicionarMeses(d, m);
   Categorias,
   Eventos,
   Tarefas,
+  Leituras,
+  Obras,
+  Credenciais,
   Lancamentos,
   Anexos,
   Orcamentos,
@@ -63,7 +66,7 @@ class Banco extends _$Banco {
   Banco.paraTeste(super.e);
 
   @override
-  int get schemaVersion => 9;
+  int get schemaVersion => 12;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -135,6 +138,18 @@ class Banco extends _$Banco {
             await m.addColumn(tarefas, tarefas.responsavel);
             await m.addColumn(tarefas, tarefas.observacoes);
             await m.addColumn(tarefas, tarefas.tags);
+          }
+          if (de < 12) {
+            // v12: cofre de senhas (tabela nova; nada e apagado).
+            await m.createTable(credenciais);
+          }
+          if (de < 11) {
+            // v11: cadastro de obras da biblioteca (tabela nova; nada e apagado).
+            await m.createTable(obras);
+          }
+          if (de < 10) {
+            // v10: ficha de leitura (tabela nova; nada e apagado).
+            await m.createTable(leituras);
           }
           if (de < 9) {
             // v9: comentarios/conclusao da tarefa e cadastro completo do compromisso.
@@ -906,6 +921,159 @@ class Banco extends _$Banco {
         concluidoEm: Value(DateTime.now()),
         atualizadoEm: Value(DateTime.now()),
       ));
+
+  // ---- Senhas (cofre; os campos secretos ja chegam cifrados) ----
+  Stream<List<Credencial>> observarCredenciais() =>
+      (select(credenciais)..where((t) => t.excluidoEm.isNull())).watch();
+
+  Future<List<Credencial>> listarCredenciais() => (select(credenciais)..where((t) => t.excluidoEm.isNull())).get();
+
+  Future<Credencial?> credencialPorId(String id) =>
+      (select(credenciais)..where((t) => t.id.equals(id) & t.excluidoEm.isNull())).getSingleOrNull();
+
+  Future<String> inserirCredencial(CredenciaisCompanion dados) async {
+    final id = _uuid.v4();
+    await into(credenciais).insert(dados.copyWith(id: Value(id)));
+    return id;
+  }
+
+  Future<void> atualizarCredencial(String id, CredenciaisCompanion dados) =>
+      (update(credenciais)..where((t) => t.id.equals(id)))
+          .write(dados.copyWith(id: const Value.absent(), atualizadoEm: Value(DateTime.now())));
+
+  Future<void> excluirCredencial(String id) => (update(credenciais)..where((t) => t.id.equals(id)))
+      .write(CredenciaisCompanion(excluidoEm: Value(DateTime.now()), atualizadoEm: Value(DateTime.now())));
+
+  // Favorito, etiquetas, autopreenchimento e acesso nao mudam o "Modificado" da ficha.
+  Future<void> definirFavoritoCredencial(String id, bool favorito) =>
+      (update(credenciais)..where((t) => t.id.equals(id))).write(CredenciaisCompanion(favorito: Value(favorito)));
+
+  Future<void> definirAutopreencherCredencial(String id, bool valor) =>
+      (update(credenciais)..where((t) => t.id.equals(id))).write(CredenciaisCompanion(autopreencher: Value(valor)));
+
+  Future<void> definirTagsCredencial(String id, String tags) =>
+      (update(credenciais)..where((t) => t.id.equals(id))).write(CredenciaisCompanion(tags: Value(tags)));
+
+  Future<void> registrarAcessoCredencial(String id, {DateTime? quando}) => (update(credenciais)..where((t) => t.id.equals(id)))
+      .write(CredenciaisCompanion(acessadoEm: Value(quando ?? DateTime.now())));
+
+  // ---- Biblioteca (cadastro de obras) ----
+  Stream<List<Obra>> observarObras() => (select(obras)
+        ..where((t) => t.excluidoEm.isNull())
+        ..orderBy([(t) => OrderingTerm.desc(t.tombo)]))
+      .watch();
+
+  Future<List<Obra>> listarObras() => (select(obras)
+        ..where((t) => t.excluidoEm.isNull())
+        ..orderBy([(t) => OrderingTerm.desc(t.tombo)]))
+      .get();
+
+  Future<Obra?> obraPorId(String id) =>
+      (select(obras)..where((t) => t.id.equals(id) & t.excluidoEm.isNull())).getSingleOrNull();
+
+  /// Proximo numero de tombo (maior ja usado + 1).
+  Future<int> proximoTombo() async {
+    final todas = await listarObras();
+    return todas.isEmpty ? 1 : todas.map((o) => o.tombo).reduce((a, b) => a > b ? a : b) + 1;
+  }
+
+  Future<bool> tomboEmUso(int tombo, {String? exceto}) async {
+    final r = await (select(obras)..where((t) => t.excluidoEm.isNull() & t.tombo.equals(tombo))).get();
+    return r.any((o) => o.id != exceto);
+  }
+
+  Future<String> inserirObra(ObrasCompanion dados) async {
+    final id = _uuid.v4();
+    await into(obras).insert(dados.copyWith(id: Value(id)));
+    return id;
+  }
+
+  Future<void> atualizarObra(String id, ObrasCompanion dados) => (update(obras)..where((t) => t.id.equals(id)))
+      .write(dados.copyWith(id: const Value.absent(), atualizadoEm: Value(DateTime.now())));
+
+  Future<void> excluirObra(String id) => (update(obras)..where((t) => t.id.equals(id)))
+      .write(ObrasCompanion(excluidoEm: Value(DateTime.now()), atualizadoEm: Value(DateTime.now())));
+
+  // ---- Leitura (ficha de leitura) ----
+  Stream<List<Leitura>> observarLeituras() => (select(leituras)
+        ..where((t) => t.excluidoEm.isNull())
+        ..orderBy([(t) => OrderingTerm.desc(t.criadoEm)]))
+      .watch();
+
+  Future<List<Leitura>> listarLeituras() => (select(leituras)
+        ..where((t) => t.excluidoEm.isNull())
+        ..orderBy([(t) => OrderingTerm.desc(t.criadoEm)]))
+      .get();
+
+  Future<Leitura?> leituraPorId(String id) =>
+      (select(leituras)..where((t) => t.id.equals(id) & t.excluidoEm.isNull())).getSingleOrNull();
+
+  Future<String> inserirLeitura({
+    required String titulo,
+    String? autor,
+    Uint8List? capa,
+    DateTime? iniciouEm,
+    DateTime? terminouEm,
+    String formato = 'fisico',
+    int notaDrama = 0,
+    int notaFantasia = 0,
+    int notaRomance = 0,
+    int notaReflexao = 0,
+    String? fraseFavorita,
+    String? personagens,
+  }) async {
+    final id = _uuid.v4();
+    await into(leituras).insert(LeiturasCompanion.insert(
+      id: Value(id),
+      titulo: titulo,
+      autor: Value(autor),
+      capa: Value(capa),
+      iniciouEm: Value(iniciouEm),
+      terminouEm: Value(terminouEm),
+      formato: Value(formato),
+      notaDrama: Value(notaDrama),
+      notaFantasia: Value(notaFantasia),
+      notaRomance: Value(notaRomance),
+      notaReflexao: Value(notaReflexao),
+      fraseFavorita: Value(fraseFavorita),
+      personagens: Value(personagens),
+    ));
+    return id;
+  }
+
+  Future<void> atualizarLeitura(
+    String id, {
+    required String titulo,
+    String? autor,
+    Uint8List? capa,
+    DateTime? iniciouEm,
+    DateTime? terminouEm,
+    required String formato,
+    required int notaDrama,
+    required int notaFantasia,
+    required int notaRomance,
+    required int notaReflexao,
+    String? fraseFavorita,
+    String? personagens,
+  }) =>
+      (update(leituras)..where((t) => t.id.equals(id))).write(LeiturasCompanion(
+        titulo: Value(titulo),
+        autor: Value(autor),
+        capa: Value(capa),
+        iniciouEm: Value(iniciouEm),
+        terminouEm: Value(terminouEm),
+        formato: Value(formato),
+        notaDrama: Value(notaDrama),
+        notaFantasia: Value(notaFantasia),
+        notaRomance: Value(notaRomance),
+        notaReflexao: Value(notaReflexao),
+        fraseFavorita: Value(fraseFavorita),
+        personagens: Value(personagens),
+        atualizadoEm: Value(DateTime.now()),
+      ));
+
+  Future<void> excluirLeitura(String id) => (update(leituras)..where((t) => t.id.equals(id)))
+      .write(LeiturasCompanion(excluidoEm: Value(DateTime.now()), atualizadoEm: Value(DateTime.now())));
 
   Future<void> excluirTarefa(String id) => (update(tarefas)..where((t) => t.id.equals(id)))
       .write(TarefasCompanion(excluidoEm: Value(DateTime.now()), atualizadoEm: Value(DateTime.now())));

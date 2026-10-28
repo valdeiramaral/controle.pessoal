@@ -13,7 +13,10 @@ import 'features/nav/menu_lateral.dart';
 import 'features/nav/modulos_menu.dart';
 import 'features/financas/financas_page.dart';
 import 'features/hoje/hoje_page.dart';
+import 'features/biblioteca/biblioteca_page.dart';
+import 'features/leitura/leitura_page.dart';
 import 'features/saude/saude_page.dart';
+import 'features/senha/senha_page.dart';
 
 class App extends ConsumerWidget {
   const App({super.key});
@@ -150,6 +153,9 @@ Widget _paginaDoModulo(ModuloMenu m) => switch (m.codigo) {
       'financas' => FinancasPage(key: const ValueKey('financas'), titulo: m.nome),
       'saude' => SaudePage(key: const ValueKey('saude'), titulo: m.nome),
       'agenda' => AgendaPage(key: const ValueKey('agenda'), titulo: m.nome),
+      'senha' => SenhaPage(key: const ValueKey('senha'), titulo: m.nome),
+      'biblioteca' => BibliotecaPage(key: const ValueKey('biblioteca'), titulo: m.nome),
+      'leitura' => LeituraPage(key: const ValueKey('leitura'), titulo: m.nome),
       _ => ModuloGenericoPage(key: ValueKey(m.codigo), modulo: m),
     };
 

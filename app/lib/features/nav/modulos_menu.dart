@@ -6,7 +6,7 @@ import '../auth/sessao.dart';
 
 /// Modulos que ja vem com tela propria no app (o resto abre a tela generica do modulo cadastrado).
 /// Sao cadastrados como qualquer outro modulo: so aparecem no menu de quem tem acesso.
-const modulosComTela = ['painel', 'financas', 'saude', 'agenda'];
+const modulosComTela = ['painel', 'financas', 'saude', 'agenda', 'leitura', 'biblioteca', 'senha'];
 
 /// Icone e cor de cada modulo com tela propria.
 (IconData, MaterialColor)? aparenciaDoModuloNativo(String codigo) => switch (codigo) {
@@ -14,6 +14,9 @@ const modulosComTela = ['painel', 'financas', 'saude', 'agenda'];
       'financas' => (Icons.account_balance_wallet_outlined, Colors.lightGreen),
       'saude' => (Icons.favorite_border, Colors.pink),
       'agenda' => (Icons.event_outlined, Colors.lightBlue),
+      'leitura' => (Icons.menu_book_outlined, Colors.teal),
+      'biblioteca' => (Icons.local_library_outlined, Colors.deepPurple),
+      'senha' => (Icons.password_outlined, Colors.red),
       _ => null,
     };
 

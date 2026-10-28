@@ -108,6 +108,96 @@ class Tarefas extends Table with ColunasSync {
   Set<Column> get primaryKey => {id};
 }
 
+/// Ficha de leitura (schema v10): um registro por livro lido.
+@DataClassName('Leitura')
+class Leituras extends Table with ColunasSync {
+  TextColumn get titulo => text()();
+  TextColumn get autor => text().nullable()();
+  BlobColumn get capa => blob().nullable()(); // foto da capa
+  DateTimeColumn get iniciouEm => dateTime().nullable()();
+  DateTimeColumn get terminouEm => dateTime().nullable()();
+  TextColumn get formato => text().withDefault(const Constant('fisico'))(); // fisico | digital
+  // Classificacao dos temas, de 0 a 5.
+  IntColumn get notaDrama => integer().withDefault(const Constant(0))();
+  IntColumn get notaFantasia => integer().withDefault(const Constant(0))();
+  IntColumn get notaRomance => integer().withDefault(const Constant(0))();
+  IntColumn get notaReflexao => integer().withDefault(const Constant(0))();
+  TextColumn get fraseFavorita => text().nullable()();
+  TextColumn get personagens => text().nullable()();
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Cadastro de obras da biblioteca (schema v11). Campos de lista (tipo, colecao, idioma...) guardam
+/// codigo + descricao, como na tela de catalogacao.
+@DataClassName('Obra')
+class Obras extends Table with ColunasSync {
+  IntColumn get tombo => integer()();
+  TextColumn get isbn => text().nullable()();
+  BoolColumn get noAcervo => boolean().withDefault(const Constant(true))();
+  TextColumn get tipoCodigo => text().nullable()();
+  TextColumn get tipoDescricao => text().nullable()();
+  TextColumn get titulo => text()();
+  TextColumn get subtitulo => text().nullable()();
+  TextColumn get edicao => text().nullable()();
+  TextColumn get referenciaEdicao => text().nullable()();
+  IntColumn get ano => integer().nullable()();
+  IntColumn get diasPrevisao => integer().nullable()();
+  TextColumn get classifTipoCodigo => text().nullable()();
+  TextColumn get classifTipoDescricao => text().nullable()();
+  TextColumn get codClassificacao => text().nullable()();
+  TextColumn get codAutor => text().nullable()();
+  TextColumn get tomo => text().nullable()();
+  TextColumn get volume => text().nullable()();
+  IntColumn get exemplar => integer().withDefault(const Constant(1))();
+  TextColumn get faixaEtaria => text().withDefault(const Constant('00-99'))();
+  IntColumn get nroPaginas => integer().nullable()();
+  TextColumn get serie => text().nullable()();
+  TextColumn get colecaoCodigo => text().nullable()();
+  TextColumn get colecaoDescricao => text().nullable()();
+  TextColumn get idiomaCodigo => text().nullable()();
+  TextColumn get idiomaDescricao => text().nullable()();
+  TextColumn get editoraCodigo => text().nullable()();
+  TextColumn get editoraDescricao => text().nullable()();
+  TextColumn get editoraComplemento => text().nullable()();
+  TextColumn get categoriaCobrancaCodigo => text().nullable()();
+  TextColumn get categoriaCobrancaDescricao => text().nullable()();
+  IntColumn get valorCentavos => integer().nullable()();
+  TextColumn get localizacaoCodigo => text().nullable()();
+  TextColumn get localizacaoDescricao => text().nullable()();
+  TextColumn get situacaoCodigo => text().nullable()();
+  TextColumn get situacaoDescricao => text().nullable()();
+  BlobColumn get capa => blob().nullable()();
+  BoolColumn get capaAutoAjuste => boolean().withDefault(const Constant(true))();
+  BoolColumn get capaCentralizar => boolean().withDefault(const Constant(true))();
+  TextColumn get observacoes => text().nullable()();
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Cofre de senhas (schema v12). Senhas, segredo e notas ficam CIFRADOS (AES-256-GCM, texto "v1:...");
+/// o texto puro nunca e gravado no banco. Veja core/cofre.dart.
+@DataClassName('Credencial')
+class Credenciais extends Table with ColunasSync {
+  TextColumn get titulo => text()();
+  TextColumn get tipo => text().withDefault(const Constant('acesso'))(); // acesso | cartao | nota | 2fa | chave
+  TextColumn get aplicativo => text().nullable()();
+  TextColumn get email => text().nullable()();
+  TextColumn get usuario => text().nullable()();
+  TextColumn get url => text().nullable()();
+  TextColumn get senhaAtual => text().withDefault(const Constant(''))(); // cifrada
+  TextColumn get senhaPadrao => text().withDefault(const Constant(''))(); // cifrada
+  TextColumn get senhaUltimaValida => text().withDefault(const Constant(''))(); // cifrada
+  TextColumn get segredo => text().withDefault(const Constant(''))(); // cifrado: numero do cartao, chave 2FA...
+  TextColumn get notas => text().withDefault(const Constant(''))(); // cifradas
+  TextColumn get tags => text().withDefault(const Constant(''))();
+  BoolColumn get favorito => boolean().withDefault(const Constant(false))();
+  BoolColumn get autopreencher => boolean().withDefault(const Constant(true))();
+  DateTimeColumn get acessadoEm => dateTime().nullable()();
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
 @DataClassName('Lancamento')
 class Lancamentos extends Table with ColunasSync {
   TextColumn get contaId => text()();

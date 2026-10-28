@@ -104,6 +104,14 @@ void main() {
       expect(tester.widget<Card>(find.byKey(Key('quadro_tarefa_$t'))).color!.toARGB32() & 0xFFFFFF, corTarefaQuadro.toARGB32() & 0xFFFFFF);
       expect(tester.widget<Card>(find.byKey(Key('quadro_evento_$e'))).color!.toARGB32() & 0xFFFFFF, corCompromissoQuadro.toARGB32() & 0xFFFFFF);
       expect(find.text('Semana seguinte'), findsNothing);
+      // cada dia tem uma cor propria: 7 dias, 7 cores diferentes
+      expect(coresDiasSemana.toSet().length, 7);
+      final cores = <int>{};
+      for (var i = 0; i < 7; i++) {
+        final c = tester.widget<Container>(find.byKey(Key('quadro_dia_$i'))).decoration as BoxDecoration;
+        cores.add(c.color!.toARGB32());
+      }
+      expect(cores.length, 7);
 
       await tester.tap(find.byKey(const Key('quadro_proxima')));
       await tester.pumpAndSettle();

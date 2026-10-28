@@ -99,7 +99,7 @@ Limitação: os campos novos de `medicamento` e a tabela `agendamento_saude` sã
 
 ## Tarefas e compromissos (módulo Agenda)
 
-O módulo **Agenda** (com o nome que tiver no cadastro de módulos) mostra só o **quadro da semana** (`quadro_aba.dart`): segunda a domingo, uma coluna por dia, com setas para mudar de semana e o botão *Hoje*. As **tarefas aparecem em verde** e os **compromissos em azul**, na mesma tela (legenda no topo). Regras em `core/tarefas_calculo.dart`; formulários em `tarefa_form_page.dart` e `compromisso_form_page.dart`; testes em `app/test/tarefas_test.dart`.
+O módulo **Agenda** (com o nome que tiver no cadastro de módulos) mostra só o **quadro da semana** (`quadro_aba.dart`): segunda a domingo, uma coluna por dia, **cada dia com a sua cor** (7 dias, 7 cores; o dia de hoje ganha contorno), com setas para mudar de semana e o botão *Hoje*. As **tarefas aparecem em verde** e os **compromissos em azul**, na mesma tela (legenda no topo). Regras em `core/tarefas_calculo.dart`; formulários em `tarefa_form_page.dart` e `compromisso_form_page.dart`; testes em `app/test/tarefas_test.dart`.
 
 - **Cadastrar:** o **+** de cada coluna (e o **+** geral) pergunta se é **tarefa** ou **compromisso** e já abre na data do dia. Tocar num cartão abre o cadastro para alterar; dentro do cadastro há o ícone de **Excluir** (com confirmação).
 - **Cadastro da tarefa:** *Projeto* (opcional, sugere os já usados), *Nome* (obrigatório; Enter salva), *Descrição*, *Prioridade*, *Data*, *Estimativa* (número + minutos/horas/dias), *Responsável*, *Etapa* (A fazer, Em andamento, Aguardando, Concluída) e *Dados complementares* (observações, comentários e tags). Embaixo, **Após salvar**: *Fechar*, *Ver tarefa* ou *Adicionar nova*.
@@ -108,3 +108,43 @@ O módulo **Agenda** (com o nome que tiver no cadastro de módulos) mostra só o
 - **Concluir:** o ícone do cartão abre uma janela para informar **observações** e **comentários** antes de concluir a tarefa (ou marcar o compromisso como realizado). Tocar de novo no ícone reabre. A data e hora da conclusão ficam gravadas.
 - Tarefas sem data não aparecem no quadro.
 - **Banco local:** tabelas `tarefas` e `eventos` (schemas v8 e v9 só **acrescentam colunas**; os dados já gravados são mantidos).
+
+## Leitura (ficha de leitura)
+
+Módulo com tela própria (código `leitura`; aparece no menu para quem o SuperUsuário liberou). A tela lista as fichas (mais recentes primeiro) e o **+** abre a ficha, igual à ficha de papel:
+
+- **Capa** (foto escolhida no aparelho), **Título** e **Autor**.
+- **Iniciou a leitura** → **Terminou a leitura** (o fim não pode ser antes do início). A lista mostra "Não iniciado", "Em leitura" ou "Lido" conforme as datas.
+- **Livro:** Físico ou Digital.
+- **Classificação dos temas abordados** (0 a 5, tocando no símbolo; tocar de novo na mesma nota zera): Drama (bolinhas), Fantasia (estrelas), Romance (corações) e Reflexão (triângulos).
+- **Frase favorita** e **Personagens principais** (texto livre, várias linhas).
+- Editar abrindo a ficha; excluir pelo ícone da lixeira (a ficha é marcada como excluída, nada é apagado do banco).
+
+Banco do app: tabela nova `leituras` (schema v10, só criação de tabela). No servidor, o módulo "Leitura" já cadastrado pelo SuperUsuario continua valendo; para criá-lo em um banco que ainda não o tem, aplique `banco/migracoes/2026-10-31_modulo_leitura.sql` (não altera nada que já exista). Depois de mudar o schema do app rode `dart run build_runner build --delete-conflicting-outputs`.
+
+## Biblioteca (cadastro de obras)
+
+Módulo com tela própria (código `biblioteca`, liberado pelo SuperUsuario). A tela lista o acervo (tombo mais alto primeiro) com busca por título, subtítulo, ISBN ou tombo; o **+** abre o cadastro, igual à tela de catalogação:
+
+- **Tombo Obra** (sugere o próximo número; não aceita tombo repetido), **ISBN**, **NO ACERVO** (marcado/desmarcado) e **Tipo** (código + descrição).
+- **Título** (obrigatório) e **SubTítulo**.
+- Aba **Dados da obra:** Edição, Referência de Edição, Ano, Dias Previsão; Tipo de Classificação Bibliográfica, Cód. Classificação, Cód. Autor; Tomo, Volume, Exemplar (padrão 1), Faixa Etária (padrão 00-99), Nro. Págs, Série; Coleção, Idioma, Editora (+ complemento), Categoria de Cobrança, Valor, Localização e Situação.
+- Os campos de lista têm **código + descrição** e uma lupa que oferece os valores já usados em outras obras (não há catálogo separado: o que você digita numa obra fica disponível nas próximas).
+- **Capa:** escolher imagem, remover, **Auto-ajuste** e **Centralizar** (SIM/NÃO).
+- Aba **Observações.** Editar abrindo a obra; excluir pela lixeira (a obra é marcada como excluída, nada é apagado do banco).
+
+Banco do app: tabela nova `obras` (schema v11, só criação de tabela). No servidor aplique `banco/migracoes/2026-11-01_modulo_biblioteca.sql` se o módulo "Biblioteca" ainda não estiver cadastrado. Depois rode `dart run build_runner build --delete-conflicting-outputs`.
+
+## Senha (cofre de senhas)
+
+Módulo com tela própria (código `senha`, liberado pelo SuperUsuario). O painel tem três colunas (em tela estreita, as categorias viram chips e o detalhe abre em outra tela):
+
+- **Menu:** Todos os itens, Favoritos, Acessos e senhas, Cartões de crédito, Notas, Senhas de uso único (2FA), Chaves de acesso, Recentes (abertos nos últimos 7 dias) e as **Etiquetas**, cada um com a contagem.
+- **Lista:** busca (nome, aplicativo, e-mail, usuário, endereço e etiquetas; nunca nos campos cifrados) e **Classificação** (nome, modificados ou criados recentemente).
+- **Detalhe:** nome, categoria e etiquetas, estrela de favorito, Aplicativo, E-mail, Usuário, Endereço, **Senha ATUAL**, **Senha PADRÃO** e **Última Senha Válida** (ocultas; o "olho" mostra, o ícone copia) com a **força** (quatro traços coloridos e "Tempo para quebrar"), dado secreto (número do cartão, chave 2FA...), notas, Modificado/Criado, "Utilizar para preenchimento automático", **Editar**, **Definir etiquetas** e **Excluir**.
+- **Cadastro (+):** os mesmos campos, com **gerador de senhas** (tamanho 8–40, maiúsculas, minúsculas, números e símbolos). Ao trocar a Senha ATUAL, a anterior vira a Última Senha Válida.
+- **Gerador** também na barra do módulo.
+
+**Segurança:** senhas, dado secreto e notas são gravados **cifrados** (AES-256-GCM, texto `v1:...`) com uma chave aleatória do aparelho, guardada no Keystore (Android) / Keychain (iOS); o texto puro nunca vai para o banco. Quem tem o arquivo do banco sem a chave não lê nada. A chave é do aparelho: reinstalar o app ou trocar de aparelho sem a chave torna os itens ilegíveis (o app avisa e não deixa salvar por cima). Ainda não há senha mestra nem "Bloquear". Favorito, etiquetas, autopreenchimento e acesso não alteram o "Modificado".
+
+Banco do app: tabela nova `credenciais` (schema v12, só criação de tabela). Dependência nova: `cryptography` (rode `flutter pub get`). No servidor aplique `banco/migracoes/2026-11-02_modulo_senha.sql` se o módulo "Senha" ainda não estiver cadastrado.

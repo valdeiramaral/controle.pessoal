@@ -21,7 +21,7 @@
 modo ∈ claro | escuro | sistema; escala de fonte 0,8–1,6; cor ∈ azul | verde | roxo | laranja | rosa | turquesa. Salvo via `PUT /me/preferencias`.
 
 ## Tela e interface
-Nome, e-mail e **Sair** aparecem ao lado da conta em todas as telas. Tela inicial "Agenda do Dia" (antes "Hoje") em abas com filtros de período e indicadores.
+Nome, e-mail e **Sair** aparecem ao lado da conta em todas as telas. Tela inicial "Agenda do Dia" (antes "Hoje") em abas com filtros de período e indicadores. Há **uma aba por módulo liberado ao usuário, com o nome do módulo como está no cadastro** (Tarefas/Agenda, Finanças — com Contas e Resumo e gráficos —, Saúde — com os remédios —, Leitura, Biblioteca e Senha). Cada aba lista os lançamentos do módulo: compromissos e tarefas com prazo no período; contas; remédios ativos; leituras em andamento ou iniciadas/terminadas no período; obras cadastradas no período (com o total do acervo); itens do cofre criados ou alterados no período (só nome, categoria e data — nunca senhas ou notas). Sem o módulo liberado, a aba e o indicador não aparecem.
 
 ## Dados
 Todas as tabelas de dados do usuário têm `id` (UUID do aparelho), `usuario_id`, `criado_em`, `atualizado_em`, `excluido_em`. Detalhes de cada objeto em `05-banco-objetos.md`; rotas em `04-api-rotas.md`.

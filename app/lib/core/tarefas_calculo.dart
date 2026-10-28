@@ -83,3 +83,16 @@ const lembretesCompromisso = <int, String>{
   60: '1 hora antes',
   1440: '1 dia antes',
 };
+
+/// Uma cor para cada dia da semana no quadro (segunda = 1 ... domingo = 7).
+const coresDiasSemana = <Color>[
+  Color(0xFFE53935), // segunda: vermelho
+  Color(0xFFFB8C00), // terca: laranja
+  Color(0xFFFDD835), // quarta: amarelo
+  Color(0xFF8E24AA), // quinta: roxo
+  Color(0xFF00ACC1), // sexta: turquesa
+  Color(0xFFEC407A), // sabado: rosa
+  Color(0xFF6D4C41), // domingo: marrom
+];
+
+Color corDoDiaDaSemana(int weekday) => coresDiasSemana[(weekday - 1) % 7];

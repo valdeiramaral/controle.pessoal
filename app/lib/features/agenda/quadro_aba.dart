@@ -191,21 +191,28 @@ class _QuadroAbaState extends ConsumerState<QuadroAba> {
     final ordenadas = [...agruparTarefasPorDia(tarefasDoDia).expand((g) => g.itens)];
     final eventosDoDia = eventos.where((e) => _so(e.inicio) == dia).toList();
     final banco = ref.read(bancoProvider);
+    final corDia = corDoDiaDaSemana(dia.weekday);
     return Container(
       key: Key('quadro_dia_$i'),
       width: 230,
       margin: const EdgeInsets.symmetric(horizontal: 4),
       padding: const EdgeInsets.all(8),
+      // cada dia tem a sua cor (7 dias = 7 cores); o dia de hoje ganha um contorno
       decoration: BoxDecoration(
-        color: hoje ? tema.colorScheme.primary.withValues(alpha: 0.08) : null,
-        borderRadius: BorderRadius.circular(10),
+        color: corDia.withValues(alpha: 0.18), // sem borderRadius: a borda tem larguras diferentes
+        border: Border(
+          top: BorderSide(color: corDia, width: 5),
+          left: hoje ? BorderSide(color: corDia, width: 2) : BorderSide.none,
+          right: hoje ? BorderSide(color: corDia, width: 2) : BorderSide.none,
+          bottom: hoje ? BorderSide(color: corDia, width: 2) : BorderSide.none,
+        ),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
           Expanded(
             child: Text(nome,
                 key: Key('quadro_titulo_dia_$i'),
-                style: tema.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800, color: hoje ? tema.colorScheme.primary : null)),
+                style: tema.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
           ),
           IconButton(
             key: Key('quadro_novo_$i'),

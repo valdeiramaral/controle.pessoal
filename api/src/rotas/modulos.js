@@ -8,7 +8,7 @@ import { codigoDoNome } from './acesso.js';
 // quem decide e o SuperUsuario, modulo a modulo; nada e fixo por padrao. Os de fabrica (financas, saude...)
 // nao podem ser excluidos nem desativados.
 // Modulos de fabrica que tem tela propria no app e por isso entram no menu como os cadastrados.
-const MODULOS_COM_TELA = ['painel', 'financas', 'saude', 'agenda'];
+const MODULOS_COM_TELA = ['painel', 'financas', 'saude', 'agenda', 'leitura', 'biblioteca', 'senha'];
 // Chaves dos icones (o app desenha cada uma; veja app/lib/core/icones_modulo.dart).
 export const ICONES = [
   'extension', 'folder', 'star', 'build', 'chart', 'people', 'flag', 'bookmark', 'label', 'lock',
