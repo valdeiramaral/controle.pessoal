@@ -43,7 +43,7 @@ Regras:
 - "Novo banco" (primeiro da lista) permite cadastrar um banco fora da lista Febraban e exige o nome do banco.
 
 ## Lançamento de despesas e receitas (`features/financas/lancamento_form_page.dart`)
-Botão **+** da aba Lançamentos abre o formulário (Despesa ou Receita). Cálculos em `core/lancamento_calculo.dart`; gravação em `Banco.lancar`.
+A lista da aba **Lançamentos** é agrupada por mês, do mais antigo para o mais recente (e por data crescente dentro do mês); cada lançamento tem à esquerda um **ícone** (sem caixa de marcar): em aberto, o ícone de **Lançar baixa** (despesa) ou **Lançar recebimento** (receita) abre o formulário já na seção de pagamento/recebimento; depois de baixado, vira o ícone verde de pago/recebido, que abre o detalhe; cada mês pode ser expandido ou recolhido (o mês atual abre expandido) e mostra o total de **Receitas**, o total de **Despesas** e o saldo do mês (`agruparPorMes`, testado em `app/test/lancamentos_por_mes_test.dart`). Botão **+** da aba Lançamentos abre o formulário (Despesa ou Receita). Cálculos em `core/lancamento_calculo.dart`; gravação em `Banco.lancar`.
 1. **Descrição** (obrigatória) — texto que facilita achar a despesa na listagem (Aluguel da casa, Telefone, Energia).
 2. **Valor** — maior que zero. Em despesa parcelada é o **valor total**, dividido nas parcelas (a sobra de centavos vai para as primeiras; a soma fecha exatamente o total). Mostra prévia ("3x de ...").
 3. **Data** — vencimento (recebimento, para receita), por seletor de data.

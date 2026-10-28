@@ -1,4 +1,5 @@
 /// Calculos puros do lancamento de despesas/receitas (sem Flutter, faceis de testar).
+import '../data/local/banco.dart';
 
 /// Divide [totalCentavos] em [parcelas] valores inteiros que SOMAM exatamente o total.
 /// A sobra (centavos que nao dividem igualmente) vai uma a uma para as primeiras parcelas.
@@ -51,4 +52,47 @@ String formatarTamanho(int bytes) {
   if (bytes < 1024) return '$bytes B';
   if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(0)} KB';
   return '${(bytes / (1024 * 1024)).toStringAsFixed(1).replaceAll('.', ',')} MB';
+}
+
+/// Lancamentos de um mes (aba Lancamentos): em ordem crescente de data, com os totais de receitas e despesas.
+class GrupoMes {
+  const GrupoMes(this.ano, this.mes, this.itens, this.receitasCentavos, this.despesasCentavos);
+  final int ano;
+  final int mes;
+  final List<Lancamento> itens;
+  final int receitasCentavos;
+  final int despesasCentavos;
+
+  /// Receitas menos despesas do mes.
+  int get saldoCentavos => receitasCentavos - despesasCentavos;
+}
+
+/// Agrupa por mes da data do lancamento, do mais antigo para o mais recente; dentro do mes, por data crescente.
+List<GrupoMes> agruparPorMes(List<Lancamento> lancamentos) {
+  final ordenados = [...lancamentos]..sort((a, b) {
+      final c = a.dia.compareTo(b.dia);
+      return c != 0 ? c : a.descricao.toLowerCase().compareTo(b.descricao.toLowerCase());
+    });
+  final grupos = <GrupoMes>[];
+  var atual = <Lancamento>[];
+  void fechar() {
+    if (atual.isEmpty) return;
+    var rec = 0, desp = 0;
+    for (final l in atual) {
+      if (l.tipo == 'receita') {
+        rec += l.valorCentavos;
+      } else {
+        desp += l.valorCentavos;
+      }
+    }
+    grupos.add(GrupoMes(atual.first.dia.year, atual.first.dia.month, atual, rec, desp));
+    atual = <Lancamento>[];
+  }
+
+  for (final l in ordenados) {
+    if (atual.isNotEmpty && (atual.first.dia.year != l.dia.year || atual.first.dia.month != l.dia.month)) fechar();
+    atual.add(l);
+  }
+  fechar();
+  return grupos;
 }

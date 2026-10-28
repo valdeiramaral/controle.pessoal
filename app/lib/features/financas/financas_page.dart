@@ -44,6 +44,50 @@ class FinancasPage extends ConsumerWidget {
     );
   }
 
+  String _tituloMes(int ano, int mes) {
+    final t = nomeDoMes(DateTime(ano, mes));
+    return t[0].toUpperCase() + t.substring(1);
+  }
+
+  Widget _item(BuildContext context, Banco banco, Lancamento l) {
+    final receita = l.tipo == 'receita';
+    return Dismissible(
+      key: ValueKey(l.id),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        color: Colors.red,
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 16),
+        child: const Icon(Icons.delete_outline, color: Colors.white),
+      ),
+      onDismissed: (_) => banco.excluirLancamentoDaSerie(l),
+      child: ListTile(
+        key: Key('lancamento_${l.id}'),
+        onTap: () => abrirDetalheLancamento(context, l.id),
+        // Sem quadradinho: um icone abre o registro da baixa (despesa) ou do recebimento (receita).
+        leading: l.status == 'pago'
+            ? IconButton(
+                key: Key('baixa_${l.id}'),
+                tooltip: receita ? 'Recebido' : 'Pago',
+                icon: const Icon(Icons.check_circle, color: Colors.green),
+                onPressed: () => abrirDetalheLancamento(context, l.id),
+              )
+            : IconButton(
+                key: Key('baixa_${l.id}'),
+                tooltip: receita ? 'Lançar recebimento' : 'Lançar baixa',
+                icon: Icon(receita ? Icons.attach_money : Icons.price_check, color: receita ? Colors.green : Colors.red),
+                onPressed: () => abrirFormularioLancamento(context, lancamento: l, registrarPagamento: true),
+              ),
+        title: Text(l.descricao),
+        subtitle: _SubtituloLancamento(l, banco),
+        trailing: Text(
+          '${receita ? '+' : '-'} ${formatarCentavos(l.valorCentavos)}',
+          style: TextStyle(color: receita ? Colors.green : Colors.red),
+        ),
+      ),
+    );
+  }
+
   Widget _lista(BuildContext context, Banco banco) {
     return StreamBuilder<List<Lancamento>>(
         stream: banco.observarLancamentos(),
@@ -68,39 +112,34 @@ class FinancasPage extends ConsumerWidget {
               ),
               const Divider(height: 1),
               Expanded(
-                child: ListView.separated(
-                  itemCount: itens.length,
-                  separatorBuilder: (_, __) => const Divider(height: 1),
-                  itemBuilder: (context, i) {
-                    final l = itens[i];
-                    final receita = l.tipo == 'receita';
-                    return Dismissible(
-                      key: ValueKey(l.id),
-                      direction: DismissDirection.endToStart,
-                      background: Container(
-                        color: Colors.red,
-                        alignment: Alignment.centerRight,
-                        padding: const EdgeInsets.only(right: 16),
-                        child: const Icon(Icons.delete_outline, color: Colors.white),
+                child: ListView(
+                  children: [
+                    for (final g in agruparPorMes(itens))
+                      ExpansionTile(
+                        key: PageStorageKey('mes_${g.ano}_${g.mes}'),
+                        // o mes atual ja vem aberto; os demais, recolhidos
+                        initiallyExpanded: g.ano == DateTime.now().year && g.mes == DateTime.now().month,
+                        shape: const Border(),
+                        collapsedShape: const Border(),
+                        title: Text(_tituloMes(g.ano, g.mes),
+                            key: Key('mes_${g.ano}_${g.mes}'), style: const TextStyle(fontWeight: FontWeight.w700)),
+                        subtitle: Wrap(spacing: 14, runSpacing: 2, children: [
+                          Text('Receitas ${formatarCentavos(g.receitasCentavos)}',
+                              key: Key('receitas_${g.ano}_${g.mes}'), style: const TextStyle(color: Colors.green)),
+                          Text('Despesas ${formatarCentavos(g.despesasCentavos)}',
+                              key: Key('despesas_${g.ano}_${g.mes}'), style: const TextStyle(color: Colors.red)),
+                        ]),
+                        trailing: Text('${g.saldoCentavos < 0 ? '-' : ''}${formatarCentavos(g.saldoCentavos.abs())}',
+                            key: Key('saldo_${g.ano}_${g.mes}'),
+                            style: TextStyle(fontWeight: FontWeight.w600, color: g.saldoCentavos < 0 ? Colors.red : Colors.green)),
+                        children: [
+                          for (final l in g.itens) ...[
+                            const Divider(height: 1),
+                            _item(context, banco, l),
+                          ],
+                        ],
                       ),
-                      onDismissed: (_) => banco.excluirLancamentoDaSerie(l),
-                      child: ListTile(
-                        key: Key('lancamento_${l.id}'),
-                        onTap: () => abrirDetalheLancamento(context, l.id),
-                        leading: Checkbox(
-                          value: l.status == 'pago',
-                          onChanged: (_) => banco.alternarPagamento(l),
-                        ),
-                        title: Text(l.descricao),
-                        subtitle: _SubtituloLancamento(l, banco),
-                        trailing: Text(
-                          '${receita ? '+' : '-'} ${formatarCentavos(l.valorCentavos)}',
-                          style: TextStyle(
-                              color: receita ? Colors.green : Colors.red),
-                        ),
-                      ),
-                    );
-                  },
+                  ],
                 ),
               ),
             ],
