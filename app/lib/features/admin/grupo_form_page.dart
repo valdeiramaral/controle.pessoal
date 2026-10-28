@@ -169,14 +169,14 @@ class _GrupoFormPageState extends ConsumerState<GrupoFormPage> {
                           decoration: decoracaoCampo(context, 'Nome do grupo', Icons.groups_outlined),
                           validator: (v) => (v ?? '').trim().isEmpty ? 'Informe o nome.' : null,
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 8),
                         TextFormField(
                           key: const Key('campo_descricao_grupo'),
                           controller: _descricao,
                           enabled: pode,
                           decoration: decoracaoCampo(context, 'Descrição (opcional)', Icons.notes_outlined),
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 10),
                         Text('Perfis do grupo', style: tema.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
                         const SizedBox(height: 4),
                         Text('Todo membro recebe as permissões destes perfis.', style: tema.textTheme.bodySmall),
@@ -192,7 +192,7 @@ class _GrupoFormPageState extends ConsumerState<GrupoFormPage> {
                                   : null,
                             ),
                         ]),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 10),
                         Row(children: [
                           Expanded(
                             child: Text('Membros (${_membros.length})',
@@ -215,10 +215,10 @@ class _GrupoFormPageState extends ConsumerState<GrupoFormPage> {
                               onDeleted: pode ? () => setState(() => _membros.remove(m.id)) : null,
                             ),
                         ]),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 10),
                         if (_erro != null) ...[
                           CaixaMensagem(texto: _erro!),
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 8),
                         ],
                         if (pode)
                           KeyedSubtree(

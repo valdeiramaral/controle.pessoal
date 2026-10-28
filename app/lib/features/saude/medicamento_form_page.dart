@@ -283,7 +283,7 @@ class _MedicamentoFormPageState extends ConsumerState<MedicamentoFormPage> {
   }
 
   Widget _secao(String texto) => Padding(
-        padding: const EdgeInsets.only(top: 20, bottom: 8),
+        padding: const EdgeInsets.only(top: 12, bottom: 6),
         child: Text(texto, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
       );
 
@@ -352,14 +352,14 @@ class _MedicamentoFormPageState extends ConsumerState<MedicamentoFormPage> {
                     ),
                   );
                 }),
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
                 TextFormField(
                   key: const Key('campo_dose_med'),
                   controller: _dose,
                   decoration: const InputDecoration(labelText: 'Dose', helperText: 'Concentração do medicamento. Ex.: 100 mg'),
                   validator: (v) => (v ?? '').trim().isEmpty ? 'Informe a dose' : null,
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
                   key: const Key('campo_formato_med'),
                   initialValue: _formato,
@@ -367,13 +367,13 @@ class _MedicamentoFormPageState extends ConsumerState<MedicamentoFormPage> {
                   items: [for (final e in formatosMedicamento.entries) DropdownMenuItem(value: e.key, child: Text(e.value))],
                   onChanged: (v) => setState(() => _formato = v ?? _formato),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
                 TextFormField(
                   key: const Key('campo_tratamento_med'),
                   controller: _tratamento,
                   decoration: const InputDecoration(labelText: 'Tratamento (opcional)', helperText: 'Para que serve. Ex.: Colesterol alto'),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
                 TextFormField(
                   key: const Key('campo_instrucoes_med'),
                   controller: _instrucoes,
@@ -381,7 +381,7 @@ class _MedicamentoFormPageState extends ConsumerState<MedicamentoFormPage> {
                   maxLength: 300,
                   decoration: const InputDecoration(labelText: 'Instruções (opcional)', helperText: 'Ex.: Tomar após o almoço, com água'),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
                 TextFormField(
                   key: const Key('campo_informacoes_med'),
                   controller: _informacoes,
@@ -409,14 +409,14 @@ class _MedicamentoFormPageState extends ConsumerState<MedicamentoFormPage> {
                   ],
                   onChanged: (v) => setState(() => _tipoMed = v),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
                 TextFormField(
                   key: const Key('campo_fabricante_med'),
                   controller: _fabricante,
                   textCapitalization: TextCapitalization.words,
                   decoration: const InputDecoration(labelText: 'Fabricante/laboratório (opcional)', helperText: 'Ex.: EMS, Eurofarma, Medley'),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
                 _campoData(const Key('campo_validade_med'), 'Validade (opcional)', _validade, _escolherValidade,
                     limpar: () => setState(() => _validade = null), vazio: 'Não informada'),
                 if (_validade != null && _validade!.isBefore(soDia(widget.hoje ?? DateTime.now())))
@@ -436,12 +436,12 @@ class _MedicamentoFormPageState extends ConsumerState<MedicamentoFormPage> {
                     helperMaxLines: 2,
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
                 _campoData(const Key('campo_inicio_med'), 'Começar', _inicio, () => _escolherData(inicio: true)),
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
                 _campoData(const Key('campo_fim_med'), 'Terminar', _fim, () => _escolherData(inicio: false),
                     limpar: () => setState(() => _fim = null)),
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
                   key: const Key('campo_frequencia_med'),
                   initialValue: _frequencia,
@@ -450,7 +450,7 @@ class _MedicamentoFormPageState extends ConsumerState<MedicamentoFormPage> {
                   onChanged: (v) => setState(() => _frequencia = v ?? _frequencia),
                 ),
                 if (_frequencia == 'dias_semana') ...[
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 8),
                   Wrap(
                     spacing: 8,
                     children: [
@@ -465,7 +465,7 @@ class _MedicamentoFormPageState extends ConsumerState<MedicamentoFormPage> {
                   ),
                 ],
                 if (_frequencia == 'intervalo') ...[
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 8),
                   TextFormField(
                     key: const Key('campo_intervalo_dias'),
                     controller: _intervalo,
@@ -479,7 +479,7 @@ class _MedicamentoFormPageState extends ConsumerState<MedicamentoFormPage> {
                   ),
                 ],
                 if (!nec) ...[
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 10),
                   Text('Horários', style: Theme.of(context).textTheme.labelLarge),
                   const SizedBox(height: 8),
                   Wrap(
@@ -501,7 +501,7 @@ class _MedicamentoFormPageState extends ConsumerState<MedicamentoFormPage> {
                     ],
                   ),
                 ],
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
                 TextFormField(
                   key: const Key('campo_quantidade_med'),
                   controller: _quantidade,
@@ -547,14 +547,14 @@ class _MedicamentoFormPageState extends ConsumerState<MedicamentoFormPage> {
                     padding: const EdgeInsets.only(top: 12),
                     child: Text(_erro!, key: const Key('erro_medicamento'), style: TextStyle(color: Theme.of(context).colorScheme.error)),
                   ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 12),
                 FilledButton(
                   key: const Key('botao_salvar_med'),
                   onPressed: _salvando ? null : _salvar,
                   child: Text(_salvando ? 'Salvando...' : 'Salvar'),
                 ),
                 if (m != null) ...[
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 8),
                   if (m.ativo)
                     OutlinedButton.icon(
                       key: const Key('botao_suspender_med'),

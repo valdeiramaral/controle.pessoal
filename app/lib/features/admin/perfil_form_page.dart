@@ -144,7 +144,7 @@ class _PerfilFormPageState extends ConsumerState<PerfilFormPage> {
               ? Center(
                   child: Column(mainAxisSize: MainAxisSize.min, children: [
                     Text(_erro!, key: const Key('mensagem_erro')),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 8),
                     OutlinedButton(onPressed: _carregar, child: const Text('Tentar de novo')),
                   ]),
                 )
@@ -164,14 +164,14 @@ class _PerfilFormPageState extends ConsumerState<PerfilFormPage> {
                               decoration: decoracaoCampo(context, 'Nome do perfil', Icons.badge_outlined),
                               validator: (v) => (v ?? '').trim().isEmpty ? 'Informe o nome.' : null,
                             ),
-                            const SizedBox(height: 12),
+                            const SizedBox(height: 8),
                             TextFormField(
                               key: const Key('campo_descricao_perfil'),
                               controller: _descricao,
                               enabled: pode,
                               decoration: decoracaoCampo(context, 'Descrição (opcional)', Icons.notes_outlined),
                             ),
-                            const SizedBox(height: 16),
+                            const SizedBox(height: 10),
                             Text('Permissões', style: tema.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
                             if (_fixo)
                               Padding(
@@ -185,10 +185,10 @@ class _PerfilFormPageState extends ConsumerState<PerfilFormPage> {
                               editavel: pode && !_fixo,
                               aoMudar: (s) => setState(() => _marcadas = s),
                             ),
-                            const SizedBox(height: 16),
+                            const SizedBox(height: 10),
                             if (_erro != null) ...[
                               CaixaMensagem(texto: _erro!),
-                              const SizedBox(height: 12),
+                              const SizedBox(height: 8),
                             ],
                             if (pode)
                               KeyedSubtree(

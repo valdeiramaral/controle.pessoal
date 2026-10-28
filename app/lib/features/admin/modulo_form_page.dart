@@ -280,14 +280,14 @@ class _ModuloFormPageState extends ConsumerState<ModuloFormPage> {
                     decoration: decoracaoCampo(context, 'Nome do módulo', Icons.extension_outlined),
                     validator: (v) => (v ?? '').trim().length < 2 ? 'Informe o nome (ao menos 2 letras).' : null,
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 8),
                   TextFormField(
                     key: const Key('campo_descricao_modulo'),
                     controller: _descricao,
                     enabled: pode,
                     decoration: decoracaoCampo(context, 'Descrição (opcional)', Icons.notes_outlined),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 8),
                   TextFormField(
                     key: const Key('campo_ordem_modulo'),
                     controller: _ordem,
@@ -315,7 +315,7 @@ class _ModuloFormPageState extends ConsumerState<ModuloFormPage> {
                   ),
                   const SizedBox(height: 8),
                   ..._seletorIcones(context, pode),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 8),
                   const SizedBox(height: 8),
                   Text('Liberação', style: tema.textTheme.titleMedium),
                   SwitchListTile(
@@ -356,7 +356,7 @@ class _ModuloFormPageState extends ConsumerState<ModuloFormPage> {
                                 : null,
                           ),
                       ]),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 8),
                     ],
                     Row(children: [
                       Expanded(child: Text('Usuários liberados (${_libs.length})', style: tema.textTheme.titleSmall)),
@@ -382,10 +382,10 @@ class _ModuloFormPageState extends ConsumerState<ModuloFormPage> {
                     value: _ativo,
                     onChanged: (pode && !_sistema) ? (v) => setState(() => _ativo = v) : null,
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 8),
                   if (_erro != null) ...[
                     CaixaMensagem(texto: _erro!),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 8),
                   ],
                   if (pode)
                     KeyedSubtree(

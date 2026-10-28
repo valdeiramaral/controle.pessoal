@@ -158,7 +158,7 @@ class _AgendamentoFormPageState extends ConsumerState<AgendamentoFormPage> {
   }
 
   Widget _secao(String texto) => Padding(
-        padding: const EdgeInsets.only(top: 20, bottom: 8),
+        padding: const EdgeInsets.only(top: 12, bottom: 6),
         child: Text(texto, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
       );
 
@@ -187,7 +187,7 @@ class _AgendamentoFormPageState extends ConsumerState<AgendamentoFormPage> {
                   items: [for (final e in tiposAgendamento.entries) DropdownMenuItem(value: e.key, child: Text(e.value))],
                   onChanged: (v) => setState(() => _tipo = v ?? _tipo),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
                 TextFormField(
                   key: const Key('campo_titulo_ag'),
                   controller: _titulo,
@@ -202,7 +202,7 @@ class _AgendamentoFormPageState extends ConsumerState<AgendamentoFormPage> {
                   validator: (v) => (v ?? '').trim().length < 2 ? 'Informe a descrição' : null,
                 ),
                 if (_ehConsulta) ...[
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 8),
                   TextFormField(
                     key: const Key('campo_especialidade_ag'),
                     controller: _especialidade,
@@ -210,7 +210,7 @@ class _AgendamentoFormPageState extends ConsumerState<AgendamentoFormPage> {
                     decoration: const InputDecoration(labelText: 'Especialidade (opcional)', helperText: 'Ex.: Cardiologia'),
                   ),
                 ],
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
                 TextFormField(
                   key: const Key('campo_profissional_ag'),
                   controller: _profissional,
@@ -219,7 +219,7 @@ class _AgendamentoFormPageState extends ConsumerState<AgendamentoFormPage> {
                     labelText: _tipo == 'exame' ? 'Médico solicitante (opcional)' : 'Médico/profissional (opcional)',
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
                 TextFormField(
                   key: const Key('campo_local_ag'),
                   controller: _local,
@@ -228,7 +228,7 @@ class _AgendamentoFormPageState extends ConsumerState<AgendamentoFormPage> {
                     labelText: _tipo == 'exame' ? 'Laboratório/clínica (opcional)' : 'Local (opcional)',
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
                 InkWell(
                   key: const Key('campo_data_ag'),
                   onTap: _escolherQuando,
@@ -237,7 +237,7 @@ class _AgendamentoFormPageState extends ConsumerState<AgendamentoFormPage> {
                     child: Text(formatarDataHora(_quando), key: const Key('texto_data_ag')),
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
                 DropdownButtonFormField<int?>(
                   key: const Key('campo_lembrete_ag'),
                   initialValue: _lembrete,
@@ -248,14 +248,14 @@ class _AgendamentoFormPageState extends ConsumerState<AgendamentoFormPage> {
                   ],
                   onChanged: (v) => setState(() => _lembrete = v),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
                 TextFormField(
                   key: const Key('campo_preparo_ag'),
                   controller: _preparo,
                   maxLines: 2,
                   decoration: const InputDecoration(labelText: 'Preparo (opcional)', helperText: 'Ex.: Jejum de 8 horas, levar exames anteriores'),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
                 TextFormField(
                   key: const Key('campo_observacao_ag'),
                   controller: _observacao,
@@ -278,7 +278,7 @@ class _AgendamentoFormPageState extends ConsumerState<AgendamentoFormPage> {
                     onChanged: (v) => setState(() => _repetir = v ?? 'nao'),
                   ),
                   if (_repetir == 'personalizado') ...[
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 8),
                     Row(
                       children: [
                         Expanded(
@@ -305,7 +305,7 @@ class _AgendamentoFormPageState extends ConsumerState<AgendamentoFormPage> {
                     ),
                   ],
                   if (_repetir != 'nao') ...[
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 8),
                     TextFormField(
                       key: const Key('campo_vezes_ag'),
                       controller: _vezes,
@@ -330,7 +330,7 @@ class _AgendamentoFormPageState extends ConsumerState<AgendamentoFormPage> {
                   ],
                 ],
                 if (_editando && a?.grupoSerie != null) ...[
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 8),
                   Text('Faz parte de uma série (${a!.serieNumero} de ${a.serieTotal}).', key: const Key('info_serie_ag')),
                   if (_seguintes > 0)
                     CheckboxListTile(
@@ -347,7 +347,7 @@ class _AgendamentoFormPageState extends ConsumerState<AgendamentoFormPage> {
                     padding: const EdgeInsets.only(top: 12),
                     child: Text(_erro!, key: const Key('erro_agendamento'), style: TextStyle(color: Theme.of(context).colorScheme.error)),
                   ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 12),
                 FilledButton(
                   key: const Key('botao_salvar_ag'),
                   onPressed: _salvando ? null : _salvar,

@@ -331,7 +331,7 @@ class _LancamentoFormPageState extends ConsumerState<LancamentoFormPage> {
                         selected: {_tipo},
                         onSelectionChanged: (s) => setState(() => _tipo = s.first),
                       ),
-                      if (!_editando) const SizedBox(height: 16),
+                      if (!_editando) const SizedBox(height: 10),
                       TextFormField(
                         key: const Key('campo_descricao'),
                         controller: _descricao,
@@ -345,7 +345,7 @@ class _LancamentoFormPageState extends ConsumerState<LancamentoFormPage> {
                         ),
                         validator: (v) => (v ?? '').trim().length < 2 ? 'Informe a descrição' : null,
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 8),
                       TextFormField(
                         key: const Key('campo_valor'),
                         controller: _valor,
@@ -360,7 +360,7 @@ class _LancamentoFormPageState extends ConsumerState<LancamentoFormPage> {
                         validator: _validarValor,
                         onChanged: (_) => setState(_sincronizarValorPago),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 8),
                       InkWell(
                         key: const Key('campo_data'),
                         onTap: _escolherData,
@@ -372,7 +372,7 @@ class _LancamentoFormPageState extends ConsumerState<LancamentoFormPage> {
                           child: Text(formatarData(_data), key: const Key('texto_data')),
                         ),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 8),
                       DropdownButtonFormField<String>(
                         key: const Key('campo_conta'),
                         value: _contaId,
@@ -390,7 +390,7 @@ class _LancamentoFormPageState extends ConsumerState<LancamentoFormPage> {
                         validator: (v) => v == null ? 'Escolha a conta ou cartão' : null,
                         onChanged: (v) => setState(() => _contaId = v),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 8),
                       DropdownButtonFormField<String?>(
                         key: const Key('campo_categoria'),
                         value: _categoriaId,
@@ -409,7 +409,7 @@ class _LancamentoFormPageState extends ConsumerState<LancamentoFormPage> {
                           }
                         },
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 8),
                       if (!_editando)
                       DropdownButtonFormField<String>(
                         key: const Key('campo_repetir'),
@@ -445,7 +445,7 @@ class _LancamentoFormPageState extends ConsumerState<LancamentoFormPage> {
                           ),
                       ],
                       if (_repeticao != 'unica') ...[
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 8),
                         TextFormField(
                           key: const Key('campo_vezes'),
                           controller: _vezes,
@@ -480,7 +480,7 @@ class _LancamentoFormPageState extends ConsumerState<LancamentoFormPage> {
                           }),
                         ),
                       if (_repeticao == 'unica' && _pago) _secaoPagamento(context),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 8),
                       TextFormField(
                         key: const Key('campo_observacao'),
                         controller: _observacao,
@@ -496,13 +496,13 @@ class _LancamentoFormPageState extends ConsumerState<LancamentoFormPage> {
                       ),
                       const SizedBox(height: 8),
                       _secaoAnexos(context),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 10),
                       _secaoTags(context),
                       if (_erro != null) ...[
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 8),
                         KeyedSubtree(key: const Key('erro_lancamento'), child: CaixaMensagem(texto: _erro!)),
                       ],
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 12),
                       KeyedSubtree(
                         key: const Key('botao_salvar_lancamento'),
                         child: BotaoPrincipal(
@@ -538,7 +538,7 @@ class _LancamentoFormPageState extends ConsumerState<LancamentoFormPage> {
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text(_despesa ? 'Dados do pagamento' : 'Dados do recebimento', style: Theme.of(context).textTheme.titleSmall),
-        const SizedBox(height: 12),
+        const SizedBox(height: 8),
         InkWell(
           key: const Key('campo_data_pagamento'),
           onTap: _escolherDataPagamento,
@@ -548,7 +548,7 @@ class _LancamentoFormPageState extends ConsumerState<LancamentoFormPage> {
             child: Text(formatarData(_dataPag), key: const Key('texto_data_pagamento')),
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 8),
         DropdownButtonFormField<String>(
           key: const Key('campo_forma_pagamento'),
           value: _formaPag,
@@ -558,7 +558,7 @@ class _LancamentoFormPageState extends ConsumerState<LancamentoFormPage> {
           validator: (v) => v == null ? 'Escolha a forma de $verbo' : null,
           onChanged: (v) => setState(() => _formaPag = v),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 8),
         DropdownButtonFormField<String>(
           key: const Key('campo_conta_pagamento'),
           value: _contaPagId,
@@ -574,7 +574,7 @@ class _LancamentoFormPageState extends ConsumerState<LancamentoFormPage> {
           validator: (v) => v == null ? 'Escolha o banco/conta' : null,
           onChanged: (v) => setState(() => _contaPagId = v),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 8),
         InputDecorator(
           decoration: InputDecoration(labelText: 'Tipo de $verbo', helperText: _tipoPag == 'parcial' ? 'Parcial: registra uma parte; o lançamento continua em aberto' : 'Total: quita o lançamento', helperMaxLines: 2),
           child: SegmentedButton<String>(
@@ -590,7 +590,7 @@ class _LancamentoFormPageState extends ConsumerState<LancamentoFormPage> {
             }),
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 8),
         TextFormField(
           key: const Key('campo_desconto'),
           controller: _desconto,
@@ -606,7 +606,7 @@ class _LancamentoFormPageState extends ConsumerState<LancamentoFormPage> {
           },
           onChanged: (_) => setState(_sincronizarValorPago),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 8),
         TextFormField(
           key: const Key('campo_valor_pago'),
           controller: _valorPago,

@@ -265,7 +265,7 @@ class _UsuarioFormPageState extends ConsumerState<UsuarioFormPage> {
                     padding: const EdgeInsets.all(24),
                     child: Column(mainAxisSize: MainAxisSize.min, children: [
                       Text(_erro ?? 'Não foi possível carregar.', key: const Key('mensagem_erro')),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 8),
                       OutlinedButton(onPressed: _carregar, child: const Text('Tentar de novo')),
                     ]),
                   ),
@@ -291,14 +291,14 @@ class _UsuarioFormPageState extends ConsumerState<UsuarioFormPage> {
               children: [
                 _cartao('Dados da pessoa', Icons.person_outline, [
                   campoNome(context, _d),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 8),
                   campoEmail(context, _d),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 8),
                   campoCpf(context, _d),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 8),
                   campoTelefone(context, _d),
                   if (_novo) ...[
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 8),
                     TextFormField(
                       key: const Key('campo_senha'),
                       controller: _senha,
@@ -394,7 +394,7 @@ class _UsuarioFormPageState extends ConsumerState<UsuarioFormPage> {
                 ]),
                 if (_erro != null) ...[
                   CaixaMensagem(texto: _erro!),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 8),
                 ],
                 KeyedSubtree(
                   key: const Key('botao_salvar'),

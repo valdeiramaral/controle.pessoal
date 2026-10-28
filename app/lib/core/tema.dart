@@ -29,7 +29,18 @@ ThemeData temaApp({Brightness brilho = Brightness.dark, CorSistema? cor}) {
         );
   return ThemeData(
     useMaterial3: true,
+    // Telas mais compactas: controles, campos e linhas de lista ocupam menos espaco.
+    visualDensity: VisualDensity.compact,
     colorScheme: esquema,
+    inputDecorationTheme: const InputDecorationTheme(
+      isDense: true,
+      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+    ),
+    listTileTheme: const ListTileThemeData(
+      dense: true,
+      contentPadding: EdgeInsets.symmetric(horizontal: 12),
+      minVerticalPadding: 4,
+    ),
     scaffoldBackgroundColor: Colors.transparent,
     appBarTheme: AppBarTheme(
       backgroundColor: Colors.transparent,

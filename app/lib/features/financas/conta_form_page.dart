@@ -154,7 +154,7 @@ class _ContaFormPageState extends ConsumerState<ContaFormPage> {
                 onChanged: (v) => setState(() => _tipo = v ?? _tipo),
               ),
               if (!_dinheiro) ...[
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
                   key: const Key('campo_titularidade'),
                   value: _titularidade,
@@ -167,7 +167,7 @@ class _ContaFormPageState extends ConsumerState<ContaFormPage> {
                   validator: (v) => v == null ? 'Informe se a conta é sua' : null,
                   onChanged: (v) => setState(() => _titularidade = v),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
                 FormField<String>(
                   key: const Key('campo_banco'),
                   initialValue: _banco,
@@ -205,7 +205,7 @@ class _ContaFormPageState extends ConsumerState<ContaFormPage> {
                   ),
                 ),
                 if (_banco == codigoOutroBanco) ...[
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 8),
                   TextFormField(
                     key: const Key('campo_nome_banco'),
                     controller: _nomeBanco,
@@ -214,7 +214,7 @@ class _ContaFormPageState extends ConsumerState<ContaFormPage> {
                     validator: (v) => (v ?? '').trim().length < 2 ? 'Informe o nome do banco' : null,
                   ),
                 ],
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
                 Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Expanded(
                     flex: 2,
@@ -240,7 +240,7 @@ class _ContaFormPageState extends ConsumerState<ContaFormPage> {
                     ),
                   ),
                 ]),
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
                 TextFormField(
                   key: const Key('campo_documento'),
                   controller: _documento,
@@ -249,7 +249,7 @@ class _ContaFormPageState extends ConsumerState<ContaFormPage> {
                   decoration: const InputDecoration(labelText: 'CPF/CNPJ (opcional)', hintText: 'Insira o CPF/CNPJ'),
                   validator: validarDocumentoOpcional,
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
                 TextFormField(
                   key: const Key('campo_pix'),
                   controller: _pix,
@@ -257,7 +257,7 @@ class _ContaFormPageState extends ConsumerState<ContaFormPage> {
                   validator: validarChavePixOpcional,
                 ),
               ],
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
               TextFormField(
                 key: const Key('campo_apelido'),
                 controller: _apelido,
@@ -270,7 +270,7 @@ class _ContaFormPageState extends ConsumerState<ContaFormPage> {
                     : null,
               ),
               if (!externa) ...[
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
                 TextFormField(
                   key: const Key('campo_saldo'),
                   controller: _saldo,
@@ -279,7 +279,7 @@ class _ContaFormPageState extends ConsumerState<ContaFormPage> {
                 ),
               ],
               if (_erro != null) ...[
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
                 Text(_erro!, key: const Key('erro_conta'), style: TextStyle(color: Theme.of(context).colorScheme.error)),
               ],
               const SizedBox(height: 24),
