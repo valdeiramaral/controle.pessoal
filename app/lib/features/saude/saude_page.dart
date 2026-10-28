@@ -12,7 +12,10 @@ import 'medicamento_form_page.dart';
 /// Modulo Saude: controle de medicacao (posologia, doses do dia, estoque) e
 /// agenda de consultas, exames e retornos (unicos ou periodicos).
 class SaudePage extends ConsumerStatefulWidget {
-  const SaudePage({super.key, this.agora});
+  const SaudePage({super.key, this.agora, this.titulo = 'Saúde'});
+
+  /// Nome do modulo como esta no cadastro de modulos.
+  final String titulo;
   final DateTime? agora; // para testes
 
   @override
@@ -39,7 +42,7 @@ class _SaudePageState extends ConsumerState<SaudePage> with SingleTickerProvider
   Widget build(BuildContext context) {
     final medicacao = _abas.index == 0;
     return Scaffold(
-      appBar: const BarraPagina(title: Text('Saúde')),
+      appBar: BarraPagina(title: Text(widget.titulo)),
       body: Column(
         children: [
           TabBar(

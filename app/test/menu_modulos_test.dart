@@ -81,6 +81,15 @@ void main() {
     await encerrar(tester);
   });
 
+  testWidgets('a tela mostra o nome que o modulo tem no cadastro (ex.: o modulo agenda renomeado para Tarefas)', (tester) async {
+    await _abrir(tester, [
+      {'codigo': 'agenda', 'nome': 'Tarefas'},
+    ]);
+    expect(find.descendant(of: find.byType(AppBar), matching: find.text('Tarefas')), findsOneWidget);
+    expect(find.descendant(of: find.byType(AppBar), matching: find.text('Agenda')), findsNothing);
+    await encerrar(tester);
+  });
+
   testWidgets('sem nenhum modulo liberado mostra o aviso', (tester) async {
     await _abrir(tester, const []);
     expect(find.byKey(const Key('sem_modulos')), findsOneWidget);

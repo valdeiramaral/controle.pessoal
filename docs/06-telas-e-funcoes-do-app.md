@@ -96,3 +96,12 @@ A tela **Saúde** tem duas abas: **Medicação** e **Consultas e exames**. Banco
 - **Detalhe** (`agendamento_detalhe_page.dart`): todos os dados e ações **Realizado** (com campo de resultado/anotações), **Faltei**, **Cancelar agendamento**, **Voltar para agendado**, **Editar** e **Excluir**. Em série, editar tem a caixa "Aplicar descrição, local, profissional, preparo, observação e lembrete também aos N seguintes" (a data muda só no aberto) e excluir pergunta *Só este* ou *Este e os seguintes*.
 
 Limitação: os campos novos de `medicamento` e a tabela `agendamento_saude` são só locais por enquanto (a sincronização com o PostgreSQL não está ativa). Valores numéricos de estoque são inteiros (unidades).
+
+## Tarefas (módulo Agenda)
+
+O módulo **Agenda** (com o nome que tiver no cadastro de módulos) tem duas abas: **Tarefas** e **Compromissos**. Regras em `core/tarefas_calculo.dart`; telas em `features/agenda/` (`tarefas_aba.dart`, `tarefa_form_page.dart`); testes em `app/test/tarefas_test.dart`.
+
+- **Cadastro da tarefa** (botão **+** na aba Tarefas): *Projeto* (opcional, sugere os já usados), *Nome* (obrigatório; Enter salva), *Descrição*, *Prioridade*, *Data*, *Estimativa* (número + minutos/horas/dias), *Responsável* (opcional), *Etapa* (A fazer, Em andamento, Aguardando, Concluída; sem escolher = A fazer) e *Dados complementares* (observações e tags). Embaixo, **Após salvar**: *Fechar* (padrão), *Ver tarefa* (reabre a tarefa salva) ou *Adicionar nova* (limpa o formulário e mantém a tela).
+- **Prioridade**: o sistema define **Média** por padrão e você pode escolher outra. A tarefa ganha uma tag colorida: **Alta = vermelha**, **Média = laranja**, **Baixa = verde** (faixa na lateral do cartão e etiqueta).
+- **Lista**: agrupada por dia do prazo, em ordem crescente (atrasadas, hoje, amanhã…, e *Sem data* por último); no dia, prioridade alta primeiro. Tem busca, filtro por prioridade e chave *Concluídas*. Cada cartão tem o ícone de **concluir/reabrir**, **Alterar** e **Excluir** (com confirmação).
+- Banco local: tabela `tarefas` (schema v8 acrescenta descrição, projeto, etapa, estimativa, unidade, responsável, observações e tags).

@@ -13,7 +13,10 @@ import 'lancamento_detalhe_page.dart';
 import 'lancamento_form_page.dart';
 
 class FinancasPage extends ConsumerWidget {
-  const FinancasPage({super.key});
+  const FinancasPage({super.key, this.titulo = 'Finanças'});
+
+  /// Nome do modulo como esta no cadastro de modulos.
+  final String titulo;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -21,7 +24,7 @@ class FinancasPage extends ConsumerWidget {
     return DefaultTabController(
       length: 3,
       child: Scaffold(
-        appBar: const BarraPagina(title: Text('Finanças')),
+        appBar: BarraPagina(title: Text(titulo)),
         body: Column(children: [
           const TabBar(tabs: [
             Tab(key: Key('aba_dashboard'), icon: Icon(Icons.dashboard_outlined), text: 'Dashboard'),

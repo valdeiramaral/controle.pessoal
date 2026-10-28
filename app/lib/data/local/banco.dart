@@ -63,7 +63,7 @@ class Banco extends _$Banco {
   Banco.paraTeste(super.e);
 
   @override
-  int get schemaVersion => 7;
+  int get schemaVersion => 8;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -124,6 +124,17 @@ class Banco extends _$Banco {
             // v7: periodo de uso do medicamento (continuo, diario, semanal ou mensal) e por quanto tempo.
             await m.addColumn(medicamentos, medicamentos.periodoUso);
             await m.addColumn(medicamentos, medicamentos.duracaoUso);
+          }
+          if (de < 8) {
+            // v8: cadastro completo da tarefa (projeto, descricao, etapa, estimativa, responsavel, observacoes, tags).
+            await m.addColumn(tarefas, tarefas.descricao);
+            await m.addColumn(tarefas, tarefas.projeto);
+            await m.addColumn(tarefas, tarefas.etapa);
+            await m.addColumn(tarefas, tarefas.estimativa);
+            await m.addColumn(tarefas, tarefas.estimativaUnidade);
+            await m.addColumn(tarefas, tarefas.responsavel);
+            await m.addColumn(tarefas, tarefas.observacoes);
+            await m.addColumn(tarefas, tarefas.tags);
           }
         },
       );
@@ -685,6 +696,101 @@ class Banco extends _$Banco {
     ));
     return id;
   }
+
+  // ----------------------------- Tarefas -----------------------------
+
+  Stream<List<Tarefa>> observarTarefas() => (select(tarefas)
+        ..where((t) => t.excluidoEm.isNull())
+        ..orderBy([(t) => OrderingTerm.asc(t.prazo), (t) => OrderingTerm.asc(t.criadoEm)]))
+      .watch();
+
+  Future<List<Tarefa>> listarTarefas() => (select(tarefas)
+        ..where((t) => t.excluidoEm.isNull())
+        ..orderBy([(t) => OrderingTerm.asc(t.prazo), (t) => OrderingTerm.asc(t.criadoEm)]))
+      .get();
+
+  Future<Tarefa?> tarefaPorId(String id) =>
+      (select(tarefas)..where((t) => t.id.equals(id) & t.excluidoEm.isNull())).getSingleOrNull();
+
+  /// Projetos ja usados nas tarefas (para sugerir ao cadastrar).
+  Future<List<String>> projetosDeTarefas() async {
+    final todas = await listarTarefas();
+    final nomes = <String>{for (final t in todas) if ((t.projeto ?? '').trim().isNotEmpty) t.projeto!.trim()};
+    return nomes.toList()..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+  }
+
+  Future<String> inserirTarefa({
+    required String titulo,
+    String? descricao,
+    String? projeto,
+    DateTime? prazo,
+    String prioridade = 'media',
+    String etapa = 'a_fazer',
+    int? estimativa,
+    String estimativaUnidade = 'minutos',
+    String? responsavel,
+    String? observacoes,
+    String tags = '',
+  }) async {
+    final id = _uuid.v4();
+    await into(tarefas).insert(TarefasCompanion.insert(
+      id: Value(id),
+      titulo: titulo,
+      descricao: Value(descricao),
+      projeto: Value(projeto),
+      prazo: Value(prazo),
+      prioridade: Value(prioridade),
+      etapa: Value(etapa),
+      status: Value(etapa == 'concluida' ? 'concluida' : 'aberta'),
+      estimativa: Value(estimativa),
+      estimativaUnidade: Value(estimativaUnidade),
+      responsavel: Value(responsavel),
+      observacoes: Value(observacoes),
+      tags: Value(tags),
+    ));
+    return id;
+  }
+
+  Future<void> atualizarTarefa(
+    String id, {
+    required String titulo,
+    String? descricao,
+    String? projeto,
+    DateTime? prazo,
+    required String prioridade,
+    required String etapa,
+    int? estimativa,
+    required String estimativaUnidade,
+    String? responsavel,
+    String? observacoes,
+    String tags = '',
+  }) =>
+      (update(tarefas)..where((t) => t.id.equals(id))).write(TarefasCompanion(
+        titulo: Value(titulo),
+        descricao: Value(descricao),
+        projeto: Value(projeto),
+        prazo: Value(prazo),
+        prioridade: Value(prioridade),
+        etapa: Value(etapa),
+        status: Value(etapa == 'concluida' ? 'concluida' : 'aberta'),
+        estimativa: Value(estimativa),
+        estimativaUnidade: Value(estimativaUnidade),
+        responsavel: Value(responsavel),
+        observacoes: Value(observacoes),
+        tags: Value(tags),
+        atualizadoEm: Value(DateTime.now()),
+      ));
+
+  /// Muda so a etapa (concluir a tarefa ou reabri-la).
+  Future<void> definirEtapaTarefa(String id, String etapa) =>
+      (update(tarefas)..where((t) => t.id.equals(id))).write(TarefasCompanion(
+        etapa: Value(etapa),
+        status: Value(etapa == 'concluida' ? 'concluida' : 'aberta'),
+        atualizadoEm: Value(DateTime.now()),
+      ));
+
+  Future<void> excluirTarefa(String id) => (update(tarefas)..where((t) => t.id.equals(id)))
+      .write(TarefasCompanion(excluidoEm: Value(DateTime.now()), atualizadoEm: Value(DateTime.now())));
 
   Future<void> excluirEvento(String id) =>
       (update(eventos)..where((t) => t.id.equals(id))).write(

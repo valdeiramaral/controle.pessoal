@@ -6,16 +6,29 @@ import '../nav/menu_lateral.dart';
 import '../../core/formatos.dart';
 import '../../core/notificacoes.dart';
 import '../../data/local/banco.dart';
+import 'tarefa_form_page.dart';
+import 'tarefas_aba.dart';
 
-class AgendaPage extends ConsumerWidget {
-  const AgendaPage({super.key});
+class AgendaPage extends ConsumerStatefulWidget {
+  const AgendaPage({super.key, this.titulo = 'Agenda'});
+
+  /// Nome do modulo como esta no cadastro de modulos.
+  final String titulo;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final banco = ref.watch(bancoProvider);
-    return Scaffold(
-      appBar: const BarraPagina(title: Text('Agenda')),
-      body: StreamBuilder<List<Evento>>(
+  ConsumerState<AgendaPage> createState() => _AgendaPageState();
+}
+
+class _AgendaPageState extends ConsumerState<AgendaPage> with SingleTickerProviderStateMixin {
+  late final TabController _abas = TabController(length: 2, vsync: this)..addListener(() => setState(() {}));
+
+  @override
+  void dispose() {
+    _abas.dispose();
+    super.dispose();
+  }
+
+  Widget _compromissos(Banco banco) => StreamBuilder<List<Evento>>(
         stream: banco.observarEventosFuturos(),
         builder: (context, snap) {
           final itens = snap.data ?? const <Evento>[];
@@ -37,8 +50,7 @@ class AgendaPage extends ConsumerWidget {
                   child: const Icon(Icons.delete_outline, color: Colors.white),
                 ),
                 onDismissed: (_) {
-                  ServicoNotificacoes.instancia
-                      .cancelar(ServicoNotificacoes.idNumerico(e.id));
+                  ServicoNotificacoes.instancia.cancelar(ServicoNotificacoes.idNumerico(e.id));
                   banco.excluirEvento(e.id);
                 },
                 child: ListTile(
@@ -50,9 +62,33 @@ class AgendaPage extends ConsumerWidget {
             },
           );
         },
-      ),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    final banco = ref.watch(bancoProvider);
+    final tarefas = _abas.index == 0;
+    return Scaffold(
+      appBar: BarraPagina(title: Text(widget.titulo)),
+      body: Column(children: [
+        TabBar(
+          controller: _abas,
+          tabs: const [
+            Tab(key: Key('aba_tarefas'), icon: Icon(Icons.task_alt_outlined), text: 'Tarefas'),
+            Tab(key: Key('aba_compromissos'), icon: Icon(Icons.event_outlined), text: 'Compromissos'),
+          ],
+        ),
+        Expanded(
+          child: TabBarView(controller: _abas, children: [
+            const TarefasAba(),
+            _compromissos(banco),
+          ]),
+        ),
+      ]),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => _novoEvento(context, banco),
+        key: Key(tarefas ? 'fab_nova_tarefa' : 'fab_novo_compromisso'),
+        tooltip: tarefas ? 'Nova tarefa' : 'Novo compromisso',
+        onPressed: () => tarefas ? abrirFormularioTarefa(context) : _novoEvento(context, banco),
         child: const Icon(Icons.add),
       ),
     );

@@ -146,10 +146,10 @@ class _CascaState extends ConsumerState<Casca> {
 
 /// Tela do modulo: as que ja existem no app, ou a tela generica do modulo cadastrado.
 Widget _paginaDoModulo(ModuloMenu m) => switch (m.codigo) {
-      'painel' => const HojePage(key: ValueKey('painel')),
-      'financas' => const FinancasPage(key: ValueKey('financas')),
-      'saude' => const SaudePage(key: ValueKey('saude')),
-      'agenda' => const AgendaPage(key: ValueKey('agenda')),
+      'painel' => HojePage(key: const ValueKey('painel'), titulo: m.nome),
+      'financas' => FinancasPage(key: const ValueKey('financas'), titulo: m.nome),
+      'saude' => SaudePage(key: const ValueKey('saude'), titulo: m.nome),
+      'agenda' => AgendaPage(key: const ValueKey('agenda'), titulo: m.nome),
       _ => ModuloGenericoPage(key: ValueKey(m.codigo), modulo: m),
     };
 

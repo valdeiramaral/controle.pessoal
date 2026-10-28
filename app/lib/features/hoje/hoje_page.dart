@@ -47,7 +47,10 @@ const atalhosPeriodo = [
 
 /// Painel inicial: filtros de periodo, indicadores e abas (Agenda, Contas, Remedios, Resumo).
 class HojePage extends ConsumerStatefulWidget {
-  const HojePage({super.key});
+  const HojePage({super.key, this.titulo = 'Agenda do Dia'});
+
+  /// Nome do modulo como esta no cadastro de modulos.
+  final String titulo;
 
   @override
   ConsumerState<HojePage> createState() => _HojePageState();
@@ -120,7 +123,7 @@ class _HojePageState extends ConsumerState<HojePage> {
     final banco = ref.watch(bancoProvider);
     return Scaffold(
       appBar: BarraPagina(
-        title: Text('Agenda do Dia · ${formatarData(DateTime.now())}'),
+        title: Text('${widget.titulo} · ${formatarData(DateTime.now())}'),
       ),
       body: StreamBuilder<List<Evento>>(
         stream: banco.observarEventosEntre(_deAplicado, _ateAplicado),

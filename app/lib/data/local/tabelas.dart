@@ -82,7 +82,16 @@ class Tarefas extends Table with ColunasSync {
   TextColumn get titulo => text()();
   DateTimeColumn get prazo => dateTime().nullable()();
   TextColumn get prioridade => text().withDefault(const Constant('media'))();
-  TextColumn get status => text().withDefault(const Constant('aberta'))();
+  TextColumn get status => text().withDefault(const Constant('aberta'))(); // aberta | concluida
+  // Cadastro completo (schema v8):
+  TextColumn get descricao => text().nullable()();
+  TextColumn get projeto => text().nullable()();
+  TextColumn get etapa => text().withDefault(const Constant('a_fazer'))(); // a_fazer | em_andamento | aguardando | concluida
+  IntColumn get estimativa => integer().nullable()(); // tempo previsto
+  TextColumn get estimativaUnidade => text().withDefault(const Constant('minutos'))(); // minutos | horas | dias
+  TextColumn get responsavel => text().nullable()();
+  TextColumn get observacoes => text().nullable()();
+  TextColumn get tags => text().withDefault(const Constant(''))(); // "casa,urgente"
   @override
   Set<Column> get primaryKey => {id};
 }
