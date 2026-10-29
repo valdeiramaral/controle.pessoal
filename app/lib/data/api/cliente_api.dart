@@ -150,6 +150,25 @@ class PerfilApi {
       );
 
   bool pode(String permissao) => permissoes.contains(permissao);
+
+  /// Copia guardada no aparelho para abrir o app sem internet.
+  Map<String, dynamic> paraJson() => {
+        'usuario': usuario.paraJson(),
+        'plano': plano,
+        'modulos': modulos,
+        'permissoes': permissoes,
+        'superusuario': superusuario,
+        'aparencia': aparencia.paraJson(),
+      };
+
+  factory PerfilApi.deJson(Map<String, dynamic> j) => PerfilApi(
+        usuario: UsuarioApi.deJson((j['usuario'] as Map).cast<String, dynamic>()),
+        plano: j['plano'] as String?,
+        modulos: (j['modulos'] as List? ?? const []).cast<String>(),
+        permissoes: (j['permissoes'] as List? ?? const []).cast<String>(),
+        superusuario: j['superusuario'] as bool? ?? false,
+        aparencia: Aparencia.deJson(j['aparencia']),
+      );
 }
 
 class ResultadoLogin {

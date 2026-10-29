@@ -123,6 +123,14 @@ String textoSincronizacao(EstadoSincronizacao e) {
 /// Botao "Sincronizar agora": roda e mostra o resultado numa mensagem.
 Future<void> sincronizarAgora(BuildContext context, WidgetRef ref) async {
   final msg = ScaffoldMessenger.maybeOf(context);
+  if (ref.read(sessaoProvider).offline) {
+    final voltou = await ref.read(sessaoProvider.notifier).religarConta();
+    if (!voltou) {
+      msg?.showSnackBar(const SnackBar(
+          content: Text('Ainda sem internet. Seus dados estão salvos neste aparelho e sincronizam sozinhos quando a rede voltar.')));
+      return;
+    }
+  }
   final r = await ref.read(sincronizacaoProvider.notifier).sincronizar();
   final e = ref.read(sincronizacaoProvider);
   final texto = r == null

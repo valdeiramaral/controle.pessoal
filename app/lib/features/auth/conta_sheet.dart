@@ -63,7 +63,9 @@ class _ContaSheet extends ConsumerWidget {
                 contentPadding: EdgeInsets.zero,
                 leading: const Icon(Icons.sync),
                 title: const Text('Sincronizar agora'),
-                subtitle: Text(textoSincronizacao(ref.watch(sincronizacaoProvider))),
+                subtitle: Text(ref.watch(sessaoProvider.select((x) => x.offline))
+                    ? 'Sem internet: trabalhando só neste aparelho. Sincroniza sozinho quando a rede voltar.'
+                    : textoSincronizacao(ref.watch(sincronizacaoProvider))),
                 onTap: () => sincronizarAgora(context, ref),
               ),
             if (logado)
