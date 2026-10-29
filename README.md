@@ -212,3 +212,13 @@ Estão no final do escopo. Duas afetam este código diretamente:
 
 1. **Flutter ou GeneXus.** O esqueleto assume Flutter, conforme combinado.
 2. **Servidor próprio ou Supabase.** Define como a sincronização será implementada.
+
+## Testar no celular Android
+
+1. **Uma vez:** rode `rede.bat` como Administrador (libera a API na rede e no Firewall) e feche com Ctrl+C. Celular e computador precisam estar no **mesmo Wi-Fi** (não use rede de visitantes).
+2. No celular: Configurações > Sobre o telefone > toque 7 vezes em "Número da versão" > Opções do desenvolvedor > ligue **Depuração USB**. Conecte o cabo e aceite "Permitir depuração".
+3. Dê duplo clique em `celular.bat`: ele descobre o IP do computador, confere a API, acha o celular e instala/abre o app (`r` recarrega, `q` sai). Para só gerar o arquivo e instalar à mão, rode `celular.bat -Apk` (sai em `app\build\app\outputs\flutter-apk\app-debug.apk`).
+4. Se o app não conectar, abra no navegador do celular `http://IP-DO-COMPUTADOR:3000/saude`: se não abrir, é Wi-Fi diferente ou Firewall.
+
+A conexão é HTTP sem criptografia, só para rede de casa. O banco do app fica no celular (separado do computador) e o cofre de senhas usa a chave do próprio celular.
+
