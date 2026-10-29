@@ -786,7 +786,7 @@ describe('cadastro de modulos', () => {
     assert.equal(await noMenuA(), true);
 
     // (os modulos de fabrica com tela entram no menu pelo cadastro; aqui so interessa o modulo criado no teste)
-    const COM_TELA = ['painel', 'financas', 'saude', 'agenda'];
+    const COM_TELA = ['painel', 'financas', 'saude', 'agenda', 'leitura', 'biblioteca', 'senha'];
     const menu = async (t) => (await get('/meus-modulos', t)).json().itens.map((m) => m.codigo).filter((c) => !COM_TELA.includes(c));
     assert.deepEqual(await menu(ta), ['academia_treino']);
     assert.deepEqual(await menu(tb), ['academia_treino']);
