@@ -169,4 +169,34 @@ export default async function rotasAuth(app) {
         [req.usuarioId, ...valores])).rows[0]);
     return { usuario: serializarUsuario(u) };
   });
+
+  // ------------------------------------------- PATCH /me/senha (alterar senha)
+  // O proprio usuario troca a senha informando a atual. So muda senha_hash:
+  // nenhum outro dado do usuario e tocado.
+  app.patch('/me/senha', {
+    preHandler: app.autenticar,
+    config: limite(app),
+    schema: {
+      body: {
+        type: 'object',
+        required: ['senha_atual', 'senha_nova'],
+        additionalProperties: false,
+        properties: {
+          senha_atual: { type: 'string', minLength: 1, maxLength: 128 },
+          senha_nova: { type: 'string', minLength: 8, maxLength: 128 },
+        },
+      },
+    },
+  }, async (req, reply) => {
+    const { senha_atual: atual, senha_nova: nova } = req.body;
+    const salvo = await comUsuario(pool, req.usuarioId, async (c) =>
+      (await c.query('SELECT senha_hash FROM controle.usuario WHERE id = $1', [req.usuarioId])).rows[0]?.senha_hash);
+    const confere = salvo ? await conferirSenha(salvo, atual) : (await conferirSenha(await hashFalso(), atual), false);
+    if (!confere) return reply.code(400).send({ erro: 'senha_atual_incorreta' });
+    if (atual === nova) return reply.code(400).send({ erro: 'senha_nova_igual' });
+    const novoHash = await gerarHash(nova);
+    await comUsuario(pool, req.usuarioId, async (c) =>
+      c.query('UPDATE controle.usuario SET senha_hash = $2 WHERE id = $1', [req.usuarioId, novoHash]));
+    return reply.code(204).send();
+  });
 }

@@ -30,6 +30,7 @@ Legenda de acesso: **publica** = sem login; **login** = precisa de token; **perm
 | GET | `/me` | login |
 | PUT | `/me/preferencias` | login |
 | PATCH | `/me` | login |
+| PATCH | `/me/senha` | login (corpo: `senha_atual`, `senha_nova` 8–128; 204; 400 `senha_atual_incorreta` / `senha_nova_igual`) |
 
 ## modulos.js
 

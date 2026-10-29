@@ -941,3 +941,33 @@ describe('preferencias de aparencia', () => {
     assert.equal((await put(ta, { modo: 'claro', escala: 1, cor: 'marrom' })).statusCode, 400);
   });
 });
+
+describe('PATCH /me/senha (alterar a propria senha)', () => {
+  const trocar = (token, corpo) => app.inject({ method: 'PATCH', url: '/me/senha',
+    headers: token ? { authorization: `Bearer ${token}` } : {}, payload: corpo });
+
+  it('exige login, a senha atual certa e uma nova diferente de 8+ caracteres', async () => {
+    const email = 'trocasenha@exemplo.com';
+    await cadastrar(email);
+    const token = await entrar(email);
+    assert.equal((await trocar(null, { senha_atual: SENHA, senha_nova: 'outra-senha-1' })).statusCode, 401);
+    const errada = await trocar(token, { senha_atual: 'errada-errada', senha_nova: 'outra-senha-1' });
+    assert.equal(errada.statusCode, 400);
+    assert.equal(errada.json().erro, 'senha_atual_incorreta');
+    assert.equal((await trocar(token, { senha_atual: SENHA, senha_nova: SENHA })).json().erro, 'senha_nova_igual');
+    assert.equal((await trocar(token, { senha_atual: SENHA, senha_nova: 'curta' })).statusCode, 400);
+  });
+
+  it('troca a senha: a nova entra, a antiga nao, e os dados continuam', async () => {
+    const email = 'trocasenha2@exemplo.com';
+    await cadastrar(email);
+    const token = await entrar(email);
+    const antes = (await get('/me', token)).json().usuario;
+    const r = await trocar(token, { senha_atual: SENHA, senha_nova: 'outra-senha-1' });
+    assert.equal(r.statusCode, 204, r.body);
+    assert.equal((await post('/login', { email, senha: SENHA })).statusCode, 401);
+    assert.equal((await post('/login', { email, senha: 'outra-senha-1' })).statusCode, 200);
+    const depois = (await get('/me', await entrar(email, 'outra-senha-1'))).json().usuario;
+    assert.deepEqual(depois, antes);
+  });
+});

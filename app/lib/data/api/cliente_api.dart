@@ -558,6 +558,11 @@ class ClienteApi {
     return UsuarioApi.deJson(j['usuario'] as Map<String, dynamic>);
   }
 
+  /// O proprio usuario troca a senha (PATCH /me/senha), informando a atual.
+  Future<void> alterarSenha(String token, {required String senhaAtual, required String senhaNova}) async {
+    await _chamar('PATCH', '/me/senha', corpo: {'senha_atual': senhaAtual, 'senha_nova': senhaNova}, token: token);
+  }
+
   // ------------------------------------------------------ administracao
 
   Future<CatalogoApi> catalogo(String token) async =>
@@ -724,6 +729,10 @@ class ClienteApi {
         final ate = DateTime.tryParse((dados['ate'] as String?) ?? '');
         final hora = ate == null ? '' : ' às ${DateFormat('HH:mm').format(ate.toLocal())}';
         return 'Conta bloqueada por excesso de tentativas. Tente de novo$hora.';
+      case 'senha_atual_incorreta':
+        return 'A senha atual está incorreta.';
+      case 'senha_nova_igual':
+        return 'A nova senha deve ser diferente da atual.';
       case 'conta_inativa':
         return 'Esta conta está desativada.';
       case 'email_ja_cadastrado':

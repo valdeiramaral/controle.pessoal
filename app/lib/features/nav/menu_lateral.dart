@@ -6,6 +6,7 @@ import '../admin/modulos_page.dart';
 import '../admin/perfis_grupos_page.dart';
 import '../admin/usuarios_page.dart';
 import '../aparencia/aparencia_page.dart';
+import '../auth/alterar_senha_page.dart';
 import '../auth/meus_dados_page.dart';
 import '../auth/sessao.dart';
 import '../auth/widgets_auth.dart';
@@ -170,6 +171,15 @@ class MenuLateral extends ConsumerWidget {
                       rotulo: 'Meus dados',
                       recolhido: recolhido,
                       aoTocar: () => abrir(const MeusDadosPage()),
+                    ),
+                  if (logado)
+                    _Item(
+                      chave: const Key('menu_alterar_senha'),
+                      icone: Icons.lock_reset,
+                      cor: Colors.amber.shade200,
+                      rotulo: 'Alterar senha',
+                      recolhido: recolhido,
+                      aoTocar: () => abrir(const AlterarSenhaPage()),
                     ),
                   if (logado)
                     _Item(

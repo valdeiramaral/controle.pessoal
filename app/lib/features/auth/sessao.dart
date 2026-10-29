@@ -118,6 +118,24 @@ class SessaoNotifier extends Notifier<EstadoSessao> {
         perfil: p?.copiarCom(usuario: u));
   }
 
+  /// Troca a senha da conta. Lanca [ErroApi] se a atual estiver errada.
+  /// Se o aparelho lembra a senha ("Lembrar de mim"), guarda a nova no lugar da antiga.
+  Future<void> alterarSenha(String senhaAtual, String senhaNova) async {
+    final token = state.token;
+    if (token == null) return;
+    await _api.alterarSenha(token, senhaAtual: senhaAtual, senhaNova: senhaNova);
+    final salva = await _guarda.ler();
+    if (salva != null && salva.senhaLembrada != null) {
+      await _guarda.gravar(SessaoSalva(
+        token: salva.token,
+        expiraEm: salva.expiraEm,
+        usuario: salva.usuario,
+        emailLembrado: salva.emailLembrado,
+        senhaLembrada: senhaNova,
+      ));
+    }
+  }
+
   /// Aplica na hora a aparencia escolhida e guarda na conta (a tela nao espera a rede).
   /// Devolve a mensagem de erro se nao conseguiu guardar; a aparencia continua valendo ate sair.
   Future<String?> definirAparencia(Aparencia nova) async {

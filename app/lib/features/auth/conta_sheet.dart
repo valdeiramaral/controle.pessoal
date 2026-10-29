@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../admin/perfis_grupos_page.dart';
 import '../admin/usuarios_page.dart';
 import '../nav/menu_lateral.dart';
+import 'alterar_senha_page.dart';
+import 'alterar_senha_page.dart';
 import 'meus_dados_page.dart';
 import 'sessao.dart';
 
@@ -53,6 +55,19 @@ class _ContaSheet extends ConsumerWidget {
                   final destino = chaveConteudo.currentState ?? Navigator.of(context);
                   Navigator.of(context).pop();
                   destino.push(MaterialPageRoute<void>(builder: (_) => const MeusDadosPage()));
+                },
+              ),
+            if (logado)
+              ListTile(
+                key: const Key('menu_alterar_senha'),
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.lock_reset),
+                title: const Text('Alterar senha'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {
+                  final destino = chaveConteudo.currentState ?? Navigator.of(context);
+                  Navigator.of(context).pop();
+                  destino.push(MaterialPageRoute<void>(builder: (_) => const AlterarSenhaPage()));
                 },
               ),
             if (logado && s.pode('acesso.usuario.ver'))
