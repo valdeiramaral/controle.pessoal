@@ -45,6 +45,8 @@ services:
       APP_API_SENHA: ${APP_API_SENHA:?defina APP_API_SENHA no arquivo .env}
       # Sem JWT_SECRET a API recusa subir, com mensagem clara (o iniciar.ps1 o cria).
       JWT_SECRET: ${JWT_SECRET:-}
+      # Origens extras do app web (o rede.bat grava o endereco do PC no .env); sem isso o navegador bloqueia a API.
+      API_CORS_ORIGENS: ${API_CORS_ORIGENS:-}
       TZ: America/Sao_Paulo
     ports:
       - "${API_BIND:-127.0.0.1}:${API_PORTA:-3000}:3000"
