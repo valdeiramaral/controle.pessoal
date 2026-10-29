@@ -30,6 +30,15 @@ $ip = ($ips | Select-Object -First 1).IPAddress
 if (-not $ip) { Write-Host "ERRO: nao achei o IP da rede. Conecte-se ao Wi-Fi/cabo." -ForegroundColor Red; exit 1 }
 Write-Host "==> IP deste computador: $ip" -ForegroundColor Cyan
 
+# Se o Wi-Fi estiver como rede "Publica", o Windows descarta as conexoes que chegam (o navegador mostra
+# "demorou muito para responder"). Em casa, a rede deve ser "Privada": ajusta a rede deste IP.
+$ifIndex = ($ips | Select-Object -First 1).InterfaceIndex
+$perfil = Get-NetConnectionProfile -InterfaceIndex $ifIndex -ErrorAction SilentlyContinue
+if ($perfil -and $perfil.NetworkCategory -ne 'Private') {
+    Write-Host "==> A rede '$($perfil.Name)' estava como '$($perfil.NetworkCategory)'; mudando para Privada (so use em rede de confianca)" -ForegroundColor Yellow
+    Set-NetConnectionProfile -InterfaceIndex $ifIndex -NetworkCategory Private
+}
+
 # 2) .env
 $arqEnv = Join-Path $raiz ".env"
 if (-not (Test-Path $arqEnv)) { Write-Host "ERRO: falta o .env. Rode o iniciar.bat antes." -ForegroundColor Red; exit 1 }
