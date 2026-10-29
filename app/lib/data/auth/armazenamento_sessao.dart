@@ -69,17 +69,32 @@ class ArmazenamentoSeguro implements ArmazenamentoSessao {
   static const _chave = 'sessao_v1';
   final FlutterSecureStorage _s;
 
+  // Na web fora de HTTPS (ex.: http://192.168.x.x) o navegador nao oferece o
+  // WebCrypto que o cofre usa e a leitura/gravacao lanca erro. A sessao entao
+  // segue so na memoria, sem travar o login.
   @override
   Future<SessaoSalva?> ler() async {
-    final t = await _s.read(key: _chave);
-    return t == null ? null : SessaoSalva.deJson(t);
+    try {
+      final t = await _s.read(key: _chave);
+      return t == null ? null : SessaoSalva.deJson(t);
+    } catch (_) {
+      return null;
+    }
   }
 
   @override
-  Future<void> gravar(SessaoSalva sessao) => _s.write(key: _chave, value: jsonEncode(sessao.paraJson()));
+  Future<void> gravar(SessaoSalva sessao) async {
+    try {
+      await _s.write(key: _chave, value: jsonEncode(sessao.paraJson()));
+    } catch (_) {}
+  }
 
   @override
-  Future<void> limpar() => _s.delete(key: _chave);
+  Future<void> limpar() async {
+    try {
+      await _s.delete(key: _chave);
+    } catch (_) {}
+  }
 }
 
 /// Para testes.
