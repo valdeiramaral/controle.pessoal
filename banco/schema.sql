@@ -413,7 +413,10 @@ INSERT INTO modulo (codigo, nome, descricao, ordem, liberado_para_todos) VALUES
   ('agenda',        'Agenda',                   'Compromissos, eventos, tarefas e lembretes',                6, false),
   ('painel',        'Agenda do Dia',            'Resumo do dia e relatórios',                                7, false),
   ('sincronizacao', 'Sincronização',            'Envio e recebimento de dados entre aparelho e servidor',    8, false),
-  ('administracao', 'Administração',            'Cadastro de módulos e liberação para usuários',             9, true);
+  ('administracao', 'Administração',            'Cadastro de módulos e liberação para usuários',             9, true),
+  ('leitura',       'Leitura',                  'Fichas de leitura: livros lidos, notas e frases favoritas', 10, false),
+  ('biblioteca',    'Biblioteca',               'Cadastro de obras (livros), acervo e localização',          11, false),
+  ('senha',         'Senha',                    'Cofre de senhas, cartões, notas e chaves de acesso (cifrado no aparelho)', 12, false);
 
 INSERT INTO permissao (codigo, modulo_codigo, nome) VALUES
   ('acesso.usuario.ver',            'acesso',        'Ver usuários'),

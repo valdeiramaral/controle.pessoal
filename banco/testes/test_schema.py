@@ -271,8 +271,8 @@ def main():
     teste("catalogo: 4 planos; cobranca comeca desligada",
           "SELECT (SELECT count(*) FROM plano) || (SELECT valor FROM configuracao WHERE chave='cobranca_ativa');",
           valor="4false")
-    teste("9 modulos e 27 permissoes (processos)",
-          "SELECT (SELECT count(*) FROM modulo) || '/' || (SELECT count(*) FROM permissao);", valor="9/27")
+    teste("12 modulos e 27 permissoes (processos)",
+          "SELECT (SELECT count(*) FROM modulo) || '/' || (SELECT count(*) FROM permissao);", valor="12/27")
     teste("perfil administrador tem as 27 permissoes",
           "SELECT count(*) FROM perfil_permissao pp JOIN perfil p ON p.id=pp.perfil_id WHERE p.codigo='administrador';", valor="27")
     teste("perfil usuario tem 16 permissoes",
