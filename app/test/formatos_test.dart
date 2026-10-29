@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:controle_pessoal/core/formatos.dart';
@@ -51,6 +52,31 @@ void main() {
       final b = ServicoNotificacoes.idNumerico(uuid, salto: 1);
       expect(a, inInclusiveRange(0, 0x7fffffff));
       expect(b, a + 1);
+    });
+  });
+
+  group('MoedaFormatter (9.999,99)', () {
+    String digitar(String antes, String depois) => const MoedaFormatter()
+        .formatEditUpdate(TextEditingValue(text: antes), TextEditingValue(text: depois))
+        .text;
+
+    test('os numeros entram pela direita', () {
+      expect(digitar('', '1'), '0,01');
+      expect(digitar('0,01', '0,012'), '0,12');
+      expect(digitar('0,12', '0,123'), '1,23');
+      expect(digitar('123,45', '123,456'), '1.234,56');
+      expect(digitar('1.234,56', '1.234,567'), '12.345,67');
+    });
+    test('apagar volta passo a passo e deixa vazio', () {
+      expect(digitar('1.234,56', '1.234,5'), '123,45');
+      expect(digitar('0,01', '0,0'), '');
+      expect(digitar('', ''), '');
+    });
+    test('textoMoeda e centavosDeTexto sao inversos', () {
+      for (final c in [0, 5, 99, 100, 123456, 99999999]) {
+        expect(centavosDeTexto(textoMoeda(c)), c);
+      }
+      expect(textoMoeda(123456), '1.234,56');
     });
   });
 }

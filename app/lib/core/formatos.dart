@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
 final _moeda = NumberFormat.simpleCurrency(locale: 'pt_BR');
@@ -46,4 +47,33 @@ int? centavosDeTexto(String texto) {
   final reais = int.tryParse(inteira);
   if (reais == null) return null;
   return reais * 100 + int.parse(decimal.padRight(2, '0'));
+}
+
+/// Texto de um valor em centavos no formato da mascara: 9.999,99 (sem "R$").
+String textoMoeda(int centavos) {
+  final neg = centavos < 0;
+  final c = centavos.abs();
+  final inteira = (c ~/ 100).toString().replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (_) => '.');
+  return '${neg ? '-' : ''}$inteira,${(c % 100).toString().padLeft(2, '0')}';
+}
+
+/// Mascara de valor 9.999,99: o usuario digita so numeros e eles entram pela
+/// direita (1 -> 0,01; 12 -> 0,12; 1234 -> 12,34; 123456 -> 1.234,56).
+/// Campo vazio continua vazio (campos opcionais).
+class MoedaFormatter extends TextInputFormatter {
+  const MoedaFormatter();
+
+  @override
+  TextEditingValue formatEditUpdate(TextEditingValue antigo, TextEditingValue novo) {
+    var digitos = novo.text.replaceAll(RegExp(r'\D'), '').replaceFirst(RegExp(r'^0+'), '');
+    if (digitos.length > 12) digitos = digitos.substring(0, 12);
+    if (digitos.isEmpty) {
+      // "0" digitado num campo vazio mostra 0,00; apagar tudo deixa vazio.
+      final temZero = novo.text.length > antigo.text.length && novo.text.contains('0');
+      final texto = temZero ? '0,00' : '';
+      return TextEditingValue(text: texto, selection: TextSelection.collapsed(offset: texto.length));
+    }
+    final texto = textoMoeda(int.parse(digitos));
+    return TextEditingValue(text: texto, selection: TextSelection.collapsed(offset: texto.length));
+  }
 }

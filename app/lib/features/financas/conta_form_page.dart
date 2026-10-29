@@ -48,7 +48,7 @@ class _ContaFormPageState extends ConsumerState<ContaFormPage> {
     _apelido = TextEditingController(text: c?.apelido ?? (c != null && c.banco == null ? c.nome : ''));
     _nomeBanco = TextEditingController(text: c != null && c.banco == codigoOutroBanco ? c.nome : '');
     _saldo = TextEditingController(
-        text: c == null || c.saldoInicialCentavos == 0 ? '' : (c.saldoInicialCentavos / 100).toStringAsFixed(2).replaceAll('.', ','));
+        text: c == null || c.saldoInicialCentavos == 0 ? '' : textoMoeda(c.saldoInicialCentavos));
     _titularidade = c?.titularidade;
     _banco = c?.banco;
     _tipo = c?.tipo ?? 'corrente';
@@ -274,7 +274,8 @@ class _ContaFormPageState extends ConsumerState<ContaFormPage> {
                 TextFormField(
                   key: const Key('campo_saldo'),
                   controller: _saldo,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  keyboardType: TextInputType.number,
+                  inputFormatters: const [MoedaFormatter()],
                   decoration: const InputDecoration(labelText: 'Saldo inicial (R\$, opcional)'),
                 ),
               ],

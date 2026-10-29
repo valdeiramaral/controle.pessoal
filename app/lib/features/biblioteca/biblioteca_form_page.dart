@@ -102,7 +102,7 @@ class _ObraFormPageState extends ConsumerState<ObraFormPage> {
       _paginas.text = o.nroPaginas == null ? '' : '${o.nroPaginas}';
       _serie.text = o.serie ?? '';
       _editoraComplemento.text = o.editoraComplemento ?? '';
-      _valor.text = o.valorCentavos == null ? '' : (o.valorCentavos! / 100).toStringAsFixed(2).replaceAll('.', ',');
+      _valor.text = o.valorCentavos == null ? '' : textoMoeda(o.valorCentavos!);
       _observacoes.text = o.observacoes ?? '';
       _capa = o.capa;
       _autoAjuste = o.capaAutoAjuste;
@@ -292,14 +292,14 @@ class _ObraFormPageState extends ConsumerState<ObraFormPage> {
   }
 
   Widget _campo(String chave, String rotulo, TextEditingController c,
-          {double largura = 140, bool numero = false, String? Function(String?)? validar, int? maxLen}) =>
+          {double largura = 140, bool numero = false, bool moeda = false, String? Function(String?)? validar, int? maxLen}) =>
       SizedBox(
         width: largura,
         child: TextFormField(
           key: Key(chave),
           controller: c,
-          keyboardType: numero ? TextInputType.number : null,
-          inputFormatters: numero ? [FilteringTextInputFormatter.digitsOnly] : null,
+          keyboardType: numero || moeda ? TextInputType.number : null,
+          inputFormatters: moeda ? const [MoedaFormatter()] : numero ? [FilteringTextInputFormatter.digitsOnly] : null,
           maxLength: maxLen,
           decoration: InputDecoration(labelText: rotulo, counterText: ''),
           validator: validar,
@@ -439,7 +439,7 @@ class _ObraFormPageState extends ConsumerState<ObraFormPage> {
                 _campo('campo_editora_complemento', 'Complemento da editora', _editoraComplemento, largura: 580),
                 _lista('categoria', largura: 420),
                 _campo('campo_valor_obra', 'Valor (R\$)', _valor,
-                    largura: 140,
+                    largura: 140, moeda: true,
                     validar: (v) => (v ?? '').trim().isEmpty || centavosDeTexto(v!) != null ? null : 'Valor inválido'),
                 _lista('localizacao', largura: 340),
                 _lista('situacao', largura: 340),

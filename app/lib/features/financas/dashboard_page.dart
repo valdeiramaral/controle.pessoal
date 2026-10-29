@@ -233,7 +233,8 @@ class _DashboardFinancasState extends ConsumerState<DashboardFinancas> {
             ),
             TextField(
               controller: valor,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: TextInputType.number,
+              inputFormatters: const [MoedaFormatter()],
               decoration: const InputDecoration(labelText: 'Limite do mês (R\$)'),
             ),
           ]),

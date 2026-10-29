@@ -72,7 +72,7 @@ class _LancamentoFormPageState extends ConsumerState<LancamentoFormPage> {
     _dataPag = DateTime(h.year, h.month, h.day);
     if (l != null) {
       _descricao.text = l.descricao;
-      _valor.text = (l.valorCentavos / 100).toStringAsFixed(2).replaceAll('.', ',');
+      _valor.text = textoMoeda(l.valorCentavos);
       _observacao.text = l.observacao ?? '';
       _pago = l.status == 'pago' || l.dataPagamento != null;
       if (l.dataPagamento != null) {
@@ -124,7 +124,7 @@ class _LancamentoFormPageState extends ConsumerState<LancamentoFormPage> {
     super.dispose();
   }
 
-  static String _textoDeCentavos(int c) => (c / 100).toStringAsFixed(2).replaceAll('.', ',');
+  static String _textoDeCentavos(int c) => textoMoeda(c);
 
   /// No tipo Total, o valor pago acompanha valor - desconto enquanto o usuario nao digitar outro.
   void _sincronizarValorPago() {
@@ -350,7 +350,7 @@ class _LancamentoFormPageState extends ConsumerState<LancamentoFormPage> {
                         key: const Key('campo_valor'),
                         controller: _valor,
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,R\$ ]'))],
+                        inputFormatters: const [MoedaFormatter()],
                         decoration: InputDecoration(
                           labelText: _editando
                               ? (widget.lancamento!.parcelaTotal != null ? 'Valor desta parcela (R\$)' : 'Valor (R\$)')
@@ -595,7 +595,7 @@ class _LancamentoFormPageState extends ConsumerState<LancamentoFormPage> {
           key: const Key('campo_desconto'),
           controller: _desconto,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,R\$ ]'))],
+          inputFormatters: const [MoedaFormatter()],
           decoration: InputDecoration(labelText: 'Valor de desconto (R\$, opcional)'),
           validator: (v) {
             final e = _validarMoeda(v, obrigatorio: false);
@@ -611,7 +611,7 @@ class _LancamentoFormPageState extends ConsumerState<LancamentoFormPage> {
           key: const Key('campo_valor_pago'),
           controller: _valorPago,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,R\$ ]'))],
+          inputFormatters: const [MoedaFormatter()],
           decoration: InputDecoration(
             labelText: 'Valor ${_despesa ? 'pago' : 'recebido'} (R\$)',
             helperText: 'Pode ser maior que o valor, se houve juros ou multa',
