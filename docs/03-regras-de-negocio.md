@@ -20,6 +20,9 @@
 ## Aparência (por usuário, em `usuario.preferencias`)
 modo ∈ claro | escuro | sistema; escala de fonte 0,8–1,6; cor ∈ azul | verde | roxo | laranja | rosa | turquesa. Salvo via `PUT /me/preferencias`.
 
+## Sincronização entre aparelhos
+Tudo o que se cadastra (Finanças, Saúde, Agenda, Leitura, Biblioteca) é enviado ao servidor e chega aos outros aparelhos da mesma conta: ao entrar, 4 s depois de salvar, a cada 3 min e pelo botão Sincronizar. Última edição vence; exclusão vence edição; nada é apagado. O cofre de Senhas fica só no aparelho.
+
 ## Alterar senha
 O próprio usuário troca a senha (`PATCH /me/senha`) informando a atual e uma nova (mín. 8 caracteres, diferente da atual). Só `senha_hash` muda; nenhum outro dado é apagado. Telas: menu da conta e menu lateral > Alterar senha.
 

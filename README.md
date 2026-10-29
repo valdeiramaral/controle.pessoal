@@ -222,3 +222,13 @@ Estão no final do escopo. Duas afetam este código diretamente:
 
 A conexão é HTTP sem criptografia, só para rede de casa. O banco do app fica no celular (separado do computador) e o cofre de senhas usa a chave do próprio celular.
 
+## Sincronização entre aparelhos (celular, outro notebook)
+
+O app grava no aparelho e envia ao PostgreSQL (e recebe o que foi feito nos outros aparelhos da mesma conta) ao entrar, alguns segundos depois de salvar, a cada 3 minutos e no botão **Sincronizar** (menu). Para ativar no servidor já criado, uma vez (não apaga dados):
+
+```
+Get-Content banco/migracoes/2026-11-03_sincronizacao_registro.sql -Raw | docker compose exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+$env:DOCKER_BUILDKIT="0"; docker build -t controle-pessoal-api:latest ./api; docker compose up -d api
+```
+
+O cofre de Senhas **não** sincroniza (a chave de cifra é de cada aparelho). Detalhes em `contrato-sincronizacao.md`, seção 9.

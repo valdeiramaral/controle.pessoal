@@ -971,3 +971,78 @@ describe('PATCH /me/senha (alterar a propria senha)', () => {
     assert.deepEqual(depois, antes);
   });
 });
+
+describe('POST /sincronizar (aparelhos unificados)', () => {
+  const sync = (token, corpo) => app.inject({ method: 'POST', url: '/sincronizar',
+    headers: token ? { authorization: `Bearer ${token}` } : {}, payload: corpo });
+  const reg = (id, titulo, editado, extra = {}) => ({ id, editado_em: editado, excluido_em: null,
+    dados: { id, titulo, atualizado_em: Date.parse(editado) / 1000 }, ...extra });
+
+  it('exige login', async () => {
+    assert.equal((await sync(null, { cursor: null, alteracoes: {} })).statusCode, 401);
+  });
+
+  it('o que um aparelho envia o outro recebe; reenviar nao duplica', async () => {
+    await cadastrar('sync1@exemplo.com');
+    const a = await entrar('sync1@exemplo.com');
+    const b = await entrar('sync1@exemplo.com');
+    const env = { cursor: null, alteracoes: { eventos: [reg('e1', 'Dentista', '2026-10-29T10:00:00Z')],
+      leituras: [reg('l1', 'Dom Casmurro', '2026-10-29T10:00:00Z')] } };
+    const r1 = await sync(a, env);
+    assert.equal(r1.statusCode, 200, r1.body);
+    assert.ok(r1.json().cursor);
+
+    const r2 = await sync(b, { cursor: null, alteracoes: {} });
+    assert.equal(r2.statusCode, 200, r2.body);
+    assert.equal(r2.json().alteracoes.eventos[0].dados.titulo, 'Dentista');
+    assert.equal(r2.json().alteracoes.leituras[0].dados.titulo, 'Dom Casmurro');
+
+    await sync(a, env); // mesmo lote de novo
+    const { rows } = await su.query(
+      `SELECT count(*)::int AS n FROM controle.sincronizacao_registro WHERE tabela IN ('eventos','leituras')
+         AND usuario_id = (SELECT id FROM controle.usuario WHERE email = 'sync1@exemplo.com')`);
+    assert.equal(rows[0].n, 2);
+
+    // Com o cursor em dia, nao vem nada novo.
+    const r3 = await sync(b, { cursor: r2.json().cursor, alteracoes: {} });
+    assert.deepEqual(r3.json().alteracoes, {});
+  });
+
+  it('a ultima edicao vence; edicao antiga e recusada e a versao do servidor volta', async () => {
+    await cadastrar('sync2@exemplo.com');
+    const t = await entrar('sync2@exemplo.com');
+    await sync(t, { cursor: null, alteracoes: { tarefas: [reg('t1', 'Nova', '2026-10-29T12:00:00Z')] } });
+    const velha = await sync(t, { cursor: null, alteracoes: { tarefas: [reg('t1', 'Velha', '2026-10-29T08:00:00Z')] } });
+    assert.deepEqual(velha.json().conflitos, [{ tabela: 'tarefas', id: 't1' }]);
+    assert.equal(velha.json().alteracoes.tarefas[0].dados.titulo, 'Nova');
+    const mais = await sync(t, { cursor: null, alteracoes: { tarefas: [reg('t1', 'Mais nova', '2026-10-29T13:00:00Z')] } });
+    assert.deepEqual(mais.json().conflitos, []);
+    assert.equal(mais.json().alteracoes.tarefas[0].dados.titulo, 'Mais nova');
+  });
+
+  it('exclusao vence edicao e nada e apagado do banco', async () => {
+    await cadastrar('sync3@exemplo.com');
+    const t = await entrar('sync3@exemplo.com');
+    await sync(t, { cursor: null, alteracoes: { contas: [reg('c1', 'Banco', '2026-10-29T09:00:00Z')] } });
+    await sync(t, { cursor: null, alteracoes: { contas: [reg('c1', 'Banco', '2026-10-29T10:00:00Z', { excluido_em: '2026-10-29T10:00:00Z' })] } });
+    const edicao = await sync(t, { cursor: null, alteracoes: { contas: [reg('c1', 'Banco editado', '2026-10-29T11:00:00Z')] } });
+    assert.deepEqual(edicao.json().conflitos, [{ tabela: 'contas', id: 'c1' }]);
+    assert.ok(edicao.json().alteracoes.contas[0].excluido_em);
+    const { rows } = await su.query(
+      `SELECT excluido_em FROM controle.sincronizacao_registro WHERE tabela = 'contas' AND id = 'c1'`);
+    assert.equal(rows.length, 1);
+    assert.ok(rows[0].excluido_em);
+  });
+
+  it('cada usuario so ve os proprios registros e o corpo e validado', async () => {
+    await cadastrar('sync4@exemplo.com');
+    await cadastrar('sync5@exemplo.com');
+    const a = await entrar('sync4@exemplo.com');
+    const b = await entrar('sync5@exemplo.com');
+    await sync(a, { cursor: null, alteracoes: { obras: [reg('o1', 'Livro do A', '2026-10-29T10:00:00Z')] } });
+    assert.deepEqual((await sync(b, { cursor: null, alteracoes: {} })).json().alteracoes, {});
+    assert.equal((await sync(a, { cursor: null, alteracoes: { 'Tabela Ruim': [] } })).statusCode, 400);
+    assert.equal((await sync(a, { cursor: 'nao-e-data', alteracoes: {} })).statusCode, 400);
+    assert.equal((await sync(a, { cursor: null, alteracoes: { obras: [reg('o2', 'x', 'ontem')] } })).statusCode, 400);
+  });
+});

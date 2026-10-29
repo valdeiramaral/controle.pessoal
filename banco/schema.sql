@@ -896,6 +896,30 @@ BEGIN
   END LOOP;
 END $$;
 
+-- ---------- Sincronizacao entre aparelhos (um registro por linha, qualquer modulo) ----------
+-- Cada aparelho envia e recebe os registros do app (financas, saude, agenda, leitura,
+-- biblioteca...) como JSON: nenhum campo e perdido e uma regra do banco nunca trava o envio.
+-- id = UUID gerado no aparelho; editado_em = hora da ultima edicao no aparelho (decide
+-- conflitos: a ultima edicao vence; exclusao vence edicao); atualizado_em = hora do SERVIDOR
+-- (clock_timestamp, serve de cursor). Nada e apagado: excluir e marcar excluido_em.
+CREATE TABLE sincronizacao_registro (
+  usuario_id    uuid NOT NULL REFERENCES usuario(id),
+  tabela        text NOT NULL CHECK (tabela ~ '^[a-z_]{1,40}$'),
+  id            text NOT NULL CHECK (length(id) BETWEEN 1 AND 64),
+  dados         jsonb NOT NULL,
+  editado_em    timestamptz NOT NULL,
+  excluido_em   timestamptz,
+  atualizado_em timestamptz NOT NULL DEFAULT clock_timestamp(),
+  PRIMARY KEY (usuario_id, tabela, id)
+);
+CREATE INDEX ix_sincronizacao_registro_cursor ON sincronizacao_registro (usuario_id, atualizado_em);
+ALTER TABLE sincronizacao_registro ENABLE ROW LEVEL SECURITY;
+CREATE POLICY p_sincronizacao_registro_dono ON sincronizacao_registro
+  USING (usuario_id = nullif(current_setting('app.usuario_id', true), '')::uuid)
+  WITH CHECK (usuario_id = nullif(current_setting('app.usuario_id', true), '')::uuid);
+CREATE TRIGGER trg_sincronizacao_registro_atualizado BEFORE INSERT OR UPDATE ON sincronizacao_registro
+  FOR EACH ROW EXECUTE FUNCTION set_atualizado_em();
+
 -- ---------- Triggers de atualizado_em (tabelas de acesso e licenca) ----------
 DO $$
 DECLARE t text;

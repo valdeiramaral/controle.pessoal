@@ -114,3 +114,16 @@ Campo a campo (a regra descrita no escopo original) exigiria uma data por campo 
 ## 8. Quando mudar este contrato
 
 Mudou um tipo, uma tabela ou a regra de conflito: atualize este arquivo, o `schema.sql`, as tabelas do Drift (com migração) e os testes, na mesma entrega.
+
+## 9. Versão 2 (29/10/2026): registros em JSON, todos os módulos
+
+A versão 1 (seções 3 a 6) mapeava cada tabela do app para uma tabela tipada do PostgreSQL. Na prática ela recusaria qualquer registro fora das regras do banco (enumerações, `CHECK`, chaves estrangeiras) e travaria o envio do lote inteiro, e Leitura, Biblioteca, parte de Agenda e Saúde não têm tabela tipada. Por isso a **versão 2** guarda cada registro do app como JSON na tabela `sincronizacao_registro`. As tabelas tipadas continuam no banco para uma futura projeção (relatórios), sem mudar o app.
+
+- **Tabela:** `sincronizacao_registro (usuario_id, tabela, id, dados jsonb, editado_em, excluido_em, atualizado_em)`. `tabela` é o nome da tabela local (ex.: `eventos`, `leituras`, `obras`); `id` é o UUID do aparelho; `dados` traz todas as colunas locais (nome → valor, blob em `{"__b64": "..."}`); `editado_em` é a hora da última edição no aparelho; `atualizado_em` é a hora do servidor e serve de cursor. RLS por dono, como as demais.
+- **Rota:** `POST /sincronizar` com `{cursor, alteracoes: {tabela: [{id, editado_em, excluido_em, dados}]}}`; resposta `{cursor, tem_mais, alteracoes, conflitos}`. Até 100 registros por envio e por resposta; o app repete a chamada enquanto houver mais. Exige a permissão `sincronizacao.sincronizar`.
+- **Conflito:** vence a **última edição** (`editado_em`); **exclusão vence edição**; empate não muda nada (reenviar o mesmo lote é seguro). O servidor devolve a sua versão dos registros que recusou, em `conflitos` e em `alteracoes`.
+- **Nada é apagado:** excluir é marcar `excluido_em`, no aparelho e no servidor.
+- **No aparelho:** envia as linhas com `atualizado_em >= envio_desde` (ou todas na primeira vez) e aplica o que chega com `INSERT ... ON CONFLICT(id) DO UPDATE` só nas colunas que o aparelho conhece. Cursor e `envio_desde` ficam na tabela local `sinc_controle`.
+- **Quando roda:** ao entrar, 4 segundos depois de qualquer gravação, a cada 3 minutos e no botão **Sincronizar** (menu). Sem internet, tenta de novo depois e nada se perde.
+- **Fora da sincronização:** `credenciais` (cofre de senhas: a chave de cifra fica só em cada aparelho), `usuarios`, `anexos` e `documentos` (arquivos locais).
+- **Banco já criado:** aplique `banco/migracoes/2026-11-03_sincronizacao_registro.sql` (só cria a tabela nova; não altera nem apaga dados).

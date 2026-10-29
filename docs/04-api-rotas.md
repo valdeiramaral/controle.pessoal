@@ -61,3 +61,7 @@ Legenda de acesso: **publica** = sem login; **login** = precisa de token; **perm
 
 Total: 33 rotas.
 
+## sincronizacao.js
+| Método | Rota | Acesso |
+|---|---|---|
+| POST | `/sincronizar` | login + `sincronizacao.sincronizar` (corpo: `cursor`, `alteracoes`; ver contrato-sincronizacao.md, seção 9) |

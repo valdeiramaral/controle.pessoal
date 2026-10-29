@@ -104,10 +104,10 @@ def main():
     preparar()
 
     # ---------------- Estrutura ----------------
-    teste("31 tabelas criadas (14 de dados + 17 de acesso, licencas e catalogos)",
+    teste("32 tabelas criadas (14 de dados + 17 de acesso, licencas e catalogos + 1 de sincronizacao)",
           "SELECT count(*) FROM information_schema.tables "
           "WHERE table_schema='controle' AND table_type='BASE TABLE';",
-          valor="31")
+          valor="32")
     teste("toda tabela tem id, usuario_id, criado_em, atualizado_em, excluido_em",
           """SELECT count(*) FROM information_schema.tables t
              WHERE table_schema='controle' AND table_type='BASE TABLE'

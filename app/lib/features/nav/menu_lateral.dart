@@ -8,6 +8,7 @@ import '../admin/usuarios_page.dart';
 import '../aparencia/aparencia_page.dart';
 import '../auth/alterar_senha_page.dart';
 import '../auth/meus_dados_page.dart';
+import '../sync/sincronizacao.dart';
 import '../auth/sessao.dart';
 import '../auth/widgets_auth.dart';
 import 'acoes_usuario.dart';
@@ -171,6 +172,15 @@ class MenuLateral extends ConsumerWidget {
                       rotulo: 'Meus dados',
                       recolhido: recolhido,
                       aoTocar: () => abrir(const MeusDadosPage()),
+                    ),
+                  if (logado)
+                    _Item(
+                      chave: const Key('menu_sincronizar'),
+                      icone: Icons.sync,
+                      cor: Colors.lightGreenAccent.shade100,
+                      rotulo: 'Sincronizar',
+                      recolhido: recolhido,
+                      aoTocar: () => sincronizarAgora(context, ref),
                     ),
                   if (logado)
                     _Item(

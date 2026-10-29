@@ -21,7 +21,7 @@
 - **Dispositivo:** um arquivo Drift por usuário (`Banco({usuarioId})`); trocar de usuário troca de banco.
 
 ## Sincronização
-Ver `contrato-sincronizacao.md`: UUID gerado no aparelho, `atualizado_em` por gatilho (`clock_timestamp()`), exclusão lógica (`excluido_em`).
+Ver `contrato-sincronizacao.md` (seção 9, versão 2): UUID gerado no aparelho, cada registro vai como JSON para `sincronizacao_registro` via `POST /sincronizar`, a última edição vence, exclusão lógica (`excluido_em`). O cofre de senhas não sincroniza.
 
 ## Segurança
 argon2id nas senhas; JWT (jose); rate-limit; validação ajv; credenciais de teste apenas em `.env` (ignorado pelo git).

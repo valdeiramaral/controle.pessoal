@@ -17,6 +17,7 @@ import 'features/biblioteca/biblioteca_page.dart';
 import 'features/leitura/leitura_page.dart';
 import 'features/saude/saude_page.dart';
 import 'features/senha/senha_page.dart';
+import 'features/sync/sincronizacao.dart';
 
 class App extends ConsumerWidget {
   const App({super.key});
@@ -55,6 +56,7 @@ class _Portao extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final fase = ref.watch(sessaoProvider).fase;
+    if (fase == FaseSessao.logado) ref.read(sincronizacaoProvider); // liga a sincronizacao com o servidor
     switch (fase) {
       case FaseSessao.iniciando:
         return const Scaffold(body: Center(child: CircularProgressIndicator()));

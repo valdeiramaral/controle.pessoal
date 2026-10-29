@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../admin/perfis_grupos_page.dart';
 import '../admin/usuarios_page.dart';
 import '../nav/menu_lateral.dart';
-import 'alterar_senha_page.dart';
+import '../sync/sincronizacao.dart';
 import 'alterar_senha_page.dart';
 import 'meus_dados_page.dart';
 import 'sessao.dart';
@@ -56,6 +56,15 @@ class _ContaSheet extends ConsumerWidget {
                   Navigator.of(context).pop();
                   destino.push(MaterialPageRoute<void>(builder: (_) => const MeusDadosPage()));
                 },
+              ),
+            if (logado)
+              ListTile(
+                key: const Key('menu_sincronizar'),
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.sync),
+                title: const Text('Sincronizar agora'),
+                subtitle: Text(textoSincronizacao(ref.watch(sincronizacaoProvider))),
+                onTap: () => sincronizarAgora(context, ref),
               ),
             if (logado)
               ListTile(

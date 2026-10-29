@@ -563,6 +563,12 @@ class ClienteApi {
     await _chamar('PATCH', '/me/senha', corpo: {'senha_atual': senhaAtual, 'senha_nova': senhaNova}, token: token);
   }
 
+  /// Sincronizacao (POST /sincronizar): envia [alteracoes] (tabela -> registros) e recebe o que mudou
+  /// no servidor depois de [cursor]. Veja contrato-sincronizacao.md.
+  Future<Map<String, dynamic>> sincronizar(String token,
+          {String? cursor, Map<String, List<Map<String, dynamic>>> alteracoes = const {}}) =>
+      _chamar('POST', '/sincronizar', corpo: {'cursor': cursor, 'alteracoes': alteracoes}, token: token);
+
   // ------------------------------------------------------ administracao
 
   Future<CatalogoApi> catalogo(String token) async =>
